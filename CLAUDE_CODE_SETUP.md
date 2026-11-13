@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → del 1 punkt 7–8 (autostart og varsel).
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -173,6 +173,33 @@ Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe 
 8. README: hvordan Tailscale er satt opp, hvordan det slås av, og at PC-en må være på og serveren kjøre for at mobilen skal nå musikken.
 
 **Ferdig når:** spilleren spilles på mobilen over 4G via ts.net-adressen, og ingenting er tilgjengelig fra internett utenfor tailnetet.
+
+## Del 8 – Innstillinger i Studio
+
+Mål: Knut kan justere oppførselen uten å redigere filer. Alt lagres i `groovehouse.config.json` (globalt) eller `media/<slug>/meta.json` (per låt). **Ingen hemmeligheter i dette grensesnittet**: nøkler, PIN-hasher og tokens blir i `.env` og Windows Credential Manager.
+
+**Side: `/studio/innstillinger`**
+1. **Eksport og watcher:** sti til eksportmappa (validert: finnes, kan leses), watcher-status (kjører, siste hendelse, antall i kø) og knapp for å restarte watcheren. Varsle hvis stien endres til en mappe med mange eksisterende filer, og tilby `--backlog` i stedet for automatisk import.
+2. **Kategoriseringsregler:** grense i minutter for når noe regnes som sett (i dag 20), og valgfrie regler for filnavnmønster til type/variant (f.eks. `* (Live *)` → set). Vis en forhåndsvisning av hvordan eksisterende filer i eksportmappa ville blitt tolket.
+3. **Lyd:** målnivå for avspilling (standard **−14 LUFS**, område −16 til −11). Forklar i UI-et at spilleren bare kan dempe, ikke løfte, så et høyere mål ikke gjør stille skisser høyere. HLS-bitrate vises som info, ikke som innstilling.
+4. **Metadata:** standard artist, label, copyright-mal (`℗ {år} {label}`) og rensingslisten for titler (legg til og fjern ord/mønstre, med forhåndsvisning på eksisterende filnavn).
+5. **Farger:** minimum kontrast for aksent (standard 4.5:1, ikke lavere enn 3:1) og om fargeløse cover skal falle tilbake til gull.
+6. **Tilgang:** Wi-Fi-modus på/av og bytte PIN (samme logikk som `vault:lan`), Tailscale-status og adresse med QR (samme logikk som `vault:remote`). Ingen visning av PIN eller hasher.
+7. **Standarder for drops** (lagres nå, brukes når drops kobles til Supabase): standard nivå, levetid i dager, maks antall enheter per lenke (standard 2), og vannmerke på/av som standard. Merk tydelig i UI-et at dette ikke har effekt før delingsfasen.
+
+**Per låt (asset-siden i Studio)**
+8. **Fargeoverstyring:** to fargevelgere (`primary`, `secondary`) med live forhåndsvisning av spiller og drop-side, kontrastmåling mot `#07080B` (rødt under minimum) og «Tilbakestill til automatisk». Lagres som `palette` i `meta.json` med `source: "manual"`. Ingest skal respektere den ved ny kjøring.
+9. **Live-sett-offset:** slider (±10 s, steg 50 ms) som flytter alle live-logg-markører samtidig, med «spill fra markør»-knapp for å høre etter. Lagres i `meta.json` og brukes av ingest (i stedet for `--offset`). Henger sammen med markør-editoren i del 2.
+
+**Krav**
+- Endringer valideres før lagring. `groovehouse.config.json` skrives atomisk (tempfil + rename), og forrige versjon lagres som `groovehouse.config.backup.json`.
+- Endringer som krever restart (porter, eksportmappe) sier det tydelig og tilbyr restart. Resten trer i kraft med en gang.
+- Skriving til innstillinger er bare lov fra PC-en selv eller fra Knuts egne enheter (Tailscale, eller Wi-Fi med gyldig PIN). Lytterlenker (`/drop/...`) har aldri tilgang.
+- Tester for validering, atomisk skriving, at manuell palett overlever ny ingest, og at offset flytter markørene riktig.
+
+**Ikke i denne delen** (hører til delingsfasen med Supabase): oppførsel per nivå (nedlasting av stems, opplåsing, teaser kun med preview), håndheving av enhetsgrense, GDPR-sletting av lyttelogger og personvernerklæring for partnere, og klipp-eksport til sosiale medier.
+
+**Ferdig når:** Knut kan endre eksportmappe, LUFS-mål, standard artist/label og farge på én låt fra Studio, og endringene står seg etter omstart og ny ingest.
 
 ## Ikke gjør nå
 
