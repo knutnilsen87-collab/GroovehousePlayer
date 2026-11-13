@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 10 (del en låt som fil)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -252,7 +252,38 @@ Mål: Knut lager og endrer spillelister med ett eller to trykk, både på mobile
 
 **Ferdig når:** Knut lager en liste på mobilen via Tailscale, legger til tre låter, åpner desktop-appen og ser den samme lista, endrer rekkefølgen der, og ser endringen på mobilen.
 
+## Del 10 – Del en enkelt låt som fil (WhatsApp, e-post osv.)
+
+Knut vil kunne sende én låt til noen via WhatsApp, e-post eller lignende. Dette steget sender **selve lydfila** via enhetens delingsmeny. Det trenger ingen sky, og ingen lenke peker tilbake til PC-en. Lenkedeling med forhåndsvisning og utløp kommer i delingsfasen under.
+
+**Lage fila (server)**
+1. `GET /api/share/:slug/:variant/:version?kind=full|preview|wav` lager og returnerer fila, og cacher den i `media/<slug>/<variant|main>/v<N>/share/`. Cachen gjelder til master-hashen endres.
+   - `full` (standard): AAC `.m4a` 256 kbps fra **master-WAV-en** (ikke HLS-segmentene), uten loudness-endring. Metadata: tittel, artist «Echo Groove», album, `℗ <år> Groovehouse Records`, år og variantnavn. Coveret legges inn som bilde (`-disposition:v attached_pic`), med `-movflags +faststart`.
+   - `preview`: den eksisterende 30-sekunders `preview.m4a`, med samme metadata og cover.
+   - `wav`: original-WAV for samarbeidspartnere, kopiert med nytt filnavn (ikke konvertert).
+   - **Filnavn:** `Echo Groove - <Tittel>.m4a`, eventuelt `Echo Groove - <Tittel> (<Variant>).m4a`. Ulovlige Windows-tegn fjernes, men æøå og apostrofer beholdes.
+2. Endepunktet ligger bak samme PIN eller Tailscale-tilgang som resten av spilleren. Det er **aldri** tilgjengelig fra `/drop/...`.
+
+**Dele (klient)**
+3. Ny handling **Del…** på låter i ⋯-arket (mobil), på høyreklikk-menyen og i spillerdokken (desktop), og i fullskjermspilleren. Den deler versjonen og varianten som vises der (versjonslås fra lister respekteres).
+4. Et lite ark med tre valg: **Hele låten** (standard, viser omtrentlig størrelse), **Smakebit 30 s** og **Original WAV**.
+5. **Viktig:** Web Share API krever en brukerhandling, og den utløper hvis du først laster ned en fil på 10+ MB. Derfor skjer det i to steg. Når et valg trykkes, hentes fila som `Blob`, med fremdriftsindikator. Deretter viser knappen **Del nå**, som kaller `navigator.share({ files: [file], title, text })` direkte i klikket.
+6. Teksten som følger med: `Echo Groove – <Tittel> · Groovehouse Records`. **Ingen URL i teksten.** Tailscale-adressen og LAN-IP-en skal aldri havne i en delt melding.
+7. **Reserveløsninger:**
+   - Hvis `navigator.canShare({ files })` er falsk, last ned fila i stedet. Dette skjer f.eks. på `http://10.0.0.47` (LAN-modus er ikke en sikker kontekst, så delingsmenyen finnes ikke der) og i nettlesere uten fildeling. Vis en kort forklaring: «Deling krever HTTPS – bruk Tailscale-adressen, eller send den nedlastede fila.»
+   - På desktop finnes i tillegg **Vis i Utforsker**. Serveren åpner `explorer.exe /select,<fil>`, og bare for filer i share-cachen.
+8. Edge-vinduet på Windows støtter `navigator.share` med filer. Da åpnes Windows' delingsmeny med WhatsApp, Mail osv. Test at dette faktisk virker i `--app`-vinduet, og bruk reserveløsningen hvis ikke.
+9. Logg lokalt i `data/shares.json`: `{ slug, variant, version, kind, at }`. Ingen mottaker lagres (den vet vi ikke). Vis «Delt 3 ganger» i Studio → Arkiv.
+
+**Ikke i denne delen:** deling av hele spillelister, vannmerke per mottaker, lenker med utløp.
+
+**Tester:** filnavn-rensing, metadata og innebygd cover i `full` (sjekk med `ffprobe`), at cachen gjenbrukes og fornyes ved ny master, at endepunktet avviser uten PIN, og at delt tekst aldri inneholder vertsnavn eller IP.
+
+**Ferdig når:** Knut deler en låt fra mobilen (via Tailscale) til seg selv på WhatsApp, og en annen låt fra desktop-appen på e-post. Begge spilles av hos mottakeren med riktig tittel og artist, og coveret vises i musikkappen og i e-postvedlegget.
+
 ## Utkast: delingsfasen (drops til andre) – ikke bygg ennå
+
+**Enkeltlåt som lenke (første steg i denne fasen):** «Del lenke» på én låt lager en drop med én låt. Lenken gir en fin forhåndsvisning i WhatsApp/iMessage med cover og tittel (Open Graph-bilde generert fra coveret og paletten), kan strømmes uten nedlasting, utløper, og gir lytteinnsikt. Dette er alternativet til fildelingen i del 10 når Knut vil ha kontroll over hvor musikken havner.
 
 Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailscale-adressen virker bare for Knuts egne enheter og kan **ikke** brukes til å sende lenker til andre. Tailscale Funnel (offentlig) skal ikke brukes til uutgitt musikk. Teksten under er designet å bygge videre på.
 
