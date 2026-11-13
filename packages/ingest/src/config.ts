@@ -1,13 +1,17 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { TitleCleanupConfig } from '@gv/shared';
 
 export interface VaultConfig {
+  ports: { server: number; dev: number };
+  lan: { enabled: boolean; rememberDays: number };
   defaults: { artist: string | null; label: string | null; copyright: string | null };
   titleCleanup: TitleCleanupConfig;
 }
 
 const FALLBACK: VaultConfig = {
+  ports: { server: 41733, dev: 41734 },
+  lan: { enabled: false, rememberDays: 30 },
   defaults: { artist: null, label: null, copyright: null },
   titleCleanup: { remove: ['suno ai', 'suno'] }
 };
@@ -40,9 +44,20 @@ export function loadConfig(root = findRoot()): VaultConfig {
   if (!existsSync(file)) return FALLBACK;
   const j = JSON.parse(readFileSync(file, 'utf8')) as Partial<VaultConfig>;
   return {
+    ports: { ...FALLBACK.ports, ...(j.ports ?? {}) },
+    lan: { ...FALLBACK.lan, ...(j.lan ?? {}) },
     defaults: { ...FALLBACK.defaults, ...(j.defaults ?? {}) },
     titleCleanup: { remove: j.titleCleanup?.remove ?? FALLBACK.titleCleanup.remove }
   };
+}
+
+/** Slår LAN-modus av/på i groovehouse.config.json (resten av fila beholdes). Overlever omstart. */
+export function setLanEnabled(root: string, enabled: boolean): void {
+  const file = path.join(root, 'groovehouse.config.json');
+  const j = existsSync(file) ? (JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>) : {};
+  const lan = (j.lan ?? {}) as Record<string, unknown>;
+  j.lan = { ...lan, enabled };
+  writeFileSync(file, JSON.stringify(j, null, 2) + '\n', 'utf8');
 }
 
 /** "℗ {year} Groovehouse Records" → "℗ 2026 Groovehouse Records" */

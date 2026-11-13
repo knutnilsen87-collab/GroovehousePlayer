@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { computeCoverage, formatTime, paletteToCssVars, type AccessTier, type AssetManifest } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
@@ -9,7 +9,7 @@ import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
 
-type View = 'drops' | 'archive' | 'sets';
+type View = 'drops' | 'archive' | 'sets' | 'mobile';
 
 /** Ditt arbeidsbord. Gull er systemfarge her, men data og kontroll har prioritet. */
 export function CommandCenter() {
@@ -20,7 +20,8 @@ export function CommandCenter() {
     reload();
     setTick((x) => x + 1);
   };
-  const [view, setView] = useState<View>('drops');
+  // /studio#mobil åpner Mobil-visningen direkte.
+  const [view, setView] = useState<View>(() => (typeof location !== 'undefined' && location.hash === '#mobil' ? 'mobile' : 'drops'));
 
   return (
     <div className="flex min-h-screen flex-wrap items-stretch bg-obsidian text-ink">
@@ -30,6 +31,8 @@ export function CommandCenter() {
           <p className="text-muted">Laster katalog…</p>
         ) : view === 'drops' ? (
           <DropsView assets={assets} log={log} />
+        ) : view === 'mobile' ? (
+          <MobileView />
         ) : (
           <ArchiveView assets={view === 'sets' ? assets.filter((a) => a.manifest.kind === 'set') : assets} title={view === 'sets' ? t.sets : t.archive} log={log} onSaved={refresh} />
         )}
@@ -43,7 +46,8 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
   const items: Array<{ id: View; label: string; Icon: typeof DropsIcon }> = [
     { id: 'drops', label: t.drops, Icon: DropsIcon },
     { id: 'archive', label: t.archive, Icon: ArchiveIcon },
-    { id: 'sets', label: t.sets, Icon: PulseIcon }
+    { id: 'sets', label: t.sets, Icon: PulseIcon },
+    { id: 'mobile', label: t.mobile, Icon: LinkIcon }
   ];
   return (
     <aside className="flex max-w-[260px] flex-[1_1_220px] flex-col gap-7 border-r border-white/[0.06] bg-sunken px-[18px] py-6">
@@ -76,6 +80,82 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
         <span className="text-[11px] text-muted">{t.watcherHint}</span>
       </div>
     </aside>
+  );
+}
+
+// ---------------------------------------------------------------- Mobil (LAN)
+
+interface LanStatus {
+  enabled: boolean;
+  port: number;
+  urls: string[];
+  qr: string | null;
+  networks: string[];
+}
+
+/** QR-kode og adresse for å åpne spilleren på mobilen over hjemmenettet. */
+function MobileView() {
+  const [status, setStatus] = useState<LanStatus | null | 'unavailable'>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/lan/status', { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<LanStatus>) : Promise.reject(new Error(String(r.status)))))
+      .then((s) => alive && setStatus(s))
+      .catch(() => alive && setStatus('unavailable'));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const publicNets = status && status !== 'unavailable' ? status.networks.filter((n) => /\|Public$/i.test(n)).map((n) => n.split('|')[0]) : [];
+
+  return (
+    <div className="flex max-w-[760px] flex-col gap-5">
+      <h1 className="m-0 font-display text-[34px] font-semibold uppercase tracking-[1.5px] text-ink-strong">{t.mobile}</h1>
+      {status === null && <p className="text-sm text-muted">Henter status…</p>}
+      {status === 'unavailable' && <p className="text-sm text-muted">{t.mobileDevOnly}</p>}
+      {status && status !== 'unavailable' && !status.enabled && (
+        <div className="flex flex-col gap-2 rounded-2xl border border-white/[0.06] bg-surface p-5 text-sm">
+          <p className="m-0 font-semibold">{t.mobileOff}</p>
+          <p className="m-0 text-muted">
+            Kjør <code className="text-ink">pnpm vault:lan on</code> i prosjektmappa. Du velger en PIN, og Windows spør om brannmurregel for private nettverk.
+          </p>
+        </div>
+      )}
+      {status && status !== 'unavailable' && status.enabled && (
+        <div className="flex flex-wrap items-start gap-6 rounded-2xl border border-white/[0.06] bg-surface p-5">
+          {status.qr ? (
+            <img
+              src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(status.qr)}`}
+              alt={`QR-kode til ${status.urls[0]}`}
+              width={220}
+              height={220}
+              className="rounded-xl"
+            />
+          ) : (
+            <p className="text-sm text-muted">{t.mobileNoIp}</p>
+          )}
+          <div className="flex min-w-[240px] flex-1 flex-col gap-3 text-sm">
+            <p className="m-0 font-semibold text-gold">{t.mobileOn}</p>
+            <ol className="m-0 flex flex-col gap-1.5 pl-5 text-[#C9C4B6]">
+              <li>Koble mobilen til samme Wi-Fi som PC-en.</li>
+              <li>Pek kameraet på QR-koden og åpne lenken.</li>
+              <li>Tast PIN-koden. Mobilen huskes i 30 dager.</li>
+            </ol>
+            {status.urls.map((u) => (
+              <code key={u} className="tabular w-fit rounded-lg bg-sunken px-2.5 py-1.5 text-ink">
+                {u}
+              </code>
+            ))}
+            {publicNets.length > 0 && (
+              <p role="alert" className="m-0 text-[12px] text-[#F2A08F]">
+                Windows har satt {publicNets.join(', ')} som «Offentlig» nettverk – da slipper ikke brannmuren mobilen inn. Endre til «Privat» i Innstillinger → Nettverk og Internett.
+              </p>
+            )}
+            <p className="m-0 text-[11px] text-muted">{t.mobileWarning}</p>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

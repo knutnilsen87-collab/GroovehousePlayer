@@ -1,0 +1,127 @@
+' Groovehouse Vault – launcher (generert av «pnpm vault:install», ikke rediger her)
+' 1. Spør /api/health på porten i %LOCALAPPDATA%\GroovehouseVault\port (ellers standardporten).
+' 2. Svarer ikke Groovehouse Vault: start serveren usynlig og vent på helse-sjekken.
+' 3. Åpne spilleren i eget vindu: Edge --app, Chrome --app som reserve.
+' Svarer et annet program på porten, åpnes aldri det – det sies tydelig fra i stedet.
+Option Explicit
+
+Const APP_ID = "groovehouse-vault"
+Const TITLE = "Groovehouse Vault"
+Const NODE_EXE = "{{NODE}}"
+Const SERVER_DIR = "{{SERVER_DIR}}"
+Const DIST_INDEX = "{{DIST_INDEX}}"
+Const PORT_FILE = "{{PORT_FILE}}"
+Const LOG_FILE = "{{LOG_FILE}}"
+Const DEFAULT_PORT = {{PORT}}
+Const START_TIMEOUT_MS = 30000
+
+Dim sh, fso
+Set sh = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
+
+Function ReadPort()
+  ReadPort = DEFAULT_PORT
+  On Error Resume Next
+  If fso.FileExists(PORT_FILE) Then
+    Dim f, s
+    Set f = fso.OpenTextFile(PORT_FILE, 1)
+    s = Trim(f.ReadAll)
+    f.Close
+    If IsNumeric(s) Then ReadPort = CLng(s)
+  End If
+End Function
+
+' "ours" = Groovehouse Vault svarer, "other" = noe annet svarer, "none" = ingenting lytter
+Function Health(port)
+  Dim x, code
+  On Error Resume Next
+  Set x = CreateObject("MSXML2.ServerXMLHTTP.6.0")
+  x.setTimeouts 1000, 1000, 2000, 2000
+  x.open "GET", "http://127.0.0.1:" & port & "/api/health", False
+  x.send
+  code = Err.Number
+  If code <> 0 Then
+    ' 12029 = ERROR_WINHTTP_CANNOT_CONNECT (ingen lytter på porten)
+    If (code And &HFFFF&) = 12029 Then Health = "none" Else Health = "other"
+    Exit Function
+  End If
+  If x.status = 200 And InStr(1, Replace(x.responseText, " ", ""), """app"":""" & APP_ID & """", vbBinaryCompare) > 0 Then
+    Health = "ours"
+  Else
+    Health = "other"
+  End If
+End Function
+
+Function FirstExisting(paths)
+  Dim p
+  FirstExisting = ""
+  For Each p In paths
+    If fso.FileExists(p) Then
+      FirstExisting = p
+      Exit Function
+    End If
+  Next
+End Function
+
+Function Env(name)
+  Env = sh.ExpandEnvironmentStrings("%" & name & "%")
+End Function
+
+Dim port, state, firstPort, firstState, i
+port = ReadPort()
+state = Health(port)
+firstPort = port
+firstState = state
+If state <> "ours" And port <> DEFAULT_PORT Then
+  If Health(DEFAULT_PORT) = "ours" Then
+    port = DEFAULT_PORT
+    state = "ours"
+  End If
+End If
+
+If state <> "ours" Then
+  If Not fso.FileExists(DIST_INDEX) Then
+    MsgBox "Web-appen er ikke bygget, så det er ingenting å vise ennå." & vbCrLf & vbCrLf & _
+      "Kjør «pnpm vault:install» i prosjektmappa." & vbCrLf & "(Mangler: " & DIST_INDEX & ")", vbExclamation, TITLE
+    WScript.Quit 1
+  End If
+  If Not fso.FileExists(NODE_EXE) Then
+    MsgBox "Fant ikke Node.js: " & NODE_EXE & vbCrLf & vbCrLf & "Kjør «pnpm vault:install» på nytt.", vbExclamation, TITLE
+    WScript.Quit 1
+  End If
+  sh.CurrentDirectory = SERVER_DIR
+  ' Vindusstil 0: serveren kjører uten synlig konsollvindu.
+  sh.Run """" & NODE_EXE & """ --import tsx src\main.ts", 0, False
+  For i = 1 To START_TIMEOUT_MS \ 500
+    WScript.Sleep 500
+    port = ReadPort()
+    If Health(port) = "ours" Then
+      state = "ours"
+      Exit For
+    End If
+  Next
+  If state <> "ours" Then
+    If firstState = "other" Then
+      MsgBox "Port " & firstPort & " brukes av et annet program, og Groovehouse Vault fikk ikke startet på en ledig port." & vbCrLf & vbCrLf & _
+        "Se loggen: " & LOG_FILE, vbExclamation, TITLE
+    Else
+      MsgBox "Groovehouse Vault startet ikke." & vbCrLf & vbCrLf & "Se loggen: " & LOG_FILE, vbExclamation, TITLE
+    End If
+    WScript.Quit 1
+  End If
+End If
+
+Dim url, browser
+url = "http://127.0.0.1:" & port & "/"
+browser = FirstExisting(Array( _
+  Env("ProgramFiles(x86)") & "\Microsoft\Edge\Application\msedge.exe", _
+  Env("ProgramFiles") & "\Microsoft\Edge\Application\msedge.exe", _
+  Env("LOCALAPPDATA") & "\Microsoft\Edge\Application\msedge.exe", _
+  Env("ProgramFiles") & "\Google\Chrome\Application\chrome.exe", _
+  Env("ProgramFiles(x86)") & "\Google\Chrome\Application\chrome.exe", _
+  Env("LOCALAPPDATA") & "\Google\Chrome\Application\chrome.exe"))
+If browser = "" Then
+  sh.Run url, 1, False
+Else
+  sh.Run """" & browser & """ --app=" & url{{APP_ARGS}}, 1, False
+End If

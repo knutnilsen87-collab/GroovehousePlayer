@@ -57,5 +57,11 @@ export const admin = {
   fieldVariant: 'Variantnavn',
   titleNeedsReview: 'Filnavnet var i versaler – sjekk tittelen',
   sunoFound: (n: number) => `«suno» funnet ${n} ${n === 1 ? 'sted' : 'steder'}`,
-  sunoRemoved: 'Fjernet fra HLS, preview, cover og manifest. Original-fila er ikke endret.'
+  sunoRemoved: 'Fjernet fra HLS, preview, cover og manifest. Original-fila er ikke endret.',
+  mobile: 'Mobil',
+  mobileOn: 'LAN-modus er på – åpne spilleren på mobilen',
+  mobileOff: 'LAN-modus er av. Spilleren er bare tilgjengelig på denne PC-en.',
+  mobileNoIp: 'Fant ingen privat IP-adresse. Er PC-en koblet til hjemmenettet?',
+  mobileDevOnly: 'Mobil-tilgang finnes bare i desktop-appen (snarveien «Groovehouse Vault»), ikke i pnpm dev.',
+  mobileWarning: 'HTTP på lokalnettet – kun hjemme, ikke for partnere. Partnerlenker kommer med R2 og invitasjonstokens i en egen fase.'
 };

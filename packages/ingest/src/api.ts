@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
@@ -7,6 +8,7 @@ import { overridePath, readOverrides, type MetaFile } from './sources';
 
 /**
  * Lite HTTP-API for Studio. Brukes som Vite-middleware i dev og av apps/server senere.
+ *   GET  /api/health              → { app: "groovehouse-vault", version } – launcher og snarvei sjekker dette
  *   GET  /api/assets/:slug/meta   → overstyringer for låta (media/<slug>/meta.json)
  *   POST /api/assets/:slug/meta   { title?, artist?, album?, variants?: { extended: "Extended Mix" } }
  *        → lagrer, og kjører bare tag- og manifest-steget på nytt (ingen ny analyse).
@@ -19,10 +21,20 @@ export interface ApiOptions {
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,120}$/;
 const EDITABLE = ['title', 'artist', 'album'] as const;
 
+export const APP_ID = 'groovehouse-vault';
+
 export function createApiHandler(opts: ApiOptions) {
-  const cfg = loadConfig(findRoot(opts.mediaDir));
+  const root = findRoot(opts.mediaDir);
+  const cfg = loadConfig(root);
+  let version = '0.0.0';
+  try {
+    version = (JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string }).version ?? version;
+  } catch {
+    /* ingen package.json – behold 0.0.0 */
+  }
   return async function handle(req: IncomingMessage, res: ServerResponse, next?: () => void): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
+    if (url.pathname === '/api/health') return send(res, 200, { app: APP_ID, version });
     const m = url.pathname.match(/^\/api\/assets\/([^/]+)\/meta$/);
     if (!m) {
       if (next) return next();

@@ -4,7 +4,9 @@ Privat lytterom og arkiv for Groovehouse Records. Fase 1 kjører helt lokalt: in
 
 ```
 apps/web            Drop-side (lytter) + Command Center (admin) – Vite, React, TS, Tailwind, Zustand
-packages/ingest     gh-ingest (CLI) + gh-watch (watcher) + make-fixtures
+apps/server         Startfila: web-app + /media + /api på 127.0.0.1, watcher i samme prosess, launcher
+packages/ingest     gh-ingest (CLI) + gh-watch (watcher) + make-fixtures + media/API-moduler
+assets/brand/       ikonpakke (Windows, Web, Android, iOS)
 packages/shared     typer, palett med kontrastlås, navnekonvensjon, lyttedekning
 supabase/migrations databaseskjema med RLS (testet mot Postgres 16)
 docs/               oppdragsprompt, schema v0.1 og designfiler (visuell fasit)
@@ -23,18 +25,52 @@ fixtures/           testmapper (WAV gitignored – lag dem med make-fixtures)
    pnpm test
    ```
 
+## Desktop-app: «Groovehouse Vault» på skrivebordet
+
+```powershell
+pnpm vault:install     # bygger web-appen, lager launcher, ikon og snarveier
+pnpm vault:uninstall   # stopper serveren og fjerner alt igjen (spør om loggene skal beholdes)
+pnpm vault:server      # serveren i forgrunnen (feilsøking)
+```
+
+- **Dobbeltklikk** på «Groovehouse Vault» (skrivebordet eller Startmenyen – fest den derfra til oppgavelinja). Launcheren spør `GET /api/health`. Kjører ikke serveren, startes den usynlig, og spilleren åpnes i eget vindu (Edge `--app`, Chrome som reserve). Kjører den allerede, åpnes bare et nytt vindu.
+- **Porter** står i `groovehouse.config.json`: server `41733`, dev `41734`. Alt binder kun til `127.0.0.1`, og serveren avviser forespørsler med fremmed `Host` (DNS-rebinding). Er serverporten opptatt eller reservert av Windows, prøves de neste 10 (dev-porten hoppes over), og valgt port skrives til `%LOCALAPPDATA%\GroovehouseVault\port`. Launcheren åpner aldri et annet program som svarer på porten – får den ikke startet Vault, sier den tydelig fra.
+- **Watcheren** kjører i serverprosessen mot `GH_EXPORT_DIR` (leser bare).
+- **Utenfor prosjektmappa** lages bare: snarvei på skrivebordet, snarvei i Startmenyen og `%LOCALAPPDATA%\GroovehouseVault\` (`launcher.vbs`, `groovehouse.ico`, `port`, `install.json`, `logs\server.log` med rotering på 2 MB × 5).
+- **Ikon:** `assets/brand/Windows/Groovehouse_Vault_IconPack.ico` på snarveiene. App-vinduet får Groovehouse-ikonet på oppgavelinja (fra favicon), ikke Edge-ikonet.
+- **Tauri** er ikke med nå: Edge-app-vindu gir samme opplevelse uten Rust-bygg. Tauri er neste steg hvis du vil ha automix med Web Audio på desktop.
+
+## Mobilen på samme Wi-Fi (LAN-modus)
+
+> **Kun hjemme.** Dette er vanlig HTTP på lokalnettet: PIN og lyd går ukryptert over Wi-Fi-en. Ikke bruk det på offentlige nett, og ikke for partnere – partnerlenker kommer med R2 og invitasjonstokens i en egen fase.
+
+```powershell
+pnpm vault:lan on       # første gang: velg PIN (6–12 sifre), og svar på om brannmurregelen skal lages
+pnpm vault:lan status   # PIN satt? brannmurregel? nettverksprofil? adresser
+pnpm vault:lan pin      # ny PIN – alle mobiler må taste den på nytt
+pnpm vault:lan off      # tilbake til kun denne PC-en, alle mobiler logges ut
+```
+
+- **Av som standard.** `on/off` lagres i `groovehouse.config.json` (`lan.enabled`) og overlever omstart. En kjørende server startes på nytt automatisk.
+- **PIN** lagres bare som scrypt-hash i Windows Credential Manager (`GroovehouseVault/lan-pin`), aldri i klartekst og aldri i git. Etter riktig PIN får mobilen en signert, httpOnly informasjonskapsel som varer i 30 dager. Ny PIN eller `lan off` bytter signeringsnøkkelen, og da er alle mobiler logget ut. Maks 5 feil per enhet per 15 min (og 20 totalt per time).
+- **Hva som slipper inn:** PC-en selv (127.0.0.1) som før, uten PIN – snarveien virker uendret. Fra nettverket bare private adresser (10.x, 172.16–31.x, 192.168.x), bare mot PC-ens egen IP, og bare med gyldig PIN-informasjonskapsel. Uten den vises bare PIN-siden; ingen app-kode eller musikk.
+- **Brannmur:** `vault:lan on` spør før regelen lages. Regelen «Groovehouse Vault (LAN)» slipper inn TCP på serverportene, bare for Node, bare fra lokalt subnett og **bare på nettverksprofilen «Privat»**. Windows ber om administratortilgang. Står hjemmenettet som «Offentlig», må du endre det i Innstillinger → Nettverk og Internett → Wi-Fi → (nettverket) → Nettverksprofil: Privat.
+- **QR-kode:** Studio → Mobil (`/studio#mobil`). Adressen er IP-en på kortet med standard gateway (hjemmenettet), ikke virtuelle kort som VirtualBox/WSL.
+- **VPN:** er NordVPN e.l. slått på, kan den stenge for trafikk på lokalnettet. Slå på «LAN-synlighet»/«Invisibility on LAN: av» i VPN-appen hvis mobilen ikke når PC-en.
+- **Låst skjerm:** spilleren bruker `<audio>` + Media Session (ingen Web Audio), så lyden fortsetter med skjermen låst, og låseskjermen har spill/pause/neste/spoling. På iPhone styres volumet med knappene på telefonen.
+
 ## Prøv hele kjeden
 
 ```powershell
 pnpm make-fixtures                      # lager fixtures/blue-fire og fixtures/live-sett-demo
 pnpm gh-ingest fixtures/blue-fire       # HLS, bølgeform, LUFS, preview, palett → media/
 pnpm gh-ingest fixtures/live-sett-demo  # sett: kapitler fra live_log.json, justert etter sync-klikket
-pnpm dev                                # http://localhost:5173
+pnpm dev                                # http://127.0.0.1:41734 (porter i groovehouse.config.json)
 ```
 
-- **Din spiller:** <http://localhost:5173/> (mobil og desktop – prøv å gjøre vinduet smalt)
-- **Studio / Command Center:** <http://localhost:5173/studio>
-- **Drop-siden (det lytteren ser):** <http://localhost:5173/drop/blue-fire-pitch?r=Jorrit>
+- **Din spiller:** <http://127.0.0.1:41734/> (mobil og desktop – prøv å gjøre vinduet smalt)
+- **Studio / Command Center:** <http://127.0.0.1:41734/studio>
+- **Drop-siden (det lytteren ser):** <http://127.0.0.1:41734/drop/blue-fire-pitch?r=Jorrit>
 
 ### Din spiller
 
@@ -113,7 +149,7 @@ Echo Groove Lab (eller en hurtigtast) skriver tidspunkt mens settet spilles:
 | `cover.jpg`, `cover_300.jpg` | normalisert cover |
 | `manifest.json` | alt over + BPM, toneart (Camelot), LUFS, avspillingsgain, palett, markører |
 
-Filene havner i `media/<slug>/<variant eller main>/v<N>/`. `media/index.json` er katalogen web-appen leser.
+Filene havner i `media/<slug>/<variant eller main>/v<N>/` og serveres under `/media/...`. `media/index.json` er katalogen web-appen leser. `apps/web/public/` er vanlig public (ikoner, manifest).
 
 ### Analysen – hva den kan og ikke kan
 

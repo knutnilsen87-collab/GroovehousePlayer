@@ -11,6 +11,10 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "make-fixtures": "pnpm --filter @gv/ingest exec tsx src/make-fixtures.ts"
+    "make-fixtures": "pnpm --filter @gv/ingest exec tsx src/make-fixtures.ts",
+    "vault:server": "pnpm --filter @gv/server start",
+    "vault:install": "pnpm --filter @gv/server vault install",
+    "vault:uninstall": "pnpm --filter @gv/server vault uninstall",
+    "vault:lan": "pnpm --filter @gv/server vault lan"
   }
 }

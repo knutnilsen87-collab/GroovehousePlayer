@@ -1,0 +1,34 @@
+GROOVEHOUSE VAULT | IKONPAKKE V2
+=================================
+Kilde for 32x32-ikonet: Groovehouse_Vault.ico, docs/design/Groovehouse_Vault.ico
+https://github.com/knutnilsen87-collab/GroovehousePlayer
+Hovedlogo: samme gull/svarte Groovehouse-logo som i den forrige leveransen.
+
+Windows:
+- Windows/Groovehouse_Vault_IconPack.ico er et .ico som har egne bilder for 16/24/32/48/64/128/256 px.
+- 32px er hentet fra GitHub Vault-ikonet; 16 og 24 px er rendret fra 32px-versjonen.
+- 48 px og større er produsert fra høyoppløselig hovedlogo med gjennomsiktige hjørner.
+- Dette er en nybygging av ikonet, IKKE en byteidentisk kopi av repoets Vault.ico.
+- For en 100% identisk Windows-fil kan du bruke den eksisterende i GitHub: docs/design/Groovehouse_Vault.ico.
+
+Android:
+- Android/PlayStore/play-store-512.png: Google Play-visning, 512 x 512 px (uten alfa).
+- Android/res/: kopier mappene til app/src/main/res/ i et Android Studio-prosjekt.
+- Android/adaptive/: originale 432px foreground/background/monochrome-lag.
+- Adaptive ikon viser hus + vinylplate slik at teksten ikke blir uleselig i små størrelser.
+
+Apple iOS:
+- iOS/AppIcon.appiconset/: legg i Assets.xcassets i Xcode.
+- iOS/AppIcon-1024.png: 1024px, uten alfa, for App Store og asset catalog.
+
+Web / GroovehousePlayer (Vite / React):
+- Kopier INNHOLDET i Web/public/ til apps/web/public/ i GitHub-prosjektet.
+- Legg link-tagene i Web/index-head-snippet.html inn i <head> i apps/web/index.html.
+- Web/public/manifest.webmanifest gir PWA-ikoner + maskable-ikoner.
+- webapp er fortsatt en Vite-webapp, ikke automatisk en installert native-app.
+
+QA:
+- PREVIEW.png viser ikonene mot lys og mørk bakgrunn, inkludert Android-masker.
+- Hjornene er transparente i Windows-varianter; iOS/PlayStore leveres bevisst uten alfa.
+
+Denne ZIP-filen er generert separat. Ingen endringer er pushet til GitHub fra denne leveransen.

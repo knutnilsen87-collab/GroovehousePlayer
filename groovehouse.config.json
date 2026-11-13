@@ -1,5 +1,15 @@
 {
   "$comment": "Standardverdier for ingest. meta.json (per låt) og redigering i Studio overstyrer alt her.",
+  "ports": {
+    "$comment": "Bindes kun til 127.0.0.1. Er serverporten opptatt, prøves de neste 10 (dev-porten hoppes over), og valgt port skrives til %LOCALAPPDATA%\\GroovehouseVault\\port.",
+    "server": 41733,
+    "dev": 41734
+  },
+  "lan": {
+    "$comment": "Slås av/på med «pnpm vault:lan on|off». Når på: serveren lytter også på PC-ens lokale IP, og andre enheter må taste PIN (lagret hashet i Credential Manager). Kun hjemme – HTTP, ikke for partnere.",
+    "enabled": true,
+    "rememberDays": 30
+  },
   "defaults": {
     "artist": "Echo Groove",
     "label": "Groovehouse Records",
@@ -7,6 +17,19 @@
   },
   "titleCleanup": {
     "$comment": "Ord og mønstre som fjernes fra titler utledet av filnavn (store/små bokstaver spiller ingen rolle). Datoer, løpenummer som (1) og BPM-angivelser som (128BPM) fjernes alltid.",
-    "remove": ["suno ai", "suno", "v4.5", "v4", "v5.5", "v5", "(remastered)","final", "master", "bounce", "export", "stems"]
+    "remove": [
+      "suno ai",
+      "suno",
+      "v4.5",
+      "v4",
+      "v5.5",
+      "v5",
+      "(remastered)",
+      "final",
+      "master",
+      "bounce",
+      "export",
+      "stems"
+    ]
   }
 }

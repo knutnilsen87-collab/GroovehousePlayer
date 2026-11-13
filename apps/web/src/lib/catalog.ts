@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import type { Analysis, AssetManifest, CatalogIndex } from '@gv/shared/web';
 
+/** Media-mappa serveres under dette prefikset (Vite-dev og apps/server). */
+export const MEDIA = '/media';
+
 /**
- * Fase 1: leser filene ingest-motoren skrev til media/ (servert av Vite).
+ * Fase 1: leser filene ingest-motoren skrev til media/, servert under /media/.
  * Fase 2: samme form hentes fra Supabase (`assets`) og media-workeren.
  */
 export interface LoadedAsset {
   manifest: AssetManifest;
   analysis: Analysis | null;
-  /** Mappe-URL for denne versjonen, f.eks. /blue-fire/v2/ */
+  /** Mappe-URL for denne versjonen, f.eks. /media/blue-fire/main/v2/ */
   base: string;
 }
 
@@ -25,7 +28,7 @@ async function getJson<T>(url: string): Promise<T> {
 export async function loadCatalog(): Promise<LoadedAsset[]> {
   let idx: CatalogIndex;
   try {
-    idx = await getJson<CatalogIndex>('/index.json');
+    idx = await getJson<CatalogIndex>(`${MEDIA}/index.json`);
   } catch {
     return [];
   }
@@ -38,8 +41,8 @@ export async function loadCatalog(): Promise<LoadedAsset[]> {
   }
   return Promise.all(
     [...latest.values()].map(async (entry) => {
-      const base = `/${entry.manifest.replace(/manifest\.json$/, '')}`;
-      const manifest = await getJson<AssetManifest>(`/${entry.manifest}`);
+      const base = `${MEDIA}/${entry.manifest.replace(/manifest\.json$/, '')}`;
+      const manifest = await getJson<AssetManifest>(`${MEDIA}/${entry.manifest}`);
       const analysis = await getJson<Analysis>(`${base}${manifest.files.analysis}`).catch(() => null);
       return { manifest, analysis, base };
     })
@@ -75,7 +78,7 @@ export function useIngestLog(tick = 0): IngestLogEntry[] {
   const [entries, setEntries] = useState<IngestLogEntry[]>([]);
   useEffect(() => {
     let alive = true;
-    getJson<{ entries: IngestLogEntry[] }>('/ingest-log.json')
+    getJson<{ entries: IngestLogEntry[] }>(`${MEDIA}/ingest-log.json`)
       .then((j) => alive && setEntries(j.entries ?? []))
       .catch(() => alive && setEntries([]));
     return () => {

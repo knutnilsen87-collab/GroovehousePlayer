@@ -16,6 +16,8 @@ import { scanFlat } from '../src/sources';
  */
 const hasFfmpeg = spawnSync(FFMPEG, ['-version']).status === 0;
 const cfg: VaultConfig = {
+  ports: { server: 41733, dev: 41734 },
+  lan: { enabled: false, rememberDays: 30 },
   defaults: { artist: 'Echo Groove', label: 'Groovehouse Records', copyright: '℗ {year} Groovehouse Records' },
   titleCleanup: { remove: ['suno ai', 'suno', 'v4.5', 'v4', 'v5.5', 'v5', '(remastered)', 'final', 'master', 'bounce', 'export', 'stems'] }
 };
