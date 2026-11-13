@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -205,6 +205,43 @@ Mål: Knut kan justere oppførselen uten å redigere filer. Alt lagres i `groove
 **Ikke i denne delen** (hører til delingsfasen med Supabase): oppførsel per nivå (nedlasting av stems, opplåsing, teaser kun med preview), håndheving av enhetsgrense, GDPR-sletting av lyttelogger og personvernerklæring for partnere, og klipp-eksport til sosiale medier.
 
 **Ferdig når:** Knut kan endre eksportmappe, LUFS-mål, standard artist/label og farge på én låt fra Studio, og endringene står seg etter omstart og ny ingest.
+
+## Del 9 – Spillelister (mobil og desktop)
+
+Mål: Knut lager og endrer spillelister med ett eller to trykk, både på mobilen (via Tailscale) og i desktop-appen, og de er like på begge.
+
+**Lagring og synk**
+- Spillelistene lagres av serveren på PC-en (`data/playlists.json` i rotmappa, gitignored, atomisk skriving + backup), via `GET/POST/PATCH/DELETE /api/playlists`. Mobil og desktop snakker med samme server, så de er alltid synkronisert. Supabase trengs ikke.
+- Hver oppføring peker på **slug + variant**, ikke på asset-id eller versjon. En ny bounce (`_v4`) av en låt oppdaterer dermed alle lister automatisk. Varianten kan låses per oppføring («spill alltid Extended») eller følge hovedversjonen.
+- Samme regler for tilgang som innstillingene: bare fra PC-en eller Knuts egne enheter (Tailscale, eller Wi-Fi med PIN). Lytterlenker har aldri tilgang.
+- Samtidige endringer: hver liste har `updatedAt`. Klienten sender den med, og serveren avviser med 409 hvis lista er endret i mellomtiden, så klienten laster på nytt og prøver igjen. Ingen stille overskriving.
+
+**Lage og legge til, mobil (én tommel)**
+1. «⋯» på hver låtrad og i fullskjermspilleren → **Legg til i spilleliste**: et ark nederfra med de 3 sist brukte listene øverst, deretter resten, og **+ Ny spilleliste** (navn → lagre → låta er lagt til).
+2. Bekreftelse som liten melding nederst («Lagt til i Club Ready – Angre»).
+3. I en liste: hold inne og dra for å endre rekkefølge, sveip til venstre for å fjerne (med angre).
+4. Spillelister får egen plass i bunnmenyen eller under Katalog. Ikke lag en femte fane hvis det blir trangt. Foreslå løsningen og vis Knut før du bygger.
+
+**Lage og legge til, desktop**
+5. Spillelister i sidemenyen, med **+ Ny spilleliste** øverst.
+6. Dra låter (én eller flere) fra tabellen til en liste i sidemenyen. Høyreklikk → **Legg til i spilleliste**. Flervalg med Ctrl/Shift-klikk.
+7. Snarvei: `Ctrl+Shift+P` legger låta som spilles nå til i sist brukte liste.
+8. Endre rekkefølge med dra og slipp, og fjern med Delete (med angre).
+
+**Spillelista**
+9. Viser cover-mosaikk av de fire første låtene, total tid, antall låter og BPM-spenn. Spill, Bland og Fortsett. For sett gjelder fortsett-posisjonen som før.
+10. Når lista spilles, er køen lista. Varianter som er låst brukes, og ellers hovedversjonen.
+11. Gi nytt navn, dupliser og slett (med bekreftelse) fra «⋯»-menyen.
+
+**Smarte lister (enkelt, gjenbruker søket)**
+12. I Ctrl+K-søket: **Lagre som smart liste** lagrer selve søket (f.eks. `124 8A`, `sett`, `extended`) som en liste som oppdaterer seg selv. Den vises med eget ikon og kan ikke sorteres manuelt.
+13. To innebygde smarte lister: **Nylig lagt til** (siste 14 dager) og **Live-sett**.
+
+**Senere (ikke i denne delen):** «Gjør om til drop» (en spilleliste blir en delbar lenke i delingsfasen), harmonisk forslag til neste låt etter Camelot, og eksport til M3U eller rekordbox.
+
+**Tester:** API (opprett, legg til, flytt, fjern, 409 ved konflikt), at en ny versjon av en låt dukker opp i eksisterende lister, at smarte lister gir samme treff som søket, og at mobil og desktop ser samme liste etter en endring.
+
+**Ferdig når:** Knut lager en liste på mobilen via Tailscale, legger til tre låter, åpner desktop-appen og ser den samme lista, endrer rekkefølgen der, og ser endringen på mobilen.
 
 ## Ikke gjør nå
 
