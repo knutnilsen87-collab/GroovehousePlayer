@@ -69,7 +69,8 @@ describe('server i LAN-modus', () => {
       lan: { pin: hashPin(pin), secret: newSecret(), ttlDays: 30 },
       isLocal: () => false,
       lanHosts: () => [lanIp],
-      allowRemote: () => true
+      allowRemote: () => true,
+      allowedHosts: ['pc.tail1234.ts.net']
     });
     server = http.createServer(handler);
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
@@ -120,6 +121,8 @@ describe('server i LAN-modus', () => {
     expect(manifest.headers['content-type']).toBe('application/manifest+json');
     expect((await req('GET', '/lan/login')).body).toContain('PIN-kode');
     expect((await req('GET', '/', { host: `evil.example:${port}` })).status).toBe(421);
+    // ts.net-navnet gir bare tilgang uten PIN via Serve (loopback), ikke fra en enhet på Wi-Fi.
+    expect((await req('GET', '/media/index.json', { host: 'pc.tail1234.ts.net' })).status).toBe(421);
   });
 
   it('feil PIN avvises, riktig PIN gir httpOnly-informasjonskapsel i 30 dager', async () => {

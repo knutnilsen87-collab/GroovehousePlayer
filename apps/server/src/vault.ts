@@ -8,6 +8,7 @@ import { findRoot, loadConfig } from '@gv/ingest/config';
 import { appDataDir, logsDir, portFile } from './paths';
 import { credDelete } from './credstore';
 import { elevated, FIREWALL_RULE, firewallRuleExists, lanCommand } from './lan-cli';
+import { remoteCommand } from './remote-cli';
 import { probeHealth } from './server';
 
 /**
@@ -208,6 +209,8 @@ async function uninstall(args: string[]) {
     if (remove) elevated(`Remove-NetFirewallRule -DisplayName '${FIREWALL_RULE}'`);
     console.log(firewallRuleExists() ? `! Brannmurregelen «${FIREWALL_RULE}» finnes fortsatt (fjern med «pnpm vault:lan off» eller i Windows-brannmuren)` : '✓ Brannmurregelen er fjernet');
   }
+  // 6. Tailscale Serve er Tailscale sitt oppsett og røres ikke automatisk, men si fra.
+  if (loadConfig(root).allowedHosts.length) console.log('! Fjerntilgang via Tailscale står fortsatt på – slå av med «pnpm vault:remote off».');
   console.log('\nFerdig. Prosjektmappa, media/ og eksportmappa er ikke rørt.');
 }
 
@@ -218,7 +221,9 @@ const [cmd, ...rest] = process.argv.slice(2);
     ? uninstall(rest)
     : cmd === 'lan'
       ? lanCommand(root, serverDir, rest)
-      : Promise.reject(new Error('Bruk: vault install | vault uninstall [--keep-logs|--delete-logs] | vault lan on|off|pin|status'))
+      : cmd === 'remote'
+        ? remoteCommand(root, serverDir, rest)
+        : Promise.reject(new Error('Bruk: vault install | vault uninstall [--keep-logs|--delete-logs] | vault lan on|off|pin|status | vault remote on|off|status'))
 ).catch((err) => {
   console.error(`\n✗ ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);

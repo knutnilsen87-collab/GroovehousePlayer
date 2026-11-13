@@ -12,6 +12,7 @@ const hasFfmpeg = spawnSync(FFMPEG, ['-version']).status === 0;
 const cfg: VaultConfig = {
   ports: { server: 41733, dev: 41734 },
   lan: { enabled: false, rememberDays: 30 },
+  allowedHosts: [],
   defaults: { artist: 'Echo Groove', label: 'Groovehouse Records', copyright: '℗ {year} Groovehouse Records' },
   titleCleanup: { remove: ['suno ai', 'suno', 'final', 'stems'] }
 };

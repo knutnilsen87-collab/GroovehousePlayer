@@ -90,6 +90,37 @@ describe('server', () => {
     }
   });
 
+  it('Tailscale Serve: bare eksakte allowedHosts, med Tailscale-identitet, uten PIN', async () => {
+    const ts = 'pc.tail1234.ts.net';
+    const handler = createHandler({ distDir: dist, mediaDir: media, version: '1', allowedHosts: [ts] });
+    const server = http.createServer(handler);
+    const port = await freePort();
+    await new Promise<void>((r) => server.listen(port, '127.0.0.1', r));
+    const viaServe = (p: string, host: string, login: string | null = 'knut@example.com') =>
+      new Promise<{ status: number; cache: string; body: string }>((resolve, reject) => {
+        http
+          .get({ host: '127.0.0.1', port, path: p, headers: { host, ...(login ? { 'tailscale-user-login': login } : {}) } }, (res) => {
+            let body = '';
+            res.on('data', (c) => (body += c));
+            res.on('end', () => resolve({ status: res.statusCode ?? 0, cache: String(res.headers['cache-control'] ?? ''), body }));
+          })
+          .on('error', reject);
+      });
+    try {
+      const ok = await viaServe('/media/index.json', ts);
+      expect(ok.status).toBe(200);
+      expect(ok.body).toContain('schema');
+      expect((await viaServe('/studio', 'PC.Tail1234.ts.net.')).status).toBe(200);
+      // Uten identitet fra Serve (f.eks. Funnel fra internett): stengt.
+      expect((await viaServe('/media/index.json', ts, null)).status).toBe(403);
+      // Andre ts.net-navn og lignende navn godtas ikke.
+      for (const h of ['other.tail1234.ts.net', 'evil.pc.tail1234.ts.net', 'pc.tail1234.ts.net.evil.example', 'ts.net'])
+        expect((await viaServe('/media/index.json', h)).status, h).toBe(421);
+    } finally {
+      server.close();
+    }
+  });
+
   it('sier tydelig fra når web-appen ikke er bygget', async () => {
     const { server, port } = await start(path.join(tmp, 'finnes-ikke'));
     try {

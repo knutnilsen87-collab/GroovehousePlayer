@@ -17,3 +17,6 @@ fixtures/*.wav
 /Groovehouse_Vault_Ikonpakke_v2.zip
 /logo.png
 fixtures/**/*.wav
+
+# Lokale verdier for denne PC-en (Tailscale-navn o.l.)
+/groovehouse.local.json

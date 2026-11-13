@@ -34,7 +34,7 @@ process.on('unhandledRejection', (err) => log(`✗ uventet feil: ${err instanceo
 async function main() {
   log(`Groovehouse Vault ${version} starter (pid ${process.pid})`);
   const lan = loadLan();
-  const handler = createHandler({ distDir, mediaDir, version, log, lan });
+  const handler = createHandler({ distDir, mediaDir, version, log, lan, allowedHosts: config.allowedHosts });
   const server = http.createServer(handler);
   // LAN av: kun 127.0.0.1. LAN på: alle adaptere, men bare private klienter med PIN slipper inn
   // (og brannmurregelen gjelder bare private nettverk).
@@ -53,6 +53,7 @@ async function main() {
   handler.setPort(result.port);
   writeFileSync(portFile(), String(result.port));
   log(`Lytter på http://127.0.0.1:${result.port}/ · media ${mediaDir} · web ${existsSync(path.join(distDir, 'index.html')) ? distDir : 'IKKE BYGGET'}`);
+  if (config.allowedHosts.length) log(`Fjerntilgang (Tailscale Serve, uten PIN): ${config.allowedHosts.map((h) => `https://${h}/`).join(' ')}`);
   if (lan) log(`LAN-modus PÅ (PIN kreves): ${lanAddresses().map((ip) => `http://${ip}:${result.port}/`).join(' ') || 'fant ingen privat IP-adresse'}`);
 
   let watcher: ReturnType<typeof startWatcher> | null = null;

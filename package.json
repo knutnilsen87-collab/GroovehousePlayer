@@ -15,6 +15,7 @@
     "vault:server": "pnpm --filter @gv/server start",
     "vault:install": "pnpm --filter @gv/server vault install",
     "vault:uninstall": "pnpm --filter @gv/server vault uninstall",
-    "vault:lan": "pnpm --filter @gv/server vault lan"
+    "vault:lan": "pnpm --filter @gv/server vault lan",
+    "vault:remote": "pnpm --filter @gv/server vault remote"
   }
 }

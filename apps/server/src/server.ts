@@ -18,6 +18,11 @@ export interface ServerOptions {
   log?: (line: string) => void;
   /** LAN-modus: PIN-hash og signeringsnøkkel. null = bare 127.0.0.1. */
   lan?: LanOptions | null;
+  /**
+   * Eksakte vertsnavn som godtas fra loopback i tillegg til 127.0.0.1/localhost (Tailscale Serve).
+   * Krever Tailscale-User-Login-headeren, og gir tilgang uten PIN. Ingen jokertegn.
+   */
+  allowedHosts?: string[];
   /** Testkrok: er klienten PC-en selv? Standard: loopback-adresse på socketen. */
   isLocal?: (remoteAddress: string | undefined) => boolean;
   /** Testkrok: PC-ens LAN-adresser. */
@@ -53,6 +58,7 @@ export function createHandler(opts: ServerOptions) {
   const media = createMediaHandler(opts.mediaDir);
   const isLocal = opts.isLocal ?? isLoopback;
   const lanHosts = opts.lanHosts ?? lanAddresses;
+  const allowedHosts = (opts.allowedHosts ?? []).map((h) => h.toLowerCase().replace(/\.$/, ''));
   const limiter = new LoginLimiter();
   let port = 0;
 
@@ -69,8 +75,19 @@ export function createHandler(opts: ServerOptions) {
         // Bare forespørsler til vår egen adresse. Hindrer DNS-rebinding: en nettside som peker
         // sitt eget domene mot 127.0.0.1 kan ellers lese uutgitt musikk fra serveren.
         if (!/^(127\.0\.0\.1|localhost|\[::1\])$/.test(hostName)) {
-          res.statusCode = 421;
-          return res.end('Misdirected request');
+          // Unntak: eksakte vertsnavn i allowedHosts (Tailscale Serve). Serve proxyer fra PC-en selv,
+          // så forespørselen kommer fra loopback. Ingen PIN: bare enheter i tailnettet når adressen.
+          if (!allowedHosts.includes(hostName.replace(/\.$/, ''))) {
+            res.statusCode = 421;
+            return res.end('Misdirected request');
+          }
+          // Serve setter Tailscale-User-Login for innloggede tailnet-enheter (og fjerner den fra
+          // klienten). Funnel-trafikk fra internett har den ikke, så den slipper aldri inn uten PIN.
+          if (!req.headers['tailscale-user-login']) {
+            res.statusCode = 403;
+            return res.end('Forbidden');
+          }
+          res.setHeader('Cache-Control', 'private, no-store');
         }
       } else {
         // Fra nettverket: bare i LAN-modus, bare fra private adresser, bare mot PC-ens egen IP.

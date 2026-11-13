@@ -59,6 +59,25 @@ pnpm vault:lan off      # tilbake til kun denne PC-en, alle mobiler logges ut
 - **VPN:** er NordVPN e.l. slått på, kan den stenge for trafikk på lokalnettet. Slå på «LAN-synlighet»/«Invisibility on LAN: av» i VPN-appen hvis mobilen ikke når PC-en.
 - **Låst skjerm:** spilleren bruker `<audio>` + Media Session (ingen Web Audio), så lyden fortsetter med skjermen låst, og låseskjermen har spill/pause/neste/spoling. På iPhone styres volumet med knappene på telefonen.
 
+## Mobilen hjemmefra (Tailscale Serve)
+
+Med [Tailscale](https://tailscale.com) på PC-en og mobilen når du spilleren over HTTPS fra hvor som helst, men bare fra dine egne enheter i tailnettet.
+
+```powershell
+pnpm vault:remote on      # tailscale serve (HTTPS 443, kun tailnettet) → 127.0.0.1:<serverport>, og ts.net-navnet i allowedHosts
+pnpm vault:remote status  # Serve-oppsett, allowedHosts, Funnel-advarsel og helse-sjekk via ts.net
+pnpm vault:remote off     # fjerner Serve på 443 og navnet fra allowedHosts
+```
+
+- **Adresse:** `https://<pc-navn>.<tailnet>.ts.net/`, med ekte sertifikat fra Tailscale. Mobilen må ha Tailscale-appen på og være logget inn på samme konto. `pnpm vault:remote status` viser adressen.
+- **Lokal config:** navnet lagres i `groovehouse.local.json` (står i `.gitignore`), ikke i `groovehouse.config.json`. Den lokale fila leses i tillegg til den delte, og kan også overstyre andre seksjoner for denne PC-en (f.eks. `lan`). PC-navn og tailnet-ID havner derfor aldri i git.
+- **Ingen PIN:** Serve proxyer fra PC-en selv, så forespørselen kommer fra 127.0.0.1. Serveren godtar den uten PIN bare når `Host` står **eksakt** i `allowedHosts` (ingen jokertegn, så ikke `*.ts.net`) **og** Tailscale har satt `Tailscale-User-Login`. Den headeren setter Serve bare for innloggede enheter i tailnettet. Funnel-trafikk fra internett har den ikke og får 403. Et annet navn gir 421, og ts.net-navnet sendt fra en enhet på Wi-Fi gir også 421, så PIN gjelder fortsatt der.
+- **PC-en må være på** og serveren kjøre for at mobilen skal nå musikken. Tailscale lagrer ingenting selv.
+- **Funnel slås aldri på** av `vault:remote`, og `status` advarer hvis det er på.
+- **Uavhengig av LAN-modus:** serveren kan binde bare til 127.0.0.1, og Wi-Fi-modus kan være av.
+- **Delte maskiner:** deler du PC-en med andre i tailnettet (Tailscale «Share»), når de også spilleren uten PIN.
+- `vault:uninstall` rører ikke Tailscale-oppsettet, men minner deg på `vault:remote off`.
+
 ## Prøv hele kjeden
 
 ```powershell

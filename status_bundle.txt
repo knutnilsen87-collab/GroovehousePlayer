@@ -1,0 +1,595 @@
+# status_bundle.txt — UNIVERSAL MAL FOR AI-AGENTER / CODEX / UTVIKLINGSPROSJEKTER
+# Versjon: 2.0 | Format: gyldig YAML lagret som .txt
+#
+# FORMÅL
+# Dette er prosjektets operative statusfil — ikke en erstatning for Git.
+# AI-agenter skal lese filen FØR arbeid, oppdatere den UNDER arbeidet,
+# og dokumentere testbevis FØR de melder en oppgave som fullført.
+#
+# SLIK BRUKES MALEN
+# 1. Legg filen i rotmappen til prosjektet med navnet status_bundle.txt.
+# 2. Bytt ut plassholdere (<...>) og oppdater prosjekt- og oppgavedetaljer.
+# 3. Les også AGENTS.md/README.md og kontroller faktisk Git- og filstatus.
+# 4. Lag en avgrenset plan med tester og tilbakerulling før kode endres.
+# 5. Registrer beslutninger, endringer, kommandoer og resultater fortløpende.
+# 6. Sett can_claim_success: true KUN når dokumentert bevis støtter det.
+# 7. La neste agent starte med current_state og handoff.
+#
+# VIKTIGE REGLER
+# - Ikke finn på testresultater, commit-ID-er, deploy-status eller filendringer.
+# - Ikke skriv "passed" for tester som ikke er kjørt.
+# - Skill observerte fakta fra hypoteser og antagelser.
+# - Ikke legg API-nøkler, passord, tokens eller andre hemmeligheter her.
+# - Hvis filen motsier repoet, undersøk avviket og oppdater filen.
+# - Endre aldri can_claim_success til true basert på egen påstand alene.
+# - status_bundle.txt er et styringsdokument; reglene må følges av agenten.
+#
+# Mulige statusverdier: not_started | in_progress | blocked | passed |
+# failed | skipped | completed | partial | unknown (avhengig av felt).
+
+status_bundle_version: 2
+last_updated: "2026-11-13T20:15:00+01:00"
+updated_by: "Claude Code (Claude Opus 5.5)"
+
+# ============================================================
+# PROJECT IDENTITY / PROSJEKTIDENTITET
+# ============================================================
+project_name: "Groovehouse Vault (GroovehousePlayer)"
+project_description: >
+  Privat musikkspiller og arkiv for Knuts egen musikk (Echo Groove / Groovehouse Records).
+  Kjører lokalt på Windows. Ingest-motor (CLI + watcher) gjør Reason-bounces om til HLS,
+  bølgeform, LUFS, BPM, toneart, strukturmarkører, preview og palett. React-webapp med
+  spiller (/), Studio/Command Center (/studio) og lytterside (/drop/...). Node-server
+  på 127.0.0.1:41733 med launcher, skrivebordssnarvei og LAN-modus med PIN.
+repo_root: "F:\\prosjekter_MAIN\\GroovehousePlayer"
+repo_url: "https://github.com/knutnilsen87-collab/GroovehousePlayer.git"
+branch: "setup/del-0"
+commit_before: "6bf8f0359788dff7e3147ef0f5c2edcdd5372b63 (origin/main etter rebase; opprinnelig 308f835)"
+commit_current: "bbd6f82dac8aa760ff75f53c15f9321a514c04d8 (+ del 7-commiten som inneholder denne fila)"
+base_branch: "main"
+environment: "lokal (Windows, Knuts stasjonære PC)"
+
+# ============================================================
+# CURRENT STATE / NÅVÆRENDE SITUASJON
+# ============================================================
+current_state:
+  status: "in_progress"
+  state_summary: >
+    Fase 1 er committet i 65af402. På setup/del-0 er det nå fire nye commits (ikke pushet):
+    11a308b del 0b, 14c7ee6 del 1 + del 6 (Wi-Fi-modus), bbd6f82 manifest-fiks (ikon på
+    «Opprett snarvei» på mobil), og del 7 (Tailscale Serve, vault:remote). Arbeidstreet er rent
+    etter del 7-commiten. pnpm test (82/82) og pnpm typecheck er grønne, kjørt av Claude Code
+    2026-11-13 ca. 19:30. Fjerntilgang via https://<pc>.<tailnet>.ts.net/ er PÅ og
+    verifisert med curl fra PC-en. Test på mobil gjenstår. Del 2, 3, 4 og 5 er ikke startet.
+    Fra del 1 mangler autostart og systemvarsel.
+  recommended_next_action: >
+    Knut tester spilleren på mobilen via ts.net-adressen (Tailscale på) og «Opprett snarvei»-ikonet
+    over Wi-Fi. Deretter: spør om push av setup/del-0, og fortsett med resten av del 1 (autostart, varsel).
+  active_blockers:
+    - "Del 3 krever fasit (BPM/toneart) for 5–10 låter fra Knut."
+    - "Del 5 krever at Knut oppretter Supabase-prosjekt og legger URL og anon-nøkkel i .env."
+  last_verified_at: "2026-11-13T19:45:00+01:00"
+
+# ============================================================
+# TASK AND SCOPE / OPPGAVE OG AVGRENSNING
+# ============================================================
+task_id: "gv-setup-del-0-6"
+task_request: >
+  "Oppdrag: Sett opp Groovehouse Vault på denne PC-en og fullfør det som mangler"
+  (CLAUDE_CODE_SETUP.md, del 0 til 6, med avslutning: oppdater README, commit per del
+  på egen gren, spør før push).
+task_priority: "normal"
+task_status: "partial"
+scope_in:
+  - "Del 0: oppsett, grønne tester, fixtures, ingest av REASONDONE"
+  - "Del 0b: flat eksportmappe (kun lesing), backlog-import, metadata-rensing"
+  - "Del 1: apps/server, ikoner, snarveier, vault:install/uninstall, autostart, systemvarsel"
+  - "Del 2: redigere strukturmarkører i Studio (markers.json)"
+  - "Del 3: evalueringsskript og mer presis BPM/toneart"
+  - "Del 4: parallell ingest og fremdriftsvisning"
+  - "Del 5: fortsett der du slapp via Supabase"
+  - "Del 6: LAN-modus med PIN og QR-kode"
+  - "Del 7: mobilen hjemmefra via Tailscale Serve (allowedHosts, uten PIN, vault:remote)"
+scope_out:
+  - "Tauri, Capacitor, R2, partnerlenker med tokens, vannmerke i lyd"
+  - "Opplasting av musikk til skyen"
+  - "Volumstyring på iPhone (kun dokumenteres)"
+  - "Låste beslutninger: ingen Web Audio på mobil, aksentfarger kun fra assets.palette, gull som ramme, HLS AAC 256 kbps, ingest som CLI med watcher"
+  - "Skriving, flytting eller sletting i F:\\EchoGroove\\EchoAI\\REASONDONE"
+acceptance_criteria:
+  - id: "AC-00"
+    description: "Del 0: alt kjører på Knuts maskin, og låtene fra REASONDONE spilles i spilleren."
+    status: "not_run"
+    evidence: "Indikasjon: media/index.json har 9 ekte låter + 3 fixtures, media/ingest-log.json viser status ingested. Avspilling og grønne tester ikke verifisert av agent."
+  - id: "AC-0b"
+    description: "Del 0b: REASONDONE-låtene ligger i spilleren med rene titler og riktig artist, REASONDONE er uendret, og en ny bounce dukker opp automatisk."
+    status: "not_run"
+    evidence: "Kode finnes (packages/ingest/src/sources.ts, packages/shared/src/titles.ts, test/clean-metadata.test.ts). Titler i index.json ser rene ut (f.eks. «I’ll Keep It Real»). Ikke verifisert ved kjøring."
+  - id: "AC-01"
+    description: "Del 1: snarveien med Groovehouse-ikonet åpner spilleren, og etter omstart kjører serveren og nye filer dukker opp med varsel."
+    status: "not_run"
+    evidence: "apps/server (server, launcher, vault install/uninstall) finnes. Autostart (Register-ScheduledTask) og systemvarsel finnes ikke i koden (søk ga ingen treff)."
+  - id: "AC-02"
+    description: "Del 2: Knut kan flytte Drop 1 på en ekte låt, kjøre gh-ingest --force, og flyttingen står seg."
+    status: "not_run"
+    evidence: "Ikke implementert (ingen markers.json eller /markers-endepunkt i koden)."
+  - id: "AC-03"
+    description: "Del 3: treffraten for BPM/toneart er målt og forbedret på Knuts egne låter, og README beskriver metoden."
+    status: "not_run"
+    evidence: "Ikke implementert (ingen eval:analysis eller fixtures/truth.json)."
+  - id: "AC-04"
+    description: "Del 4: HLS, LUFS og analyse kjører parallelt, ytelse målt før/etter, fremdrift for sett over 20 min."
+    status: "not_run"
+    evidence: "Ikke implementert."
+  - id: "AC-05"
+    description: "Del 5: Knut spiller et sett på PC-en, åpner mobilen og fortsetter innenfor et par sekunder fra samme sted."
+    status: "blocked"
+    evidence: "Ikke implementert. Kun migrasjoner i supabase/migrations/. Venter på Supabase-prosjekt fra Knut."
+  - id: "AC-06"
+    description: "Del 6: LAN-modus av som standard, PIN i Credential Manager, httpOnly-cookie 30 dager, QR i Studio, README-advarsel."
+    status: "not_run"
+    evidence: "Committet i 14c7ee6. Verifisert med curl 2026-11-13 19:4x mot http://10.0.0.47:41733: / gir 303 til /lan/login, /media/index.json gir 401 uten PIN-informasjonskapsel. lan.test.ts grønn. Ikke verifisert på en faktisk mobil i denne økta."
+  - id: "AC-06b"
+    description: "Manifest-fiks: «Opprett snarvei» i Chrome på mobil over HTTP får Groovehouse-ikonet."
+    status: "partial"
+    evidence: "Committet i bbd6f82. /manifest.webmanifest svarer 200 (application/manifest+json) uten PIN, index.html har icon 192/512. Test i lan.test.ts. Selve snarveien på mobilen er ikke testet ennå."
+  - id: "AC-07"
+    description: "Del 7: spilleren åpnes og spiller fra mobilen via ts.net-adressen uten PIN, og Wi-Fi-modus krever fortsatt PIN."
+    status: "partial"
+    evidence: "curl fra PC-en 2026-11-13 ca. 19:40: https://<pc>.<tailnet>.ts.net/ gir 200 for /, /studio, /api/health, /media/index.json, HLS-spilleliste og -segment. Loopback med ts.net-Host uten Tailscale-User-Login gir 403, annet .ts.net-navn gir 421, ts.net-Host fra 10.0.0.47 gir 421. vault:remote off → ts.net utilgjengelig, on → 200 igjen. Test på mobil gjenstår. Mot del 7 slik den står på main (a5e419d) mangler også: QR for ts.net-adressen i Studio (pkt. 5), at launcheren følger Serve ved portbytte (pkt. 6; vault:remote status varsler, men launcheren gjør det ikke), og visning av tilgangsregler/deling i tailnettet (pkt. 4)."
+
+# ============================================================
+# FACTS / BEKREFTEDE FAKTA
+# ============================================================
+facts:
+  - statement: "HEAD er 308f835 på greina setup/del-0, lik origin/main. Lokal main er 65af402."
+    source: "git log --all --graph, git rev-parse"
+    verified_at: "2026-11-13T18:27:10+01:00"
+  - statement: "Commitene 78512d3, b2f0a0b, 1962aac og 308f835 endrer bare CLAUDE_CODE_SETUP.md (308f835: 1 fil endret)."
+    source: "git log -1 --stat 308f835 og commit-meldinger"
+    verified_at: "2026-11-13T18:16:13+01:00"
+  - statement: "Arbeidstreet er skittent: 33 oppføringer i git status, bl.a. usporet apps/server/, apps/web/public/, assets/, fixtures/, packages/ingest/src/media-static.ts."
+    source: "git status --porcelain"
+    verified_at: "2026-11-13T18:27:10+01:00"
+  - statement: "media/index.json lister 12 elementer: blue-fire (main v2 + extended v1), live-sett-demo (set) og 9 ekte låter (eyes-on-you, feel-good, i-see-you, ill-keep-it-real, late-night, push-it, terrace-heat, that-feeling, walkoff)."
+    source: "media/index.json"
+    verified_at: "2026-11-13T18:16:05+01:00"
+  - statement: "De ekte låtene mangler cover og har derfor gull-palett (advarsel i ingest-loggen)."
+    source: "media/ingest-log.json"
+    verified_at: "2026-11-13T18:27:10+01:00"
+  - statement: "Node v24.15.0, pnpm via npm-global, ffmpeg 9.0.2 (Gyan, winget) på PATH."
+    source: "node -v, Get-Command"
+    verified_at: "2026-11-13T18:27:10+01:00"
+  - statement: ".env inneholder nøklene GH_EXPORT_DIR og GH_MEDIA_DIR (verdier ikke gjengitt her)."
+    source: "Inspeksjon av .env (kun nøkkelnavn)"
+    verified_at: "2026-11-13T18:15:28+01:00"
+  - statement: "groovehouse.config.json: server 41733, dev 41734, lan.enabled true, artist Echo Groove, label Groovehouse Records."
+    source: "groovehouse.config.json"
+    verified_at: "2026-11-13T18:15:22+01:00"
+  - statement: "Kodesøk fant ingen ScheduledTask, notifier/toast, markers.json, eval:analysis eller truth.json i apps/ og packages/."
+    source: "Select-String over apps/ og packages/ (uten node_modules/dist)"
+    verified_at: "2026-11-13T18:16:02+01:00"
+  - statement: "API-ruter i serveren: /api/health, /api/lan/status, samt /api/-prefiks fra packages/ingest/src/api.ts."
+    source: "Select-String i apps/server/src/server.ts og packages/ingest/src/api.ts"
+    verified_at: "2026-11-13T18:16:05+01:00"
+  - statement: "apps/web/dist finnes med 17 filer."
+    source: "Get-ChildItem apps/web/dist"
+    verified_at: "2026-11-13T18:27:10+01:00"
+  - statement: "apps/web/dist er bygget på nytt med icon-192/512-lenkene i index.html."
+    source: "pnpm --filter ./apps/web build; grep i dist/index.html"
+    verified_at: "2026-11-13T19:10:00+01:00"
+  - statement: "Tailscale 1.104.7 kjører. Serve: https://<pc>.<tailnet>.ts.net:443 / → http://127.0.0.1:41733 (kun tailnettet). Funnel er av (ingen AllowFunnel i serve status --json)."
+    source: "tailscale serve status --json, tailscale status --json"
+    verified_at: "2026-11-13T19:45:00+01:00"
+  - statement: "Vertsnavnet ligger i groovehouse.local.json (allowedHosts, usporet og i .gitignore), ikke i groovehouse.config.json eller andre sporede filer."
+    source: "groovehouse.local.json, git check-ignore, git grep -i (navn og tailnet-ID) over alle commits i origin/main..setup/del-0"
+    verified_at: "2026-11-13T19:45:00+01:00"
+  - statement: "Git har ingen user.name/user.email på maskinen. Commitene er laget med git -c user.name=Claude -c user.email=noreply@anthropic.com, slik som de tidligere commitene i repoet."
+    source: "git commit (Author identity unknown), git log --format='%an <%ae>'"
+    verified_at: "2026-11-13T19:20:00+01:00"
+
+# ============================================================
+# ASSUMPTIONS AND RISKS / ANTAGELSER OG RISIKO
+# ============================================================
+assumptions:
+  - "Ingest av REASONDONE er kjørt med backlog-flyten fra del 0b (antatt ut fra ingest-loggen 13.11 ca. 15:07–15:08 lokal tid)."
+  - "vault:install kan være kjørt (dist finnes, README beskriver reversibilitetstest), men %LOCALAPPDATA%\\GroovehouseVault kunne ikke leses av agenten."
+risks:
+  - "Datatap: commitene på setup/del-0 er ikke pushet (kun lokalt)."
+  - "Arbeidsflyt: CLAUDE_CODE_SETUP.md krever egen gren per del. Del 0b, 1, 6, manifest-fiks og 7 ligger som separate commits på setup/del-0 (godkjent av Knut)."
+  - "Personvern: PC-navn og tailnet-ID ligger bare i groovehouse.local.json (i .gitignore). Ny agent må ikke legge dem i sporede filer (sjekk med git grep før push)."
+  - "Tilgang: alle innloggede enheter i tailnettet (også maskiner/brukere PC-en er delt med) når spilleren uten PIN."
+  - "Sikkerhet: LAN-modus er slått på (lan.enabled true). Lyd og PIN går ukryptert over HTTP på lokalnettet."
+  - "Lisens: essentia.js (vurderes i del 3) er AGPL-3.0. Må avklares med Knut før bruk."
+  - "Rekkefølge: del 6 er gjort før del 2–5, så README og plan kan avvike fra faktisk rekkefølge."
+open_questions:
+  - "Har Knut bekreftet BPM, toneart, struktur og palett for et par REASONDONE-låter (del 0 punkt 7)? Svaret er ikke funnet notert."
+  - "Er del 1 punkt 5 (ikon på oppgavelinja) og 6 (reversibilitetstest) faktisk utført? README påstår det, men ikke verifisert."
+  - "Skal LAN-modus stå på permanent?"
+  - "Skal 48 px-ikonet bruke det forenklede merket (valgfritt punkt i del 1)?"
+
+# ============================================================
+# PLAN / GJENNOMFØRING
+# ============================================================
+plan_status:
+  bounded: true
+  rollback_defined: true
+  validation_defined: true
+plan:
+  - id: "P-01"
+    action: "Fase 1a: kjør pnpm test og pnpm typecheck, commit del 0b, del 1 + 6, manifest-fiks og del 7 hver for seg."
+    status: "completed"
+    owner: "Claude Code"
+  - id: "P-01b"
+    action: "Del 7: allowedHosts, Tailscale Serve uten PIN (krever Tailscale-User-Login), pnpm vault:remote on|off|status, tester, curl mot ts.net."
+    status: "partial"
+    owner: "Claude Code (mobiltest: Knut)"
+  - id: "P-01c"
+    action: "Før push: PC-ens ts.net-navn ut av alt sporet i git. Lokale verdier i groovehouse.local.json (.gitignore), lest i tillegg til groovehouse.config.json. Del 7-commiten erstattet og grenen rebaset på origin/main (som har fått del 7 og 8 i CLAUDE_CODE_SETUP.md). Push og PR mot main."
+    status: "completed"
+    owner: "Claude Code"
+  - id: "P-01d"
+    action: "Resten av del 7 slik den står på main: QR for ts.net i Studio, launcher følger Serve ved portbytte, vis tilgangsregler, mobiltest på 4G."
+    status: "pending"
+    owner: "neste agent / Knut"
+  - id: "P-02"
+    action: "Fase 1b: fullfør del 1 (autostart via Register-ScheduledTask uten admin, Windows-varsel ved ny bounce) og del 4 (parallell ingest, fremdrift, målte tall i README)."
+    status: "pending"
+    owner: "neste agent"
+  - id: "P-03"
+    action: "Fase 2: del 2, markør-editor i Studio, markers.json via POST /api/assets/:slug/:variant/:version/markers, overlever --force, tester for sammenslåing."
+    status: "pending"
+    owner: "neste agent"
+  - id: "P-04"
+    action: "Fase 3: del 3, pnpm eval:analysis + fixtures/truth.json, EDMA-profiler, tuning, harmonisk vekting, BPM per kapittel. Mål treffrate før og etter."
+    status: "blocked"
+    owner: "neste agent (venter på fasit fra Knut)"
+  - id: "P-05"
+    action: "Fase 4: del 5, Supabase magisk lenke, playback_positions, Realtime-banner «Fortsett her»."
+    status: "blocked"
+    owner: "neste agent (venter på Supabase-prosjekt fra Knut)"
+
+# ============================================================
+# ROLLBACK / TILBAKERULLING
+# ============================================================
+rollback:
+  trigger: "Tester feiler etter en del, spilleren slutter å spille, eller noe i REASONDONE er endret."
+  method: >
+    Hver del på egen gren og egen commit, så git revert eller bytt tilbake til forrige gren.
+    Installasjon utenfor repoet fjernes med pnpm vault:uninstall. LAN slås av med pnpm vault:lan off.
+    Fjerntilgang (Tailscale Serve + allowedHosts) slås av med pnpm vault:remote off (testet 2026-11-13).
+    media/ kan bygges på nytt med gh-ingest --force fra kildemappa.
+  data_backup_required: false
+  backup_location: null
+  verified: false
+
+# ============================================================
+# VALIDATION PLAN / TESTPLAN
+# ============================================================
+validation:
+  checks:
+    - name: "Enhetstester (vitest, alle pakker)"
+      command: "pnpm test"
+      expected: "Alle testfiler grønne"
+      status: "passed"
+      actual: "8 testfiler, 82 tester grønne: shared 44, ingest 24 (ny config.test.ts med 2), server 14 (ny test for Tailscale Serve; lan.test.ts utvidet med manifest og ts.net fra LAN)."
+      evidence: "Kjørt av Claude Code i denne økta (pnpm virker nå, ingen EPERM)"
+      tested_at: "2026-11-13T19:30:00+01:00"
+    - name: "Typecheck (tsc --noEmit, alle pakker)"
+      command: "pnpm typecheck"
+      expected: "Ingen typefeil"
+      status: "passed"
+      actual: "tsc --noEmit uten feil i packages/shared, apps/web, packages/ingest og apps/server."
+      evidence: "Kjørt av Claude Code i denne økta"
+      tested_at: "2026-11-13T19:30:00+01:00"
+    - name: "Tailscale Serve via ts.net (del 7)"
+      command: "pnpm vault:remote on; curl https://<pc>.<tailnet>.ts.net/{,studio,api/health,media/index.json,manifest.webmanifest,media/eyes-on-you/main/v1/hls/index.m3u8 + segment}"
+      expected: "200 uten PIN; feil host 421; uten Tailscale-header 403; Wi-Fi fortsatt med PIN"
+      status: "passed"
+      actual: "Alle ts.net-forespørsler 200 (HLS-segment 207552 B video/mp2t). Loopback + ts.net-Host uten Tailscale-User-Login 403. annet navn i samme tailnet (annen.<tailnet>.ts.net) 421. ts.net-Host mot 10.0.0.47 421. Wi-Fi: / 303 til /lan/login, /media/index.json 401. vault:remote off → ts.net svarer ikke; on → 200."
+      evidence: "curl-utskrift i Claude Code-økta"
+      tested_at: "2026-11-13T19:42:00+01:00"
+    - name: "Web-bygg"
+      command: "pnpm --filter ./apps/web build"
+      expected: "dist/index.html med icon 192/512"
+      status: "passed"
+      actual: "Bygget OK (vite, 49 s). Advarsel om hls-chunk > 500 kB (kjent, ikke feil)."
+      evidence: "Byggutskrift og grep i dist/index.html"
+      tested_at: "2026-11-13T19:10:00+01:00"
+    - name: "Ingest ende til ende"
+      command: "pnpm make-fixtures; pnpm gh-ingest fixtures/blue-fire; pnpm gh-ingest fixtures/live-sett-demo"
+      expected: "HLS, analysis.json, preview.m4a og manifest.json under media/<slug>/..."
+      status: "not_run"
+      actual: "Ikke kjørt av agent. Utdata finnes i media/ fra tidligere kjøring."
+      evidence: null
+      tested_at: null
+    - name: "Server og helsesjekk"
+      command: "pnpm vault:server, deretter GET http://127.0.0.1:41733/api/health"
+      expected: "{ \"app\": \"groovehouse-vault\", \"version\": ... }"
+      status: "not_run"
+      actual: null
+      evidence: null
+      tested_at: null
+  manual_checks:
+    - "Dobbeltklikk på skrivebordssnarveien «Groovehouse Vault»: spilleren åpnes i eget vindu med Groovehouse-ikon på oppgavelinja."
+    - "Avspilling av en REASONDONE-låt i / på desktop og mobil."
+    - "/studio og /drop/blue-fire-pitch?r=Test laster uten konsollfeil."
+    - "Mobil på samme Wi-Fi: PIN-side, QR i Studio → Mobil, lyd med låst skjerm."
+    - "Mobil på Wi-Fi: «Opprett snarvei» i Chrome får Groovehouse-ikonet (slett gammel snarvei først)."
+    - "Mobil med Tailscale: https://<pc>.<tailnet>.ts.net/ åpnes uten PIN, og lyd spilles (også på mobilnett)."
+    - "REASONDONE uendret (mtime og hash før og etter)."
+
+# ============================================================
+# EXECUTION LOG / HENDELSESLOGG
+# ============================================================
+execution_log:
+  - at: "2026-11-13T18:15:00+01:00"
+    actor: "Antigravity"
+    action: "Analyserte repoet: README, CLAUDE_CODE_SETUP.md, filstruktur, git-historikk og status, media/index.json, kodesøk etter manglende funksjoner."
+    command: "git log/status, Get-ChildItem, Select-String"
+    result: "completed"
+    evidence: "Se facts."
+  - at: "2026-11-13T18:15:51+01:00"
+    actor: "Antigravity"
+    action: "Forsøkte å kjøre tester og typecheck"
+    command: "pnpm test; pnpm typecheck"
+    result: "blocked"
+    evidence: "pnpm: EPERM: operation not permitted, realpath '...\\node_modules'"
+  - at: "2026-11-13T18:28:30+01:00"
+    actor: "Antigravity"
+    action: "Kjørte vitest og tsc direkte i hver pakke"
+    command: "node_modules/.bin/vitest.cmd run; node_modules/.bin/tsc.cmd --noEmit"
+    result: "blocked"
+    evidence: "Alle testfiler: EPERM realpath. tsc exit 2 i alle pakker, trolig følgefeil."
+  - at: "2026-11-13T18:29:00+01:00"
+    actor: "Antigravity"
+    action: "Fylte ut status_bundle.txt"
+    command: null
+    result: "completed"
+    evidence: "status_bundle.txt"
+  - at: "2026-11-13T18:32:35+01:00"
+    actor: "Knut"
+    action: "Kjørte tester i vanlig PowerShell på setup/del-0"
+    command: "pnpm test"
+    result: "passed"
+    evidence: "7 testfiler, 79 tester grønne (shared 44, ingest 22, server 13)"
+  - at: "2026-11-13T18:33:00+01:00"
+    actor: "Knut"
+    action: "Kjørte typecheck"
+    command: "pnpm typecheck"
+    result: "passed"
+    evidence: "tsc --noEmit uten feil i shared, web, ingest, server"
+  - at: "2026-11-13T18:35:00+01:00"
+    actor: "Antigravity"
+    action: "La inn regel i CLAUDE_CODE_SETUP.md: status_bundle.txt skal leses før start og oppdateres når noe er fullført"
+    command: null
+    result: "completed"
+    evidence: "CLAUDE_CODE_SETUP.md, innledning, Arbeidsmåte og Avslutning (8 linjer inn, 3 ut)"
+  - at: "2026-11-13T19:10:00+01:00"
+    actor: "Claude Code"
+    action: "Manifest-fiks: icon 192/512 i index.html, bygget web på nytt. Fant at /manifest.webmanifest lå bak PIN (303) – Chrome henter manifestet uten cookies – og åpnet det i server.ts. Restartet serveren."
+    command: "pnpm --filter ./apps/web build; curl http://10.0.0.47:41733/manifest.webmanifest"
+    result: "completed"
+    evidence: "Før: 303 til /lan/login. Etter: 200 application/manifest+json."
+  - at: "2026-11-13T19:20:00+01:00"
+    actor: "Claude Code"
+    action: "pnpm test (79/79) og pnpm typecheck grønne; commits 11a308b (del 0b), 14c7ee6 (del 1 + 6), bbd6f82 (manifest-fiks)"
+    command: "pnpm test; pnpm typecheck; git commit"
+    result: "completed"
+    evidence: "git log --oneline"
+  - at: "2026-11-13T19:45:00+01:00"
+    actor: "Claude Code"
+    action: "Del 7: allowedHosts i config, Host-unntak for loopback + Tailscale-User-Login i server.ts, pnpm vault:remote on|off|status (remote-cli.ts), tester, README og CLAUDE_CODE_SETUP.md del 7. Kjørte vault:remote on, off, on."
+    command: "pnpm test; pnpm typecheck; pnpm vault:remote on|status|off|on; curl mot ts.net og 10.0.0.47"
+    result: "completed"
+    evidence: "82/82 tester, se validation → «Tailscale Serve via ts.net»"
+
+# ============================================================
+# CHANGED SURFACES / BERØRTE FILER OG TJENESTER
+# ============================================================
+changed_surfaces:
+  - path: "status_bundle.txt"
+    change: "Fylt ut med prosjektstatus"
+    reason: "Brukerens forespørsel"
+  - path: "CLAUDE_CODE_SETUP.md"
+    change: "Regel om status_bundle.txt; ny del 7 (Tailscale Serve)"
+    reason: "Brukerens forespørsel"
+  - path: "apps/web/index.html, apps/server/src/server.ts, apps/server/test/lan.test.ts"
+    change: "Manifest-fiks: icon 192/512, /manifest.webmanifest åpent i LAN-modus"
+    reason: "Grå ikon på «Opprett snarvei» i Chrome på mobil"
+  - path: "packages/ingest/src/config.ts, packages/ingest/test/config.test.ts"
+    change: "allowedHosts (kun eksakte vertsnavn), normalizeHost, setAllowedHost"
+    reason: "Del 7"
+  - path: "apps/server/src/server.ts, main.ts, remote-cli.ts, lan-cli.ts, vault.ts, test/server.test.ts, test/lan.test.ts"
+    change: "Tailscale Serve uten PIN (loopback + allowedHosts + Tailscale-User-Login), vault:remote on|off|status"
+    reason: "Del 7"
+  - path: ".gitignore, groovehouse.local.json (usporet), package.json, README.md"
+    change: "Lokal config for Tailscale-navnet, script vault:remote, README-seksjon «Mobilen hjemmefra»"
+    reason: "Del 7"
+  - path: "tailscale serve (utenfor repoet)"
+    change: "Var satt opp av Knut fra før; vault:remote off/on fjernet og satte det opp igjen likt (443 → 127.0.0.1:41733)"
+    reason: "Reversibilitetstest av del 7"
+
+# ============================================================
+# REPO HEALTH / GIT- OG MILJØSTATUS
+# ============================================================
+repo_health:
+  git_branch: "setup/del-0"
+  git_head_at_start: "308f83526c88f7e762f64894b9f1639a70a1e6aa"
+  git_head_current: "bbd6f82dac8aa760ff75f53c15f9321a514c04d8 + del 7-commiten (inneholder denne fila)"
+  working_tree_status: "clean (etter del 7-commiten)"
+  uncommitted_changes: []
+  dependencies_status: "installed"
+  build_status: "passed"
+  tests_status: "passed"
+  security_checks_status: "not_run"
+  commit_created: true
+  commit_hash: "11a308b (del 0b), 14c7ee6 (del 1 + 6), bbd6f82 (manifest-fiks), del 7 (se git log)"
+  pushed_to_remote: true
+  push_verified: false
+  deployed: false
+  deployment_url: null
+  notes: >
+    Windows, Node v24.15.0, pnpm 9.15.0 (packageManager), ffmpeg 9.0.2.
+    apps/web/dist er bygget 2026-11-13 ca. 19:10 (del 7 endrer ikke web-koden).
+    pnpm, vitest og tsc virket i Claude Code-økta (EPERM-problemet fra Antigravity-sandkassen gjaldt ikke her).
+    Git advarer om LF→CRLF på flere filer. Ingen git user.name/email er satt på maskinen.
+
+# ============================================================
+# ARTIFACTS / LEVERANSER
+# ============================================================
+artifacts:
+  - path: "media/index.json"
+    purpose: "Katalogen webappen leser (12 elementer)"
+    verified_exists: true
+  - path: "media/ingest-log.json"
+    purpose: "Logg over ingest med advarsler (bl.a. manglende cover)"
+    verified_exists: true
+  - path: "apps/web/dist/"
+    purpose: "Bygget webapp som serveren leverer"
+    verified_exists: true
+  - path: "%LOCALAPPDATA%\\GroovehouseVault\\"
+    purpose: "Launcher, ikon, port, logger (fra vault:install)"
+    verified_exists: false
+
+# ============================================================
+# VERIFICATION STATE / VERIFISERT RESULTAT
+# ============================================================
+verification_state:
+  status: "partial"
+  tested_commit: "arbeidstreet som ble del 7-commiten (på toppen av bbd6f82)"
+  passed_count: 82
+  failed_count: 0
+  skipped_count: 0
+  not_run_count: 0
+  known_failures: []
+  unverified_claims:
+    - "README: «28 enhetstester» er utdatert (faktisk 79)."
+    - "README: ingest testet ende til ende på fixtures (gh-ingest ikke kjørt i denne økta)."
+    - "README: ytelse ca. 10 s for en 3-minutters låt."
+    - "Commit-melding 308f835: reversibilitetstest og oppgavelinje-ikon (commiten inneholder bare dokumentendringer)."
+    - "At LAN-modus, PIN og QR virker på en faktisk mobil."
+    - "At «Opprett snarvei» i Chrome på mobil nå får Groovehouse-ikonet."
+    - "At spilleren åpnes og spiller på mobilen via ts.net-adressen."
+    - "At snarveien åpner spilleren og at REASONDONE-låtene spilles."
+  verification_summary: >
+    pnpm test (82/82) og pnpm typecheck (4/4 pakker) er grønne, kjørt av Claude Code 2026-11-13
+    ca. 19:30. Del 7 er verifisert med curl fra PC-en mot ts.net-adressen (inkl. HLS) og
+    negative tester (403/421), og Wi-Fi krever fortsatt PIN. Manuelle sjekker på mobil
+    (snarvei-ikon, ts.net-avspilling) er ikke utført.
+
+# ============================================================
+# DECISIONS / BESLUTNINGER
+# ============================================================
+decisions:
+  - at: "2026-11-13T14:41:00+01:00"
+    decision: "Låste beslutninger: ingen Web Audio på mobil, aksentfarger kun fra assets.palette via CSS-variabler, gull som ramme, HLS AAC 256 kbps, ingest som CLI med watcher som trigger."
+    rationale: "Bakgrunnslyd på iOS, visuell identitet, enkel og robust kjede."
+    decided_by: "Knut (README / CLAUDE_CODE_SETUP.md)"
+  - at: "2026-11-13T14:41:00+01:00"
+    decision: "Eksportmappe F:\\EchoGroove\\EchoAI\\REASONDONE er kun lesing."
+    rationale: "Mappa er i bruk fra før med WAV-er og Reason-prosjekter."
+    decided_by: "Knut (CLAUDE_CODE_SETUP.md del 0)"
+  - at: "2026-11-13T14:41:00+01:00"
+    decision: "Porter 41733 (server) og 41734 (dev), kun 127.0.0.1 unntatt LAN-modus."
+    rationale: "Unngå konflikt med vanlige porter og DNS-rebinding."
+    decided_by: "Knut (CLAUDE_CODE_SETUP.md)"
+  - at: "2026-11-13T14:41:00+01:00"
+    decision: "Groovehouse Records er label, ikke album. Album per låt i meta.json, ellers låttittel."
+    rationale: "Korrekte metadata."
+    decided_by: "Knut (CLAUDE_CODE_SETUP.md del 0b)"
+  - at: "2026-11-13T14:41:00+01:00"
+    decision: "Tauri er ikke med nå. Edge --app-vindu brukes som desktop-app."
+    rationale: "Samme opplevelse uten Rust-bygg."
+    decided_by: "Knut (CLAUDE_CODE_SETUP.md del 1)"
+  - at: "2026-11-13T19:15:00+01:00"
+    decision: "Commits: del 0b, del 1 + 6 (Wi-Fi), manifest-fiks og del 7 hver for seg på setup/del-0."
+    rationale: "Del 1 og 6 kan ikke skilles (server.ts er ny i samme omgang)."
+    decided_by: "Knut («ok» til plan)"
+  - at: "2026-11-13T19:15:00+01:00"
+    decision: "Tailscale Serve uten PIN: kun loopback + eksakt Host i allowedHosts + Tailscale-User-Login. Ingen *.ts.net, Host-sjekken beholdes, Funnel slås aldri på."
+    rationale: "Bare egne tailnet-enheter skal nå spilleren; Funnel-trafikk mangler Tailscale-identitet."
+    decided_by: "Knut (del 7), header-kravet foreslått av Claude Code og godkjent med planen"
+
+# ============================================================
+# CLOSURE READINESS / KAN OPPGAVEN MELDES FULLFØRT?
+# ============================================================
+closure_readiness:
+  can_claim_success: false
+  status: "partial"
+  acceptance_criteria_met: false
+  tests_verified: true
+  remaining_blockers:
+    - "Fasit for del 3 mangler fra Knut."
+    - "Supabase-prosjekt for del 5 mangler fra Knut."
+  incomplete_work:
+    - "Mobiltest av manifest-fiks og del 7 (Knut)"
+    - "Del 7 (main-versjonen) pkt. 4–6: tilgangsregler, QR for ts.net i Studio, launcher følger Serve ved portbytte"
+    - "Del 8: innstillinger i Studio (ny på main)"
+    - "Push av setup/del-0 (venter på Knuts OK)"
+    - "Del 1: autostart ved innlogging og Windows-varsel"
+    - "Del 2: markør-editor"
+    - "Del 3: analysepresisjon og evaluering"
+    - "Del 4: parallell ingest og fremdrift"
+    - "Del 5: Supabase og fortsett på tvers av enheter"
+    - "Avslutning: README-oppdatering for markør-editor, treffrate og ytelsestall"
+  evidence:
+    - "git log --oneline (11a308b, 14c7ee6, bbd6f82, del 7)"
+    - "pnpm test 82/82, pnpm typecheck grønn"
+    - "curl mot ts.net og 10.0.0.47 (se validation)"
+  notes: >
+    Committet og testet på enhetsnivå: del 0b, del 1 (uten autostart og varsel), del 6,
+    manifest-fiks og del 7. Ikke pushet. Ikke implementert: del 2, 3, 4 og 5.
+    Ingen deploy er aktuelt (lokal app).
+
+# ============================================================
+# HANDOFF / OVERLEVERING TIL NESTE AGENT
+# ============================================================
+handoff:
+  summary: >
+    Lokal musikkspiller for Knut. Fase 1, del 0b, del 1 (delvis), del 6, manifest-fiks og del 7
+    er committet på setup/del-0 (ikke pushet). Tester 82/82 grønne. Fjerntilgang via Tailscale
+    Serve er på (https://<pc>.<tailnet>.ts.net/). Gjenstår: mobiltest, resten av
+    del 1, del 2, 3, 4 og 5. Del 3 og 5 krever innspill fra Knut.
+  next_action: "setup/del-0 er pushet med PR mot main. Vent på Knuts mobiltest og gjennomgang av PR-en, og fortsett med resten av del 7 (main-versjonen) og autostart/varsel i del 1."
+  next_checks:
+    - "Spiller mobilen via ts.net uten PIN?"
+    - "Får «Opprett snarvei» over Wi-Fi Groovehouse-ikonet?"
+    - "Peker Serve fortsatt på riktig port (pnpm vault:remote status)?"
+    - "Er REASONDONE uendret?"
+    - "Skal LAN-modus fortsatt stå på nå som Tailscale finnes?"
+  relevant_files:
+    - "status_bundle.txt"
+    - "CLAUDE_CODE_SETUP.md"
+    - "README.md"
+    - "docs/CLAUDE_CODE_PROMPT.md"
+    - "groovehouse.config.json"
+    - "apps/server/src/server.ts"
+    - "apps/server/src/vault.ts"
+    - "apps/server/src/remote-cli.ts"
+    - "packages/ingest/src/config.ts"
+    - "packages/ingest/src/ingest.ts"
+    - "packages/ingest/src/analyze.ts"
+    - "apps/web/src/pages/CommandCenter.tsx"
+    - "apps/web/src/lib/player.ts"
+  warnings:
+    - "Aldri skriv, flytt eller slett noe i F:\\EchoGroove\\EchoAI\\REASONDONE."
+    - "Hemmeligheter (Supabase-nøkler, PIN) skal aldri i git eller chat. Bruk .env eller Windows Credential Manager."
+    - "Spør Knut før installasjoner, planlagte oppgaver, snarveier, brannmurregler eller push."
+    - "Ikke endre de låste beslutningene uten å spørre."
+    - "Antigravity-sandkassen ga EPERM på F:\\ for pnpm; Claude Code-økta hadde ikke det problemet."
+    - "Ikke godta *.ts.net, ikke fjern Host-sjekken, og ikke slå på Tailscale Funnel."
+    - "PC-navn, tailnet-ID og andre lokale verdier skal i groovehouse.local.json (usporet), aldri i sporede filer."
+  last_agent: "Claude Code (Claude Opus 5.5)"
+
+# ============================================================
+# GATE FOR SUCCESS / KONTROLL FØR can_claim_success = true
+# ============================================================
+# [ ] Omfanget som skal leveres er implementert.
+# [ ] Alle obligatoriske acceptance_criteria er bestått med bevis.
+# [ ] Relevante tester er faktisk kjørt mot den gjeldende kodeversjonen.
+# [ ] Kritiske feil/blokkeringer er løst eller eksplisitt utenfor scope.
+# [x] Endrede filer, Git-status og leveranser stemmer med virkeligheten.
+# [ ] Commit/push/deploy er dokumentert hvis dette var en del av oppgaven.
+# [x] Neste agent har en oppdatert og konkret handoff.
+# Hvis ett krav mangler, la can_claim_success stå som false og forklar gapet.

@@ -163,7 +163,7 @@ function warnIfPublicNetwork() {
   }
 }
 
-async function restartIfRunning(serverDir: string, defaultPort: number) {
+export async function restartIfRunning(serverDir: string, defaultPort: number) {
   const ports = new Set([defaultPort]);
   try {
     ports.add(Number(readFileSync(portFile(), 'utf8').trim()));
