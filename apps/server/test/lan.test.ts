@@ -59,6 +59,7 @@ describe('server i LAN-modus', () => {
     await mkdir(media, { recursive: true });
     await writeFile(path.join(dist, 'index.html'), '<!doctype html><title>GV</title>');
     await writeFile(path.join(dist, 'icons', 'icon-192.png'), 'png');
+    await writeFile(path.join(dist, 'manifest.webmanifest'), '{"name":"GV"}');
     await writeFile(path.join(media, 'index.json'), '{"schema":1,"assets":[]}');
     // Klienten later som den kommer fra nettverket (over loopback, så ingen brannmurdialog i testen).
     const handler = createHandler({
@@ -113,6 +114,10 @@ describe('server i LAN-modus', () => {
     expect((await req('GET', '/media/index.json')).status).toBe(401);
     expect((await req('GET', '/api/health')).status).toBe(401);
     expect((await req('GET', '/icons/icon-192.png')).status).toBe(200);
+    // Manifestet hentes uten cookies av nettleseren, så det må være åpent (ellers grå snarvei-ikon).
+    const manifest = await req('GET', '/manifest.webmanifest');
+    expect(manifest.status).toBe(200);
+    expect(manifest.headers['content-type']).toBe('application/manifest+json');
     expect((await req('GET', '/lan/login')).body).toContain('PIN-kode');
     expect((await req('GET', '/', { host: `evil.example:${port}` })).status).toBe(421);
   });

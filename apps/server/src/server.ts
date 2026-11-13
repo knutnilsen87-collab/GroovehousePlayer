@@ -91,7 +91,9 @@ export function createHandler(opts: ServerOptions) {
           res.setHeader('Location', '/lan/login');
           return res.end();
         }
-        const open = url.pathname.startsWith('/icons/');
+        // Ikoner og manifest er åpne: nettleseren henter manifestet uten cookies (credentials: omit),
+        // så bak PIN-en ville «Opprett snarvei»/installering fått en grå standardikon.
+        const open = url.pathname.startsWith('/icons/') || url.pathname === '/manifest.webmanifest';
         if (!open && !verifyToken(opts.lan.secret, readCookie(req.headers.cookie, COOKIE_NAME))) {
           if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) {
             res.statusCode = 401;

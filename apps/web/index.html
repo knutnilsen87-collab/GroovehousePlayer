@@ -6,6 +6,10 @@
     <meta name="theme-color" content="#07080B" />
     <link rel="icon" type="image/x-icon" href="/icons/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+    <!-- Store ikoner direkte i HTML: Chrome på Android faller tilbake hit for «Opprett snarvei»
+         over HTTP (ikke sikker kontekst), der manifest-ikonene ikke brukes. -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon-180.png" />
     <!--
       Manifestet (display: minimal-ui – iOS kutter bakgrunnslyd i standalone-PWA-er) legges bare inn
