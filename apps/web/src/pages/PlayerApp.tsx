@@ -1,11 +1,14 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatTime, GOLD_FALLBACK, paletteToCssVars, sectionAt, sectionsOf } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CommandPalette } from '../components/CommandPalette';
 import { CoverArt } from '../components/CoverArt';
+import { addWithUndo, AddToPlaylistSheet, DRAG_ITEMS, PlaylistDetail, PlaylistsOverview, SidebarPlaylists, Toast } from '../components/Playlists';
 import {
   ChevronDownIcon,
   LibraryIcon,
+  ListIcon,
+  MoreIcon,
   NextIcon,
   PauseIcon,
   PlayIcon,
@@ -20,9 +23,18 @@ import {
 import { SpectralWaveform } from '../components/SpectralWaveform';
 import { assetUrl, groupTracks, useCatalog, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { savedPosition, usePlayer } from '../lib/player';
+import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, useToast, type AddItem } from '../lib/playlists';
 import { useSubBass } from '../lib/useSubBass';
 
-type View = 'catalog' | 'sets';
+type View = 'catalog' | 'sets' | 'playlists';
+
+/** Arket «Legg til i spilleliste»: hva som legges til, og (desktop) hvor det åpnes. */
+interface SheetState {
+  items: AddItem[];
+  label: string;
+  variantLabel: string | null;
+  anchor: { x: number; y: number } | null;
+}
 type Filter = 'all' | 'track' | 'set';
 
 /**
@@ -36,10 +48,47 @@ export function PlayerApp() {
   const [filter, setFilter] = useState<Filter>('all');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [full, setFull] = useState(false);
+  const [listId, setListId] = useState<string | null>(null);
+  const [sheet, setSheet] = useState<SheetState | null>(null);
+  /** Desktop: valgte låter i tabellen (Ctrl/Shift-klikk). Mobil: velgemodus (hold inne på en låt). */
+  const [selected, setSelected] = useState<string[]>([]);
+  const [selectMode, setSelectMode] = useState(false);
   const { queue, index, playing, started, playFrom, switchVariant, toggle, nextSection, prevSection } = usePlayer();
   const cur = queue[index];
   const root = useRef<HTMLDivElement>(null);
   useSubBass(root, cur, playing);
+  usePlaylistSync();
+
+  const openList = (id: string | null) => {
+    setListId(id);
+    setView('playlists');
+    setFull(false);
+    window.scrollTo({ top: 0 });
+  };
+  /** Det du ser: en låt som spilles i en annen variant, legges til med den varianten. */
+  const shownAsset = (t: Track) => (cur?.manifest.slug === t.slug ? cur : t.main);
+  const openSheet = (assetsToAdd: LoadedAsset[], anchor: SheetState['anchor'] = null) => {
+    if (!assetsToAdd.length) return;
+    const one = assetsToAdd.length === 1 ? assetsToAdd[0]! : null;
+    setSheet({
+      items: assetsToAdd.map(itemFor),
+      label: one ? one.manifest.title + (one.manifest.variant ? ` · ${variantName(one)}` : '') : `${assetsToAdd.length} låter`,
+      variantLabel: one?.manifest.variant ? variantName(one) : null,
+      anchor
+    });
+  };
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected([]);
+  };
+  // Mobil: tilbake-knappen avslutter velgemodus
+  useEffect(() => {
+    if (!selectMode) return;
+    history.pushState({ gvSelect: true }, '');
+    const onPop = () => exitSelectMode();
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [selectMode]);
 
   const vars = paletteToCssVars(started && cur ? cur.manifest.palette : GOLD_FALLBACK) as CSSProperties;
 
@@ -51,13 +100,24 @@ export function PlayerApp() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setPaletteOpen(true);
+      } else if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+        // Ctrl+Shift+P: låta som spilles nå → sist brukte liste
+        e.preventDefault();
+        const now = usePlayer.getState().queue[usePlayer.getState().index];
+        if (!now) return useToast.getState().show('Ingen låt spilles nå');
+        const target = mostRecentTarget(usePlaylists.getState().playlists);
+        if (target) void addWithUndo(target, [itemFor(now)]).catch(toastError);
+        else openSheet([now]);
       } else if (typing) return;
       else if (e.key === ' ' && t?.tagName !== 'BUTTON' && t?.tagName !== 'A') {
         e.preventDefault();
         toggle();
       } else if (e.shiftKey && e.key === 'ArrowRight') nextSection();
       else if (e.shiftKey && e.key === 'ArrowLeft') prevSection();
-      else if (e.key === 'Escape') setFull(false);
+      else if (e.key === 'Escape') {
+        setFull(false);
+        setSelected([]);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -78,10 +138,38 @@ export function PlayerApp() {
   };
   const trackOf = (a: LoadedAsset | undefined) => (a ? tracks.find((t) => t.slug === a.manifest.slug) : undefined);
 
+  /** Desktop: klikk = velg én, Ctrl = legg til/fjern, Shift = område. */
+  const selectRow = (slug: string, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
+    const order = visible.map((t) => t.slug);
+    setSelected((s) => {
+      if (e.shiftKey && s.length) {
+        const [a, b] = [order.indexOf(s[s.length - 1]!), order.indexOf(slug)].sort((x, y) => x - y) as [number, number];
+        return [...new Set([...s, ...order.slice(a, b + 1)])];
+      }
+      if (e.ctrlKey || e.metaKey) return s.includes(slug) ? s.filter((x) => x !== slug) : [...s, slug];
+      return [slug];
+    });
+  };
+  /** Låtene en handling gjelder: de valgte hvis raden er blant dem, ellers bare raden. */
+  const assetsFor = (slug: string) => {
+    const slugs = selected.includes(slug) ? selected : [slug];
+    return visible.filter((t) => slugs.includes(t.slug)).map(shownAsset);
+  };
+  const toggleMobileSelect = (slug: string) => setSelected((s) => (s.includes(slug) ? s.filter((x) => x !== slug) : [...s, slug]));
+
   return (
     <div ref={root} className="relative min-h-[100svh] bg-obsidian text-ink lg:grid lg:grid-cols-[240px_minmax(0,1fr)]" style={vars}>
       <AmbientGlow />
-      <Sidebar view={view} setView={setView} onSearch={() => setPaletteOpen(true)} />
+      <Sidebar
+        view={view}
+        setView={(v) => {
+          setView(v);
+          setListId(null);
+        }}
+        onSearch={() => setPaletteOpen(true)}
+      >
+        <SidebarPlaylists tracks={tracks} activeId={view === 'playlists' ? listId : null} onOpen={openList} />
+      </Sidebar>
 
       <main className="relative z-10 min-w-0 px-5 pb-[168px] pt-5 lg:px-8 lg:pb-[132px] lg:pt-7">
         <header className="mb-6 flex items-center justify-between gap-4">
@@ -106,12 +194,39 @@ export function PlayerApp() {
           <p className="text-sm text-muted">Åpner hvelvet …</p>
         ) : tracks.length === 0 ? (
           <EmptyState />
+        ) : view === 'playlists' ? (
+          listId ? (
+            <PlaylistDetail id={listId} tracks={tracks} onBack={() => setListId(null)} onClosed={() => setListId(null)} />
+          ) : (
+            <PlaylistsOverview tracks={tracks} onOpen={openList} />
+          )
         ) : view === 'catalog' ? (
           <>
             {visible[0] && filter === 'all' && <Hero t={tracks[0]!} onPlay={(v, at) => play(tracks[0]!, v, at)} />}
             <Pills value={filter} onChange={setFilter} />
-            <TrackTable tracks={visible} onPlay={play} />
-            <TrackList tracks={visible} onPlay={play} />
+            <TrackTable
+              tracks={visible}
+              onPlay={play}
+              selected={selected}
+              onSelect={selectRow}
+              itemsFor={(slug) => assetsFor(slug).map(itemFor)}
+              onContext={(slug, at) => {
+                if (!selected.includes(slug)) setSelected([slug]);
+                openSheet(selected.includes(slug) ? assetsFor(slug) : [shownAsset(visible.find((t) => t.slug === slug)!)], at);
+              }}
+            />
+            <TrackList
+              tracks={visible}
+              onPlay={play}
+              onMore={(t) => openSheet([shownAsset(t)])}
+              selectMode={selectMode}
+              selected={selected}
+              onLongPress={(t) => {
+                setSelectMode(true);
+                setSelected([t.slug]);
+              }}
+              onToggle={(t) => toggleMobileSelect(t.slug)}
+            />
           </>
         ) : (
           <SetsView sets={visible} tracks={tracks} onPlay={play} />
@@ -119,9 +234,47 @@ export function PlayerApp() {
       </main>
 
       {cur && <Dock cur={cur} track={trackOf(cur)} onVariant={(v) => switchVariant(v)} tracks={tracks} onPlay={play} />}
-      {cur && <MiniPlayer cur={cur} onOpen={() => setFull(true)} />}
-      <BottomNav view={view} setView={setView} onSearch={() => setPaletteOpen(true)} />
-      {full && cur && <FullPlayer cur={cur} track={trackOf(cur)} tracks={tracks} onClose={() => setFull(false)} onPlay={play} />}
+      {cur && !selectMode && <MiniPlayer cur={cur} onOpen={() => setFull(true)} />}
+      {selectMode && (
+        <div className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 lg:hidden">
+          <button
+            type="button"
+            onClick={() => history.back()}
+            className="h-12 rounded-full border border-white/15 bg-[rgba(14,16,21,0.95)] px-4 text-sm text-ink backdrop-blur-xl"
+          >
+            Avbryt
+          </button>
+          <button
+            type="button"
+            disabled={!selected.length}
+            onClick={() => openSheet(visible.filter((t) => selected.includes(t.slug)).map(shownAsset))}
+            className="h-12 flex-1 rounded-full bg-gold text-sm font-semibold text-[#120D02] shadow-[0_8px_24px_rgba(240,192,48,0.3)] disabled:opacity-50"
+          >
+            Legg til i spilleliste ({selected.length})
+          </button>
+        </div>
+      )}
+      <BottomNav
+        view={view}
+        setView={(v) => {
+          setView(v);
+          setListId(null);
+        }}
+      />
+      {full && cur && <FullPlayer cur={cur} track={trackOf(cur)} tracks={tracks} onClose={() => setFull(false)} onPlay={play} onMore={() => openSheet([cur])} />}
+      {sheet && (
+        <AddToPlaylistSheet
+          items={sheet.items}
+          label={sheet.label}
+          variantLabel={sheet.variantLabel}
+          anchor={sheet.anchor}
+          onClose={() => {
+            setSheet(null);
+            if (selectMode) history.back();
+          }}
+        />
+      )}
+      <Toast />
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
@@ -130,6 +283,14 @@ export function PlayerApp() {
           const a = list[i]!;
           const t = trackOf(a);
           if (t) play(t, a);
+        }}
+        onSaveSmart={async (name, query) => {
+          try {
+            const p = await usePlaylists.getState().createSmart(name, query);
+            useToast.getState().show(`Lagret smart liste «${p.name}»`, { label: 'Åpne', run: () => openList(p.id) });
+          } catch (err) {
+            toastError(err);
+          }
         }}
       />
     </div>
@@ -152,7 +313,7 @@ function AmbientGlow() {
   );
 }
 
-function Sidebar({ view, setView, onSearch }: { view: View; setView: (v: View) => void; onSearch: () => void }) {
+function Sidebar({ view, setView, onSearch, children }: { view: View; setView: (v: View) => void; onSearch: () => void; children?: ReactNode }) {
   const item = (id: View, label: string, Icon: typeof LibraryIcon) => {
     const active = view === id;
     return (
@@ -182,19 +343,23 @@ function Sidebar({ view, setView, onSearch }: { view: View; setView: (v: View) =
           Studio og drops
         </a>
       </nav>
-      <div className="mt-auto rounded-xl border border-white/[0.06] bg-surface p-3.5 text-[11px] leading-relaxed text-muted">
+      {children}
+      <div className="rounded-xl border border-white/[0.06] bg-surface p-3.5 text-[11px] leading-relaxed text-muted">
         <span className="block text-xs font-semibold text-ink">Snarveier</span>
         Mellomrom: spill/pause
         <br />
         Shift + ← →: forrige/neste del
         <br />
         Ctrl + K: søk
+        <br />
+        Ctrl + Shift + P: låta → sist brukte liste
       </div>
     </aside>
   );
 }
 
-function BottomNav({ view, setView, onSearch }: { view: View; setView: (v: View) => void; onSearch: () => void }) {
+/** Mobil: fire faner. Søk ligger som knappen øverst til høyre (avklart med Knut), så Lister tar plassen. */
+function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }) {
   const cls = (active: boolean) => `flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium ${active ? 'text-gold' : 'text-muted'}`;
   return (
     <nav aria-label="Hovedmeny" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.07] bg-sunken/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
@@ -206,9 +371,9 @@ function BottomNav({ view, setView, onSearch }: { view: View; setView: (v: View)
         <PulseIcon width={22} height={22} />
         Live-sett
       </button>
-      <button type="button" className={cls(false)} onClick={onSearch}>
-        <SearchIcon width={22} height={22} />
-        Søk
+      <button type="button" className={cls(view === 'playlists')} aria-current={view === 'playlists' ? 'page' : undefined} onClick={() => setView('playlists')}>
+        <ListIcon width={22} height={22} />
+        Lister
       </button>
       <a href="/studio" className={`${cls(false)} no-underline`}>
         <StudioIcon width={22} height={22} />
@@ -307,11 +472,26 @@ function Pills({ value, onChange }: { value: Filter; onChange: (f: Filter) => vo
 }
 
 /** Desktop: presisjonstabell med bølgeform-kolonne for «needle drop». */
-function TrackTable({ tracks, onPlay }: { tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void }) {
+function TrackTable({
+  tracks,
+  onPlay,
+  selected,
+  onSelect,
+  itemsFor,
+  onContext
+}: {
+  tracks: Track[];
+  onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void;
+  selected: string[];
+  onSelect: (slug: string, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => void;
+  itemsFor: (slug: string) => AddItem[];
+  onContext: (slug: string, at: { x: number; y: number }) => void;
+}) {
   const { queue, index, positionMs, playing } = usePlayer();
   const cur = queue[index];
   return (
     <div className="hidden overflow-x-auto lg:block">
+      {selected.length > 1 && <p className="m-0 mb-2 text-[11px] text-muted">{selected.length} valgt · dra til en liste i sidemenyen, eller høyreklikk → Legg til i spilleliste · Esc fjerner valget</p>}
       <table className="w-full min-w-[900px] border-collapse text-[13px]">
         <thead>
           <tr className="text-left text-[10px] tracking-[1.5px] text-muted">
@@ -329,7 +509,28 @@ function TrackTable({ tracks, onPlay }: { tracks: Track[]; onPlay: (t: Track, v?
             const a = isCur ? cur! : t.main;
             const m = a.manifest;
             return (
-              <tr key={t.slug} className={`border-t border-white/[0.05] ${isCur ? 'bg-white/[0.035]' : 'hover:bg-white/[0.02]'}`} style={paletteToCssVars(m.palette) as CSSProperties}>
+              <tr
+                key={t.slug}
+                draggable
+                aria-selected={selected.includes(t.slug)}
+                onDragStart={(e) => {
+                  if (!selected.includes(t.slug)) onSelect(t.slug, { ctrlKey: false, metaKey: false, shiftKey: false });
+                  const items = itemsFor(t.slug);
+                  e.dataTransfer.setData(DRAG_ITEMS, JSON.stringify(items));
+                  e.dataTransfer.setData('text/plain', items.length > 1 ? `${items.length} låter` : m.title);
+                  e.dataTransfer.effectAllowed = 'copy';
+                }}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest('button,select,[role="slider"],canvas,input')) return;
+                  onSelect(t.slug, e);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onContext(t.slug, { x: e.clientX, y: e.clientY });
+                }}
+                className={`border-t border-white/[0.05] ${selected.includes(t.slug) ? 'bg-white/[0.07] outline outline-1 -outline-offset-1 outline-white/15' : isCur ? 'bg-white/[0.035]' : 'hover:bg-white/[0.02]'}`}
+                style={paletteToCssVars(m.palette) as CSSProperties}
+              >
                 <td className="tabular py-2 text-muted">{isCur && playing ? <span className="text-accent">▶</span> : i + 1}</td>
                 <td className="py-2 pr-4">
                   <div className="flex items-center gap-3">
@@ -396,10 +597,43 @@ function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedAsset; o
   );
 }
 
-/** Mobil: kompakt liste, én tommel. */
-function TrackList({ tracks, onPlay }: { tracks: Track[]; onPlay: (t: Track) => void }) {
+/**
+ * Mobil: kompakt liste, én tommel. ⋯ = Legg til i spilleliste.
+ * Hold inne på en låt = velgemodus: trykk på flere, og legg dem til samlet.
+ */
+function TrackList({
+  tracks,
+  onPlay,
+  onMore,
+  selectMode,
+  selected,
+  onLongPress,
+  onToggle
+}: {
+  tracks: Track[];
+  onPlay: (t: Track) => void;
+  onMore: (t: Track) => void;
+  selectMode: boolean;
+  selected: string[];
+  onLongPress: (t: Track) => void;
+  onToggle: (t: Track) => void;
+}) {
   const { queue, index, playing } = usePlayer();
   const cur = queue[index];
+  const press = useRef<{ timer: number; fired: boolean; x: number; y: number } | null>(null);
+  const startPress = (t: Track, x: number, y: number) => {
+    if (selectMode) return;
+    const p = { timer: 0, fired: false, x, y };
+    p.timer = window.setTimeout(() => {
+      p.fired = true;
+      navigator.vibrate?.(10);
+      onLongPress(t);
+    }, 450);
+    press.current = p;
+  };
+  const cancelPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+  };
   return (
     <ul className="m-0 flex list-none flex-col p-0 lg:hidden">
       {tracks.map((t) => {
@@ -409,9 +643,33 @@ function TrackList({ tracks, onPlay }: { tracks: Track[]; onPlay: (t: Track) => 
         const meta = [isCur && m.variant ? variantName(a) : null, m.kind === 'set' ? 'Live-sett' : null, m.bpm ? `${m.bpm} BPM` : null, m.key?.camelot, t.variants.length > 1 ? `${t.variants.length} varianter` : null]
           .filter(Boolean)
           .join(' · ');
+        const isSel = selected.includes(t.slug);
         return (
-          <li key={t.slug}>
-            <button type="button" onClick={() => onPlay(t)} className="flex min-h-[64px] w-full items-center gap-3 rounded-xl px-1.5 text-left active:bg-white/[0.05]" style={paletteToCssVars(m.palette) as CSSProperties}>
+          <li key={t.slug} className="flex items-center">
+            <button
+              type="button"
+              onClick={() => {
+                if (press.current?.fired) return void (press.current = null);
+                if (selectMode) onToggle(t);
+                else onPlay(t);
+              }}
+              onTouchStart={(e) => startPress(t, e.touches[0]!.clientX, e.touches[0]!.clientY)}
+              onTouchMove={(e) => {
+                const p = press.current;
+                const tt = e.touches[0]!;
+                if (p && (Math.abs(tt.clientX - p.x) > 10 || Math.abs(tt.clientY - p.y) > 10)) cancelPress();
+              }}
+              onTouchEnd={cancelPress}
+              onContextMenu={(e) => e.preventDefault()}
+              aria-pressed={selectMode ? isSel : undefined}
+              className={`flex min-h-[64px] min-w-0 flex-1 select-none items-center gap-3 rounded-xl px-1.5 text-left [-webkit-touch-callout:none] active:bg-white/[0.05] ${isSel ? 'bg-white/[0.07]' : ''}`}
+              style={paletteToCssVars(m.palette) as CSSProperties}
+            >
+              {selectMode && (
+                <span aria-hidden="true" className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border text-[13px] font-bold ${isSel ? 'border-gold bg-gold text-[#120D02]' : 'border-white/30'}`}>
+                  {isSel ? '✓' : ''}
+                </span>
+              )}
               <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={48} rounded={8} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className={`truncate text-[15px] font-semibold ${isCur ? 'text-accent' : 'text-ink-strong'}`}>
@@ -422,6 +680,11 @@ function TrackList({ tracks, onPlay }: { tracks: Track[]; onPlay: (t: Track) => 
               </span>
               <span className="tabular text-xs text-muted">{formatTime(m.durationMs)}</span>
             </button>
+            {!selectMode && (
+              <button type="button" onClick={() => onMore(t)} aria-label={`Flere valg for ${m.title}`} className="flex h-12 w-11 flex-none items-center justify-center rounded-full text-muted active:bg-white/[0.06]">
+                <MoreIcon width={18} height={18} />
+              </button>
+            )}
           </li>
         );
       })}
@@ -648,7 +911,7 @@ function MiniPlayer({ cur, onOpen }: { cur: LoadedAsset; onOpen: () => void }) {
 }
 
 /** Mobil: fullskjerm. Cover øverst, bølgeform med deler i midten, store kontroller nederst. */
-function FullPlayer({ cur, track, tracks, onClose, onPlay }: { cur: LoadedAsset; track?: Track; tracks: Track[]; onClose: () => void; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void }) {
+function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cur: LoadedAsset; track?: Track; tracks: Track[]; onClose: () => void; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: () => void }) {
   const { positionMs, started, seek, switchVariant } = usePlayer();
   const m = cur.manifest;
   const now = sectionAt(m.markers, positionMs);
@@ -661,7 +924,9 @@ function FullPlayer({ cur, track, tracks, onClose, onPlay }: { cur: LoadedAsset;
           <ChevronDownIcon width={26} height={26} />
         </button>
         <span className="text-[10px] font-semibold tracking-[2px] text-muted">{m.kind === 'set' ? 'LIVE-SETT' : 'SPILLES NÅ'}</span>
-        <span className="w-11" />
+        <button type="button" onClick={onMore} aria-label="Legg til i spilleliste" className="flex h-11 w-11 items-center justify-center rounded-full text-champagne">
+          <MoreIcon width={22} height={22} />
+        </button>
       </div>
       <div className="relative mt-4 flex justify-center">
         <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={Math.round(Math.min(window.innerWidth - 48, window.innerHeight * 0.44))} rounded={16} />

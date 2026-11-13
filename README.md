@@ -78,6 +78,18 @@ pnpm vault:remote off     # fjerner Serve på 443 og navnet fra allowedHosts
 - **Delte maskiner:** deler du PC-en med andre i tailnettet (Tailscale «Share»), når de også spilleren uten PIN.
 - `vault:uninstall` rører ikke Tailscale-oppsettet, men minner deg på `vault:remote off`.
 
+## Spillelister
+
+Lagres av serveren på PC-en i `data/playlists.json` (gitignored, atomisk skriving, forrige versjon i `playlists.backup.json`). Mobil og desktop snakker med samme server, så listene er like overalt. De hentes på nytt når appen kommer i forgrunnen og hvert 10. sekund.
+
+- **Mobil:** fanen **Lister** (i stedet for Søk, som ligger øverst til høyre). ⋯ på en låt eller i fullskjermspilleren → **Legg til i spilleliste** (3 sist brukte øverst, + Ny spilleliste). Hold inne på en låt i Katalog for velgemodus. I en liste: hold inne og dra for å flytte, sveip til venstre for å fjerne. Alt har «Angre».
+- **Desktop:** listene i sidemenyen. Dra låter (Ctrl/Shift-klikk for flere) til en liste, eller høyreklikk → Legg til i spilleliste. `Ctrl+Shift+P` legger låta som spilles til i sist brukte liste. I lista: dra for å flytte, Delete fjerner, og variant kan låses per rad.
+- **Oppføringer peker på slug + variant**, så en ny bounce (`_v4`) dukker opp i alle lister av seg selv. Varianten kan låses («spill alltid Extended»).
+- **Smarte lister:** **Lagre som smart liste** i søket lagrer selve søket (`124 8A`, `sett`, `extended`) og oppdaterer seg selv. Innebygd: **Nylig lagt til** (14 dager) og **Live-sett**.
+- **Farger:** hver liste får en farge fra `docs/design/playlist-colors.json` (40 farger, Neon og Candy), med neon-glød på prikken, «Spill»-knappen og aktiv liste i sidemenyen. Gløden puster med sub-bassen mens lista spilles (ikke ved «redusert bevegelse»). Coveret til låta som spilles styrer fortsatt rommet.
+- **Samtidige endringer:** hver endring sendes med `updatedAt`. Er lista endret et annet sted, svarer serveren 409, og appen regner endringen ut på nytt mot den ferske lista i stedet for å overskrive.
+- API: `GET/POST /api/playlists`, `PATCH/DELETE /api/playlists/:id`. Samme tilgang som resten av appen (PC-en, Tailscale, eller Wi-Fi med PIN).
+
 ## Prøv hele kjeden
 
 ```powershell

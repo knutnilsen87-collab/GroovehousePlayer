@@ -135,3 +135,52 @@ export const VolumeIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M15.5 8.5a5 5 0 0 1 0 7" />
   </svg>
 );
+export const ListIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M4 6h11" />
+    <path d="M4 12h11" />
+    <path d="M4 18h7" />
+    <path d="M19 15V5l3 1" />
+    <circle cx="17" cy="16" r="2" />
+  </svg>
+);
+export const MoreIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)} fill="currentColor" stroke="none">
+    <circle cx="5" cy="12" r="2" />
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="19" cy="12" r="2" />
+  </svg>
+);
+export const BoltIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z" />
+  </svg>
+);
+export const ShuffleIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M16 3h5v5" />
+    <path d="M4 20 21 3" />
+    <path d="M21 16v5h-5" />
+    <path d="m15 15 6 6" />
+    <path d="M4 4l5 5" />
+  </svg>
+);
+export const GripIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)} fill="currentColor" stroke="none">
+    <circle cx="9" cy="6" r="1.5" />
+    <circle cx="15" cy="6" r="1.5" />
+    <circle cx="9" cy="12" r="1.5" />
+    <circle cx="15" cy="12" r="1.5" />
+    <circle cx="9" cy="18" r="1.5" />
+    <circle cx="15" cy="18" r="1.5" />
+  </svg>
+);
+export const TrashIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M4 7h16" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+    <path d="M6 7l1 13h10l1-13" />
+    <path d="M9 7V4h6v3" />
+  </svg>
+);

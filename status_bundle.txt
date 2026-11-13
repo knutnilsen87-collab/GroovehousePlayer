@@ -43,9 +43,9 @@ project_description: >
   på 127.0.0.1:41733 med launcher, skrivebordssnarvei og LAN-modus med PIN.
 repo_root: "F:\\prosjekter_MAIN\\GroovehousePlayer"
 repo_url: "https://github.com/knutnilsen87-collab/GroovehousePlayer.git"
-branch: "setup/del-0"
-commit_before: "6bf8f0359788dff7e3147ef0f5c2edcdd5372b63 (origin/main etter rebase; opprinnelig 308f835)"
-commit_current: "bbd6f82dac8aa760ff75f53c15f9321a514c04d8 (+ del 7-commiten som inneholder denne fila)"
+branch: "setup/del-9 (fra setup/del-0 + origin/main 93db75d)"
+commit_before: "481657c (merge av origin/main inn i setup/del-9)"
+commit_current: "del 9-commiten som inneholder denne fila (se git log)"
 base_branch: "main"
 environment: "lokal (Windows, Knuts stasjonære PC)"
 
@@ -55,16 +55,16 @@ environment: "lokal (Windows, Knuts stasjonære PC)"
 current_state:
   status: "in_progress"
   state_summary: >
-    Fase 1 er committet i 65af402. På setup/del-0 er det nå fire nye commits (ikke pushet):
-    11a308b del 0b, 14c7ee6 del 1 + del 6 (Wi-Fi-modus), bbd6f82 manifest-fiks (ikon på
-    «Opprett snarvei» på mobil), og del 7 (Tailscale Serve, vault:remote). Arbeidstreet er rent
-    etter del 7-commiten. pnpm test (82/82) og pnpm typecheck er grønne, kjørt av Claude Code
-    2026-11-13 ca. 19:30. Fjerntilgang via https://<pc>.<tailnet>.ts.net/ er PÅ og
-    verifisert med curl fra PC-en. Test på mobil gjenstår. Del 2, 3, 4 og 5 er ikke startet.
-    Fra del 1 mangler autostart og systemvarsel.
+    setup/del-0 (del 0b, 1+6, manifest-fiks, del 7) er pushet; PR mot main er ikke laget ennå (gh mangler).
+    Del 9 (spillelister) er bygget på setup/del-9 (lokal, ikke pushet): server-API med 409-låsing og
+    atomisk lagring i data/playlists.json, mobil (Lister-fane, ⋯-ark, velgemodus, dra/sveip), desktop
+    (sidemeny, dra og slipp, høyreklikk, Ctrl+Shift+P, Delete), smarte lister, og farger med neon-glød (pkt. 15).
+    pnpm test 95/95 og typecheck grønne. Mobil↔desktop-synk verifisert via API over Tailscale og 127.0.0.1.
+    Visuell sjekk i nettleser er IKKE gjort (Claude in Chrome er slått av). Del 9 pkt. 13 (låse versjon,
+    versjonsvelger) og pkt. 14 (eget cover) er ikke bygget – venter på Knuts OK til plan.
   recommended_next_action: >
-    Knut tester spilleren på mobilen via ts.net-adressen (Tailscale på) og «Opprett snarvei»-ikonet
-    over Wi-Fi. Deretter: spør om push av setup/del-0, og fortsett med resten av del 1 (autostart, varsel).
+    Knut tester spillelistene på mobil (Tailscale) og desktop. Deretter OK til plan for del 9 pkt. 13 og 14,
+    og videre del 1 punkt 7–8 og del 8.
   active_blockers:
     - "Del 3 krever fasit (BPM/toneart) for 5–10 låter fra Knut."
     - "Del 5 krever at Knut oppretter Supabase-prosjekt og legger URL og anon-nøkkel i .env."
@@ -323,6 +323,12 @@ validation:
 # EXECUTION LOG / HENDELSESLOGG
 # ============================================================
 execution_log:
+  - at: "2026-11-13T21:30:00+01:00"
+    actor: "Claude Code"
+    action: "Del 9: merget origin/main (del 9 + utvidelser) inn i setup/del-9, bygget spillelister (API, mobil, desktop, smarte lister, farger pkt. 15, velgemodus pkt. 4). Mobilmeny: Lister i stedet for Søk (valgt av Knut)."
+    command: "pnpm test; pnpm typecheck; pnpm --filter ./apps/web build; vault:remote on (restart); curl-flyt mobil (Tailscale) → desktop (127.0.0.1) → mobil"
+    result: "partial"
+    evidence: "95/95 tester. API-flyt: liste laget via Tailscale, 3 låter lagt til, sett på desktop, rekkefølge endret der, endringen sett via Tailscale, gammel updatedAt → 409. Testlista slettet etterpå. Nettlesersjekk ikke mulig (Claude in Chrome slått av)."
   - at: "2026-11-13T18:15:00+01:00"
     actor: "Antigravity"
     action: "Analyserte repoet: README, CLAUDE_CODE_SETUP.md, filstruktur, git-historikk og status, media/index.json, kodesøk etter manglende funksjoner."
@@ -551,7 +557,7 @@ handoff:
     er committet på setup/del-0 (ikke pushet). Tester 82/82 grønne. Fjerntilgang via Tailscale
     Serve er på (https://<pc>.<tailnet>.ts.net/). Gjenstår: mobiltest, resten av
     del 1, del 2, 3, 4 og 5. Del 3 og 5 krever innspill fra Knut.
-  next_action: "setup/del-0 er pushet med PR mot main. Vent på Knuts mobiltest og gjennomgang av PR-en, og fortsett med resten av del 7 (main-versjonen) og autostart/varsel i del 1."
+  next_action: "Vent på Knuts test av spillelister (mobil og desktop) og OK til plan for del 9 pkt. 13 (versjonslås) og 14 (eget cover). PR for setup/del-0 må lages (gh mangler, eller via nettleser). Rekkefølge etter det: del 1 punkt 7–8, så del 8."
   next_checks:
     - "Spiller mobilen via ts.net uten PIN?"
     - "Får «Opprett snarvei» over Wi-Fi Groovehouse-ikonet?"

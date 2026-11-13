@@ -1,0 +1,975 @@
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import {
+  addTargets,
+  BUILTIN_SMART,
+  colorById,
+  formatListDuration,
+  formatTime,
+  isBuiltin,
+  neonCore,
+  neonGlow,
+  PLAYLIST_COLOR_GROUPS,
+  PLAYLIST_COLORS,
+  playableEntries,
+  playlistStats,
+  resolveEntries,
+  shuffled,
+  smartListAssets,
+  type Playlist,
+  type PlaylistColor,
+  type PlaylistEntry,
+  type ResolvedEntry
+} from '@gv/shared/web';
+import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
+import { usePlayer } from '../lib/player';
+import { playList, savedEntry, toastError, useNowList, usePlaylists, useToast, type AddItem } from '../lib/playlists';
+import { CoverArt } from './CoverArt';
+import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
+
+// ---------------------------------------------------------------- Farge og glød
+
+/** Fargeprikken: lys kjerne (neonrør) og glød i listefargen. `pulse` = puster med sub-bassen mens lista spilles. */
+export function ColorDot({ color, size = 10, pulse = false }: { color: PlaylistColor; size?: number; pulse?: boolean }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-block flex-none rounded-full ${pulse ? 'gv-pulse' : ''}`}
+      style={{ width: size, height: size, background: `radial-gradient(circle, ${neonCore(color.primary)} 0 32%, ${color.primary} 72%)`, boxShadow: neonGlow(color.primary) }}
+    />
+  );
+}
+
+/** Cover-mosaikk av de fire første låtene, med tynn kant i listefargen. */
+export function Mosaic({ assets, size, color, rounded = 10 }: { assets: LoadedAsset[]; size: number; color: PlaylistColor; rounded?: number }) {
+  const four = assets.slice(0, 4);
+  const frame: CSSProperties = { width: size, height: size, borderRadius: rounded, boxShadow: `0 0 0 1px ${color.primary}80` };
+  if (four.length < 4) {
+    const a = four[0];
+    return (
+      <span className="block flex-none overflow-hidden" style={frame}>
+        {a ? (
+          <CoverArt src={assetUrl(a, a.manifest.files.coverThumb)} palette={a.manifest.palette} title={a.manifest.title} size={size} rounded={rounded} />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center" style={{ background: `radial-gradient(circle at 30% 25%, ${color.primary}55, ${color.secondary}22 60%, #0E1015)` }}>
+            <ColorDot color={color} size={Math.max(8, size / 6)} />
+          </span>
+        )}
+      </span>
+    );
+  }
+  const half = size / 2;
+  return (
+    <span className="grid flex-none grid-cols-2 overflow-hidden" style={frame}>
+      {four.map((a) => (
+        <CoverArt key={a.manifest.id} src={assetUrl(a, a.manifest.files.coverThumb)} palette={a.manifest.palette} title={a.manifest.title} size={half} rounded={0} />
+      ))}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------- Lister som modell (manuell, smart, innebygd)
+
+export interface ListView {
+  id: string;
+  name: string;
+  kind: 'manual' | 'smart' | 'builtin';
+  color: PlaylistColor;
+  playlist: Playlist | null;
+  /** Manuelle lister: alle rader, også utilgjengelige. */
+  rows: Array<ResolvedEntry<LoadedAsset>>;
+  /** Det som kan spilles, i rekkefølge, med nøkkel for «Fortsett». */
+  assets: LoadedAsset[];
+  keys: string[];
+}
+
+const BUILTIN_COLORS: Record<string, string> = { 'builtin:recent': 'neon-cyan', 'builtin:sets': 'neon-violet' };
+
+export function buildListView(id: string, playlists: Playlist[], tracks: Track[]): ListView | null {
+  if (isBuiltin(id)) {
+    const b = BUILTIN_SMART.find((x) => x.id === id)!;
+    const assets = smartListAssets(tracks, 'days' in b ? { days: b.days } : { query: b.query });
+    return { id, name: b.name, kind: 'builtin', color: colorById(BUILTIN_COLORS[id]), playlist: null, rows: [], assets, keys: assets.map((a) => a.manifest.slug) };
+  }
+  const p = playlists.find((x) => x.id === id);
+  if (!p) return null;
+  if (p.kind === 'smart') {
+    const assets = smartListAssets(tracks, { query: p.query });
+    return { id, name: p.name, kind: 'smart', color: colorById(p.color), playlist: p, rows: [], assets, keys: assets.map((a) => a.manifest.slug) };
+  }
+  const rows = resolveEntries(p.entries, tracks);
+  const ok = playableEntries(rows);
+  return { id, name: p.name, kind: 'manual', color: colorById(p.color), playlist: p, rows, assets: ok.map((r) => r.asset), keys: ok.map((r) => r.entry.id) };
+}
+
+// ---------------------------------------------------------------- Meldinger nederst
+
+export function Toast() {
+  const { message, action, seq, hide } = useToast();
+  if (!message) return null;
+  return (
+    <div
+      key={seq}
+      role="status"
+      aria-live="polite"
+      className="fixed inset-x-3 bottom-[calc(150px+env(safe-area-inset-bottom))] z-[60] mx-auto flex max-w-[460px] items-center gap-3 rounded-xl border border-white/10 bg-[#15181F] px-4 py-3 text-sm text-ink-strong shadow-[0_12px_40px_rgba(0,0,0,0.6)] lg:bottom-[128px] lg:left-auto lg:right-6"
+    >
+      <span className="min-w-0 flex-1">{message}</span>
+      {action && (
+        <button
+          type="button"
+          onClick={() => {
+            action.run();
+            hide();
+          }}
+          className="h-9 flex-none rounded-full px-3 text-sm font-semibold text-gold hover:bg-white/[0.06]"
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Legg til, med «Angre» som fjerner nøyaktig oppføringene som ble lagt til. */
+export async function addWithUndo(p: Playlist, items: AddItem[]) {
+  const res = await usePlaylists.getState().add(p.id, items);
+  const added = res.entries.slice(-items.length).map((e) => e.id);
+  useToast.getState().show(`Lagt til i ${res.name}${items.length > 1 ? ` (${items.length})` : ''}`, {
+    label: 'Angre',
+    run: () => void usePlaylists.getState().removeEntries(p.id, added).catch(toastError)
+  });
+}
+
+// ---------------------------------------------------------------- «Legg til i spilleliste»
+
+/**
+ * Mobil: ark nederfra. Desktop: lite vindu ved musepekeren (høyreklikk) eller midt på skjermen.
+ * De 3 sist brukte listene øverst, så resten, og + Ny spilleliste.
+ */
+export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose }: { items: AddItem[]; label: string; variantLabel?: string | null; anchor?: { x: number; y: number } | null; onClose: () => void }) {
+  const playlists = usePlaylists((s) => s.playlists);
+  const { recent, rest } = useMemo(() => addTargets(playlists), [playlists]);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [lock, setLock] = useState(true);
+  const lockable = items.length === 1 && !!items[0]!.variant;
+  const final = items.map((i) => (lockable && !lock ? { ...i, variant: null } : i));
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const pick = async (p: Playlist) => {
+    setBusy(true);
+    try {
+      await addWithUndo(p, final);
+      onClose();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const create = async () => {
+    const n = name.trim();
+    if (!n) return;
+    setBusy(true);
+    try {
+      const p = await usePlaylists.getState().create(n, final);
+      useToast.getState().show(`Lagt til i ${p.name}`, { label: 'Angre', run: () => void usePlaylists.getState().remove(p.id).catch(toastError) });
+      onClose();
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const desktopPos: CSSProperties | undefined = anchor ? { left: Math.min(anchor.x, window.innerWidth - 340), top: Math.min(anchor.y, window.innerHeight - 440) } : undefined;
+  const row = (p: Playlist) => {
+    const c = colorById(p.color);
+    return (
+      <li key={p.id}>
+        <button type="button" disabled={busy} onClick={() => void pick(p)} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-ink-strong hover:bg-white/[0.05] active:bg-white/[0.08] disabled:opacity-50 lg:min-h-10 lg:text-sm">
+          <ColorDot color={c} />
+          <span className="min-w-0 flex-1 truncate">{p.name}</span>
+          <span className="tabular text-xs text-muted">{p.entries.length}</span>
+        </button>
+      </li>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[2px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Legg til i spilleliste"
+        style={desktopPos}
+        className={`fixed inset-x-0 bottom-0 max-h-[78svh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-surface px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 shadow-2xl lg:bottom-auto lg:w-[320px] lg:rounded-2xl lg:border ${anchor ? 'lg:inset-x-auto' : 'lg:left-1/2 lg:top-[18vh] lg:-translate-x-1/2'}`}
+      >
+        <div aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/15 lg:hidden" />
+        <div className="px-3 pb-2">
+          <h2 className="m-0 text-sm font-semibold text-ink-strong">Legg til i spilleliste</h2>
+          <p className="m-0 truncate text-xs text-muted">{label}</p>
+        </div>
+        {lockable && variantLabel && (
+          <label className="mx-3 mb-2 flex min-h-11 items-center gap-2 text-xs text-ink">
+            <input type="checkbox" checked={lock} onChange={(e) => setLock(e.target.checked)} className="h-4 w-4 accent-[#F0C030]" />
+            Spill alltid {variantLabel}
+          </label>
+        )}
+        {creating ? (
+          <form
+            className="mx-1 mb-2 flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void create();
+            }}
+          >
+            <label htmlFor="gv-new-list" className="sr-only">
+              Navn på ny spilleliste
+            </label>
+            <input id="gv-new-list" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Navn, f.eks. Club Ready" className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-sunken px-3 text-[15px] text-ink-strong placeholder:text-muted focus:border-gold/60 focus:outline-none lg:h-10 lg:text-sm" />
+            <button type="submit" disabled={busy || !name.trim()} className="h-11 rounded-xl bg-gold px-4 text-sm font-semibold text-[#120D02] disabled:opacity-40 lg:h-10">
+              Lagre
+            </button>
+          </form>
+        ) : (
+          <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-semibold text-gold hover:bg-white/[0.05] lg:min-h-10 lg:text-sm">
+            <PlusIcon width={18} height={18} />
+            Ny spilleliste
+          </button>
+        )}
+        {recent.length > 0 && <SheetHeading>Sist brukt</SheetHeading>}
+        <ul className="m-0 list-none p-0">{recent.map(row)}</ul>
+        {rest.length > 0 && <SheetHeading>{recent.length ? 'Alle lister' : 'Spillelister'}</SheetHeading>}
+        <ul className="m-0 list-none p-0">{rest.map(row)}</ul>
+        <button type="button" onClick={onClose} className="mt-2 h-11 w-full rounded-xl text-sm text-muted hover:text-ink lg:hidden">
+          Avbryt
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const SheetHeading = ({ children }: { children: ReactNode }) => <h3 className="m-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[1.5px] text-muted">{children}</h3>;
+
+// ---------------------------------------------------------------- Fargevelger
+
+export function ColorPicker({ value, onPick, onClose }: { value: string; onPick: (id: string) => void; onClose: () => void }) {
+  const [group, setGroup] = useState<'neon' | 'candy'>(colorById(value).group);
+  const [hover, setHover] = useState<PlaylistColor | null>(null);
+  const shown = hover ?? colorById(value);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Velg farge" className="fixed inset-x-0 bottom-0 rounded-t-2xl border-t border-white/10 bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[20vh] lg:w-[380px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
+        <div role="tablist" aria-label="Fargegruppe" className="mb-4 flex gap-2">
+          {(Object.keys(PLAYLIST_COLOR_GROUPS) as Array<'neon' | 'candy'>).map((g) => (
+            <button key={g} type="button" role="tab" aria-selected={group === g} onClick={() => setGroup(g)} className={`h-9 rounded-full px-4 text-xs font-semibold ${group === g ? 'bg-white/[0.12] text-ink-strong' : 'border border-white/10 text-muted'}`}>
+              {PLAYLIST_COLOR_GROUPS[g]}
+            </button>
+          ))}
+        </div>
+        <div role="radiogroup" aria-label={`Farger: ${PLAYLIST_COLOR_GROUPS[group]}`} className="grid grid-cols-6 gap-3">
+          {PLAYLIST_COLORS.filter((c) => c.group === group).map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              aria-checked={c.id === value}
+              aria-label={c.name}
+              title={c.name}
+              onMouseEnter={() => setHover(c)}
+              onMouseLeave={() => setHover(null)}
+              onFocus={() => setHover(c)}
+              onBlur={() => setHover(null)}
+              // Langt trykk på mobil viser navnet (uten å velge)
+              onTouchStart={() => setHover(c)}
+              onClick={() => onPick(c.id)}
+              className={`flex h-11 w-11 items-center justify-center rounded-full ${c.id === value ? 'ring-2 ring-white/70' : ''}`}
+            >
+              <ColorDot color={c} size={20} />
+            </button>
+          ))}
+        </div>
+        <p className="m-0 mt-4 flex items-center gap-2 text-sm text-ink-strong">
+          <ColorDot color={shown} size={10} />
+          {shown.name}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Oversikt (fanen «Lister» på mobil)
+
+export function PlaylistsOverview({ tracks, onOpen }: { tracks: Track[]; onOpen: (id: string) => void }) {
+  const playlists = usePlaylists((s) => s.playlists);
+  const loaded = usePlaylists((s) => s.loaded);
+  const error = usePlaylists((s) => s.error);
+  const nowList = useNowList((s) => s.listId);
+  const [creating, setCreating] = useState(false);
+  const builtins = BUILTIN_SMART.map((b) => buildListView(b.id, playlists, tracks)!);
+  const smart = playlists.filter((p) => p.kind === 'smart').sort((a, b) => a.name.localeCompare(b.name, 'nb'));
+  const manual = playlists.filter((p) => p.kind === 'manual').sort((a, b) => (b.usedAt ?? b.createdAt).localeCompare(a.usedAt ?? a.createdAt));
+
+  const smartRow = (v: ListView, sub: string) => (
+    <li key={v.id}>
+      <button type="button" onClick={() => onOpen(v.id)} className="flex min-h-[60px] w-full items-center gap-3 rounded-xl px-1.5 text-left active:bg-white/[0.05] lg:hover:bg-white/[0.03]">
+        <span className="flex h-12 w-12 flex-none items-center justify-center rounded-[10px] bg-white/[0.04]" style={{ color: v.color.primary, boxShadow: `0 0 0 1px ${v.color.primary}55` }}>
+          <BoltIcon width={20} height={20} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="truncate text-[15px] font-semibold text-ink-strong">{v.name}</span>
+          <span className="truncate text-xs text-muted">{sub}</span>
+        </span>
+        <span className="tabular text-xs text-muted">{v.assets.length}</span>
+      </button>
+    </li>
+  );
+
+  return (
+    <section aria-labelledby="gv-lists-h">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h1 id="gv-lists-h" className="m-0 font-display text-[30px] font-semibold uppercase tracking-[1.5px] text-ink-strong">
+          Spillelister
+        </h1>
+        <button type="button" onClick={() => setCreating(true)} className="flex h-10 items-center gap-1.5 rounded-full border border-gold/40 px-3.5 text-sm font-semibold text-gold hover:bg-gold/[0.08]">
+          <PlusIcon width={16} height={16} />
+          Ny liste
+        </button>
+      </div>
+      {creating && <NewListForm onDone={(p) => (setCreating(false), p && onOpen(p.id))} />}
+      {error && <p className="text-sm text-[#FF8A7A]">Fikk ikke hentet spillelistene: {error}</p>}
+      <ul className="m-0 list-none p-0">
+        {builtins.map((v) => smartRow(v, v.kind === 'builtin' && v.id === 'builtin:recent' ? 'Smart · siste 14 dager' : 'Smart · alle live-sett'))}
+        {smart.map((p) => smartRow(buildListView(p.id, playlists, tracks)!, `Smart · «${p.query}»`))}
+      </ul>
+      <div className="my-3 border-t border-white/[0.06]" />
+      {loaded && manual.length === 0 && <p className="px-1.5 text-sm text-muted">Ingen egne lister ennå. Trykk «Ny liste», eller ⋯ på en låt → Legg til i spilleliste.</p>}
+      <ul className="m-0 list-none p-0">
+        {manual.map((p) => {
+          const v = buildListView(p.id, playlists, tracks)!;
+          const s = playlistStats(v.assets);
+          return (
+            <li key={p.id}>
+              <button type="button" onClick={() => onOpen(p.id)} className="flex min-h-[64px] w-full items-center gap-3 rounded-xl px-1.5 text-left active:bg-white/[0.05] lg:hover:bg-white/[0.03]">
+                <Mosaic assets={v.assets} size={48} color={v.color} rounded={8} />
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="flex items-center gap-2 truncate text-[15px] font-semibold text-ink-strong">
+                    <ColorDot color={v.color} size={8} pulse={nowList === p.id} />
+                    <span className="truncate">{p.name}</span>
+                  </span>
+                  <span className="truncate text-xs text-muted">
+                    {s.count} {s.count === 1 ? 'låt' : 'låter'} · {formatListDuration(s.totalMs)}
+                  </span>
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+function NewListForm({ onDone }: { onDone: (p: Playlist | null) => void }) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="mb-4 flex gap-2"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (!name.trim()) return;
+        setBusy(true);
+        try {
+          onDone(await usePlaylists.getState().create(name.trim()));
+        } catch (err) {
+          toastError(err);
+          setBusy(false);
+        }
+      }}
+    >
+      <label htmlFor="gv-new-list-2" className="sr-only">
+        Navn på ny spilleliste
+      </label>
+      <input id="gv-new-list-2" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && onDone(null)} placeholder="Navn på lista" className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-surface px-3 text-[15px] text-ink-strong placeholder:text-muted focus:border-gold/60 focus:outline-none" />
+      <button type="submit" disabled={busy || !name.trim()} className="h-11 rounded-xl bg-gold px-4 text-sm font-semibold text-[#120D02] disabled:opacity-40">
+        Lag
+      </button>
+      <button type="button" onClick={() => onDone(null)} className="h-11 rounded-xl px-3 text-sm text-muted">
+        Avbryt
+      </button>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------- Sidemenyen på desktop
+
+export const DRAG_ITEMS = 'application/x-gv-items';
+
+export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]; activeId: string | null; onOpen: (id: string) => void }) {
+  const playlists = usePlaylists((s) => s.playlists);
+  const nowList = useNowList((s) => s.listId);
+  const [creating, setCreating] = useState(false);
+  const [over, setOver] = useState<string | null>(null);
+  const manual = playlists.filter((p) => p.kind === 'manual').sort((a, b) => a.name.localeCompare(b.name, 'nb'));
+  const smart = playlists.filter((p) => p.kind === 'smart').sort((a, b) => a.name.localeCompare(b.name, 'nb'));
+  const item = (id: string, name: string, color: PlaylistColor, smartIcon: boolean, dropTarget: Playlist | null) => {
+    const active = activeId === id;
+    return (
+      <li key={id}>
+        <button
+          type="button"
+          aria-current={active ? 'page' : undefined}
+          onClick={() => onOpen(id)}
+          onDragOver={(e) => {
+            if (!dropTarget || !e.dataTransfer.types.includes(DRAG_ITEMS)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            setOver(id);
+          }}
+          onDragLeave={() => setOver((o) => (o === id ? null : o))}
+          onDrop={(e) => {
+            setOver(null);
+            if (!dropTarget) return;
+            e.preventDefault();
+            try {
+              const items = JSON.parse(e.dataTransfer.getData(DRAG_ITEMS)) as AddItem[];
+              if (items.length) void addWithUndo(dropTarget, items).catch(toastError);
+            } catch {
+              /* ikke våre data */
+            }
+          }}
+          className={`flex min-h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left text-[13px] ${active ? 'font-semibold text-ink-strong' : 'text-muted hover:text-ink-strong'} ${over === id ? 'bg-white/[0.08] ring-1' : ''}`}
+          style={active ? { background: `${color.primary}14`, boxShadow: `inset 2px 0 0 ${color.primary}, ${neonGlow(color.primary).split(',')[0]}` } : over === id ? ({ '--tw-ring-color': color.primary } as CSSProperties) : undefined}
+        >
+          {smartIcon ? <BoltIcon width={14} height={14} style={{ color: color.primary }} /> : <ColorDot color={color} size={9} pulse={nowList === id} />}
+          <span className="min-w-0 flex-1 truncate">{name}</span>
+        </button>
+      </li>
+    );
+  };
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="mb-1 flex items-center justify-between px-3">
+        <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-muted">Spillelister</span>
+      </div>
+      <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-left text-[13px] font-semibold text-gold hover:bg-gold/[0.06]">
+        <PlusIcon width={14} height={14} />
+        Ny spilleliste
+      </button>
+      {creating && (
+        <div className="px-1">
+          <NewListForm onDone={(p) => (setCreating(false), p && onOpen(p.id))} />
+        </div>
+      )}
+      <ul className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-0 pr-1">
+        {BUILTIN_SMART.map((b) => item(b.id, b.name, colorById(BUILTIN_COLORS[b.id]), true, null))}
+        {smart.map((p) => item(p.id, p.name, colorById(p.color), true, null))}
+        {manual.length > 0 && <li aria-hidden="true" className="mx-3 my-1.5 border-t border-white/[0.06]" />}
+        {manual.map((p) => item(p.id, p.name, colorById(p.color), false, p))}
+      </ul>
+      {tracks.length > 0 && <p className="m-0 px-3 pt-1 text-[10px] text-muted">Dra låter hit for å legge dem til</p>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- Lista
+
+export function PlaylistDetail({ id, tracks, onBack, onClosed }: { id: string; tracks: Track[]; onBack: () => void; onClosed: () => void }) {
+  const playlists = usePlaylists((s) => s.playlists);
+  const loaded = usePlaylists((s) => s.loaded);
+  const v = buildListView(id, playlists, tracks);
+  const nowList = useNowList((s) => s.listId);
+  const { queue, index, playing } = usePlayer();
+  const [menu, setMenu] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [picking, setPicking] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [resumeKey, setResumeKey] = useState<string | null>(null);
+
+  useEffect(() => setResumeKey(savedEntry(id)), [id, nowList, index]);
+  if (!v) return loaded ? <p className="text-sm text-muted">Fant ikke spillelista (slettet på en annen enhet?). <button type="button" className="text-gold underline" onClick={onBack}>Tilbake</button></p> : <p className="text-sm text-muted">Laster …</p>;
+
+  const s = playlistStats(v.assets);
+  const c = v.color;
+  const isNow = nowList === id;
+  const editable = v.kind !== 'builtin';
+  const resumeAt = resumeKey ? v.keys.indexOf(resumeKey) : -1;
+  const resumeAsset = resumeAt >= 0 ? v.assets[resumeAt] : undefined;
+  const play = (i: number) => v.assets.length && playList(id, v.assets, v.keys, i);
+  const shuffle = () => {
+    const order = shuffled(v.assets.map((_, i) => i));
+    playList(
+      id,
+      order.map((i) => v.assets[i]!),
+      order.map((i) => v.keys[i]!),
+      0
+    );
+  };
+  const bpm = s.bpmMin != null ? (s.bpmMin === s.bpmMax ? `${s.bpmMin} BPM` : `${s.bpmMin}–${s.bpmMax} BPM`) : null;
+
+  return (
+    <section aria-labelledby="gv-list-h" className="relative">
+      <div aria-hidden="true" className="pointer-events-none absolute -left-24 -top-40 h-[480px] w-[480px] rounded-full" style={{ background: `radial-gradient(closest-side, ${c.primary}2E, ${c.secondary}12 60%, transparent)` }} />
+      <button type="button" onClick={onBack} className="relative mb-3 flex h-10 items-center gap-1 text-sm text-muted hover:text-ink">
+        <ChevronDownIcon width={18} height={18} className="rotate-90" />
+        Spillelister
+      </button>
+      <header className="relative flex flex-col gap-4 sm:flex-row sm:items-end">
+        {v.kind === 'manual' ? (
+          <Mosaic assets={v.assets} size={168} color={c} rounded={14} />
+        ) : (
+          <span className="flex h-[168px] w-[168px] flex-none items-center justify-center rounded-[14px] bg-surface" style={{ color: c.primary, boxShadow: `0 0 0 1px ${c.primary}80, ${neonGlow(c.primary)}` }}>
+            <BoltIcon width={64} height={64} />
+          </span>
+        )}
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[2px]" style={{ color: c.primary }}>
+            <ColorDot color={c} size={8} pulse={isNow && playing} />
+            {v.kind === 'manual' ? 'Spilleliste' : `Smart liste${v.playlist?.query ? ` · «${v.playlist.query}»` : ''}`}
+          </span>
+          {renaming && v.playlist ? (
+            <RenameForm p={v.playlist} onDone={() => setRenaming(false)} />
+          ) : (
+            <h1 id="gv-list-h" className="m-0 break-words font-display text-[32px] font-semibold uppercase leading-none tracking-[1.5px] text-ink-strong lg:text-[44px]">
+              {v.name}
+            </h1>
+          )}
+          <p className="m-0 text-[13px] text-muted">{[`${s.count} ${s.count === 1 ? 'låt' : 'låter'}`, formatListDuration(s.totalMs), bpm].filter(Boolean).join(' · ')}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={!v.assets.length}
+              onClick={() => play(0)}
+              className={`flex h-12 items-center gap-2 rounded-full px-5 text-sm font-semibold disabled:opacity-40 ${isNow && playing ? 'gv-pulse' : ''}`}
+              style={{ background: c.primary, color: c.onPrimary, boxShadow: neonGlow(c.primary) }}
+            >
+              <PlayIcon width={18} height={18} />
+              Spill
+            </button>
+            <button type="button" disabled={v.assets.length < 2} onClick={shuffle} className="flex h-12 items-center gap-2 rounded-full border border-white/12 px-4 text-sm text-ink hover:border-white/25 disabled:opacity-40">
+              <ShuffleIcon width={16} height={16} />
+              Bland
+            </button>
+            {resumeAsset && resumeAt > 0 && !isNow && (
+              <button type="button" onClick={() => play(resumeAt)} className="flex h-12 min-w-0 items-center gap-2 rounded-full border border-white/12 px-4 text-sm text-ink hover:border-white/25">
+                <span className="truncate">Fortsett: {resumeAsset.manifest.title}</span>
+              </button>
+            )}
+            {editable && (
+              <div className="relative">
+                <button type="button" aria-label="Flere valg for lista" aria-expanded={menu} onClick={() => setMenu((m) => !m)} className="flex h-12 w-12 items-center justify-center rounded-full text-champagne hover:bg-white/[0.06]">
+                  <MoreIcon width={20} height={20} />
+                </button>
+                {menu && (
+                  <ul role="menu" className="absolute left-0 top-12 z-20 m-0 w-52 list-none rounded-xl border border-white/10 bg-[#15181F] p-1.5 shadow-2xl" onMouseLeave={() => setMenu(false)}>
+                    {(
+                      [
+                        ['Gi nytt navn', () => setRenaming(true)],
+                        ['Farge', () => setPicking(true)],
+                        ['Dupliser', () => void usePlaylists.getState().duplicate(v.playlist!).then((p) => useToast.getState().show(`Lagde «${p.name}»`)).catch(toastError)],
+                        ['Slett …', () => setConfirmDelete(true)]
+                      ] as Array<[string, () => void]>
+                    ).map(([label, run]) => (
+                      <li key={label} role="none">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenu(false);
+                            run();
+                          }}
+                          className={`flex min-h-11 w-full items-center rounded-lg px-3 text-left text-sm hover:bg-white/[0.06] lg:min-h-9 ${label.startsWith('Slett') ? 'text-[#FF8A7A]' : 'text-ink'}`}
+                        >
+                          {label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {confirmDelete && v.playlist && (
+        <div role="alertdialog" aria-labelledby="gv-del-h" className="relative mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-[#FF8A7A]/40 bg-[#FF8A7A]/[0.06] p-3">
+          <span id="gv-del-h" className="min-w-0 flex-1 text-sm text-ink-strong">
+            Slette «{v.name}»? Låtene blir liggende i hvelvet.
+          </span>
+          <button type="button" onClick={() => setConfirmDelete(false)} className="h-10 rounded-full px-4 text-sm text-muted">
+            Avbryt
+          </button>
+          <button
+            type="button"
+            onClick={async () => {
+              const snapshot = v.playlist!;
+              try {
+                await usePlaylists.getState().remove(id);
+                onClosed();
+                useToast.getState().show(`Slettet «${snapshot.name}»`, { label: 'Angre', run: () => void usePlaylists.getState().restore(snapshot).catch(toastError) });
+              } catch (err) {
+                toastError(err);
+              }
+            }}
+            className="h-10 rounded-full bg-[#FF8A7A] px-4 text-sm font-semibold text-[#1A0704]"
+          >
+            Slett
+          </button>
+        </div>
+      )}
+      {picking && v.playlist && (
+        <ColorPicker
+          value={v.playlist.color}
+          onClose={() => setPicking(false)}
+          onPick={(colorId) => {
+            setPicking(false);
+            void usePlaylists.getState().setColor(id, colorId).catch(toastError);
+          }}
+        />
+      )}
+
+      <div className="relative mt-6">
+        {v.kind === 'manual' ? (
+          <ManualRows v={v} playingId={isNow ? v.keys[index] : undefined} onPlay={play} queueLen={queue.length} />
+        ) : (
+          <ol className="m-0 list-none p-0">
+            {v.assets.length === 0 && <li className="text-sm text-muted">Ingen treff ennå.</li>}
+            {v.assets.map((a, i) => (
+              <li key={a.manifest.id}>
+                <EntryButton a={a} i={i} current={isNow && v.keys[index] === v.keys[i]} onPlay={() => play(i)} />
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function RenameForm({ p, onDone }: { p: Playlist; onDone: () => void }) {
+  const [name, setName] = useState(p.name);
+  return (
+    <form
+      className="flex gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (name.trim()) void usePlaylists.getState().rename(p.id, name.trim()).catch(toastError);
+        onDone();
+      }}
+    >
+      <label htmlFor="gv-rename" className="sr-only">
+        Nytt navn
+      </label>
+      <input id="gv-rename" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && onDone()} className="h-12 min-w-0 flex-1 rounded-xl border border-white/15 bg-surface px-3 text-lg text-ink-strong focus:border-gold/60 focus:outline-none" />
+      <button type="submit" className="h-12 rounded-xl bg-gold px-4 text-sm font-semibold text-[#120D02]">
+        Lagre
+      </button>
+    </form>
+  );
+}
+
+function EntryButton({ a, i, current, onPlay, children }: { a: LoadedAsset; i: number; current: boolean; onPlay: () => void; children?: ReactNode }) {
+  const m = a.manifest;
+  return (
+    <div className={`flex min-h-[60px] items-center gap-3 rounded-xl px-1.5 ${current ? 'bg-white/[0.04]' : ''}`}>
+      <button type="button" onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Spill ${m.title}`}>
+        <span className="tabular w-5 flex-none text-right text-xs text-muted">{current ? <span className="text-accent">▶</span> : i + 1}</span>
+        <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={6} />
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className={`truncate text-[15px] font-semibold lg:text-sm ${current ? 'text-accent' : 'text-ink-strong'}`}>{m.title}</span>
+          <span className="truncate text-xs text-muted">{[m.variant ? variantName(a) : null, m.kind === 'set' ? 'Live-sett' : null, m.bpm ? `${m.bpm} BPM` : null, m.key?.camelot].filter(Boolean).join(' · ')}</span>
+        </span>
+        <span className="tabular text-xs text-muted">{formatTime(m.durationMs)}</span>
+      </button>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Manuelle lister.
+ * Mobil: hold inne og dra for å flytte, sveip til venstre for å fjerne (med angre).
+ * Desktop: dra og slipp for å flytte, klikk/Ctrl/Shift for å velge, Delete fjerner (med angre).
+ */
+function ManualRows({ v, playingId, onPlay }: { v: ListView; playingId: string | undefined; onPlay: (i: number) => void; queueLen: number }) {
+  const listRef = useRef<HTMLOListElement>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [anchor, setAnchor] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropBefore, setDropBefore] = useState<string | null | undefined>(undefined);
+  const [touch, setTouch] = useState<{ id: string; mode: 'drag' | 'swipe'; dy: number; dx: number } | null>(null);
+  const p = v.playlist!;
+  const rows = v.rows;
+  const playIndexOf = (entryId: string) => v.keys.indexOf(entryId);
+
+  const removeWithUndo = async (ids: string[]) => {
+    const removed = rows.map((r, index) => ({ entry: r.entry, index })).filter((r) => ids.includes(r.entry.id));
+    if (!removed.length) return;
+    setSelected([]);
+    try {
+      await usePlaylists.getState().removeEntries(p.id, ids);
+      useToast.getState().show(removed.length === 1 ? `Fjernet ${rows[removed[0]!.index]!.asset?.manifest.title ?? 'låta'}` : `Fjernet ${removed.length} låter`, {
+        label: 'Angre',
+        run: () => void usePlaylists.getState().restoreEntries(p.id, removed).catch(toastError)
+      });
+    } catch (err) {
+      toastError(err);
+    }
+  };
+
+  // Delete/Backspace fjerner valgte (desktop)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (t && ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName)) return;
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected.length) {
+        e.preventDefault();
+        void removeWithUndo(selected);
+      } else if (e.key === 'Escape') setSelected([]);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const removeRef = useRef(removeWithUndo);
+  removeRef.current = removeWithUndo;
+
+  // Mobil: hold inne (300 ms) = dra, vannrett sveip = fjern. Native lyttere (ikke passive) så siden ikke scroller under draget.
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    let start: { x: number; y: number; id: string; t: number } | null = null;
+    let timer = 0;
+    let mode: 'drag' | 'swipe' | null = null;
+    let moved = false;
+    let before: string | null | undefined;
+    let lastDx = 0;
+    const rowAt = (y: number): string | null => {
+      for (const li of Array.from(el.querySelectorAll<HTMLElement>('[data-entry]'))) {
+        const r = li.getBoundingClientRect();
+        if (y < r.top + r.height / 2) return li.dataset.entry!;
+      }
+      return null;
+    };
+    const onStart = (e: TouchEvent) => {
+      const li = (e.target as HTMLElement).closest<HTMLElement>('[data-entry]');
+      if (!li || e.touches.length !== 1) return;
+      const t = e.touches[0]!;
+      start = { x: t.clientX, y: t.clientY, id: li.dataset.entry!, t: Date.now() };
+      mode = null;
+      moved = false;
+      before = undefined;
+      lastDx = 0;
+      timer = window.setTimeout(() => {
+        if (!start || moved) return;
+        mode = 'drag';
+        navigator.vibrate?.(10);
+        setTouch({ id: start.id, mode: 'drag', dy: 0, dx: 0 });
+        setDropBefore(undefined);
+      }, 300);
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!start) return;
+      const t = e.touches[0]!;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (mode === 'drag') {
+        e.preventDefault();
+        before = rowAt(t.clientY);
+        setTouch({ id: start.id, mode: 'drag', dy, dx: 0 });
+        setDropBefore(before);
+        return;
+      }
+      if (mode === 'swipe') {
+        e.preventDefault();
+        lastDx = Math.min(0, dx);
+        setTouch({ id: start.id, mode: 'swipe', dy: 0, dx: lastDx });
+        return;
+      }
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        moved = true;
+        window.clearTimeout(timer);
+        if (Math.abs(dx) > Math.abs(dy) * 1.5 && dx < 0) {
+          mode = 'swipe';
+          e.preventDefault();
+        } else start = null; // vanlig scrolling
+      }
+    };
+    const onEnd = () => {
+      window.clearTimeout(timer);
+      const s = start;
+      start = null;
+      if (!s || !mode) return;
+      const m = mode;
+      mode = null;
+      if (m === 'swipe' && lastDx < -90) void removeRef.current([s.id]);
+      if (m === 'drag' && before !== undefined && before !== s.id) void usePlaylists.getState().move(p.id, s.id, before).catch(toastError);
+      setTouch(null);
+      setDropBefore(undefined);
+      // Ikke la draget/sveipet bli et trykk på raden
+      const swallow = (ev: Event) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+      };
+      window.addEventListener('click', swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 400);
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    };
+  }, [p.id]);
+
+  const select = (entryId: string, e: MouseEvent) => {
+    if (e.shiftKey && anchor) {
+      const ids = rows.map((r) => r.entry.id);
+      const [a, b] = [ids.indexOf(anchor), ids.indexOf(entryId)].sort((x, y) => x - y) as [number, number];
+      setSelected(ids.slice(a, b + 1));
+    } else if (e.ctrlKey || e.metaKey) {
+      setSelected((s) => (s.includes(entryId) ? s.filter((x) => x !== entryId) : [...s, entryId]));
+      setAnchor(entryId);
+    } else {
+      setSelected([entryId]);
+      setAnchor(entryId);
+    }
+  };
+
+  if (rows.length === 0) return <p className="text-sm text-muted">Tom liste. Legg til låter med ⋯ på en låt{' '}<span className="hidden lg:inline">, eller dra dem hit fra katalogen</span>.</p>;
+
+  return (
+    <>
+      <p className="m-0 mb-2 text-[11px] text-muted lg:hidden">Hold inne og dra for å flytte · sveip til venstre for å fjerne</p>
+      <p className="m-0 mb-2 hidden text-[11px] text-muted lg:block">Dra for å flytte · Ctrl/Shift-klikk for å velge flere · Delete fjerner · dobbeltklikk spiller</p>
+      <ol ref={listRef} className="m-0 list-none p-0" onDragOver={(e) => dragId && e.preventDefault()} onDrop={() => dragId && dropBefore === null && void usePlaylists.getState().move(p.id, dragId, null).catch(toastError)}>
+        {rows.map((r, i) => {
+          const id = r.entry.id;
+          const isTouched = touch?.id === id;
+          const style: CSSProperties = isTouched ? { transform: touch!.mode === 'drag' ? `translateY(${touch!.dy}px) scale(1.02)` : `translateX(${touch!.dx}px)`, zIndex: 5, position: 'relative', background: '#15181F', borderRadius: 12, boxShadow: touch!.mode === 'drag' ? '0 10px 30px rgba(0,0,0,.5)' : undefined } : {};
+          const showLine = (dragId || touch?.mode === 'drag') && dropBefore === id && (dragId ?? touch?.id) !== id;
+          return (
+            <li
+              key={id}
+              data-entry={id}
+              draggable
+              onDragStart={(e) => {
+                setDragId(id);
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', id);
+              }}
+              onDragEnd={() => {
+                setDragId(null);
+                setDropBefore(undefined);
+              }}
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setDropBefore(e.clientY < rect.top + rect.height / 2 ? id : (rows[i + 1]?.entry.id ?? null));
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (dragId && dropBefore !== undefined && dropBefore !== dragId) void usePlaylists.getState().move(p.id, dragId, dropBefore).catch(toastError);
+                setDragId(null);
+                setDropBefore(undefined);
+              }}
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('button,select')) return;
+                select(id, e);
+              }}
+              onDoubleClick={() => r.asset && onPlay(playIndexOf(id))}
+              aria-selected={selected.includes(id)}
+              className={`relative select-none ${selected.includes(id) ? 'rounded-xl bg-white/[0.06] ring-1 ring-white/10' : ''} ${dragId === id ? 'opacity-40' : ''}`}
+              style={style}
+            >
+              {showLine && <span aria-hidden="true" className="absolute inset-x-2 -top-px h-0.5 rounded" style={{ background: v.color.primary, boxShadow: neonGlow(v.color.primary) }} />}
+              {isTouched && touch!.mode === 'swipe' && (
+                <span aria-hidden="true" className="absolute inset-y-0 right-0 flex items-center gap-1 pr-4 text-xs font-semibold text-[#FF8A7A]" style={{ transform: `translateX(${-touch!.dx}px)` }}>
+                  <TrashIcon width={16} height={16} /> Fjern
+                </span>
+              )}
+              {r.asset ? (
+                <EntryButton a={r.asset} i={i} current={playingId === id} onPlay={() => onPlay(playIndexOf(id))}>
+                  <EntryControls p={p} r={r} onRemove={() => void removeWithUndo([id])} />
+                </EntryButton>
+              ) : (
+                <div className="flex min-h-[60px] items-center gap-3 rounded-xl px-1.5 opacity-70">
+                  <span className="tabular w-5 flex-none text-right text-xs text-muted">{i + 1}</span>
+                  <span className="flex h-11 w-11 flex-none items-center justify-center rounded-md border border-dashed border-white/15 text-muted">?</span>
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-sm font-semibold text-muted line-through">{r.track?.main.manifest.title ?? r.entry.slug}</span>
+                    <span className="truncate text-xs text-[#FFB4A8]">Utilgjengelig: {r.reason}</span>
+                  </span>
+                  <EntryControls p={p} r={r} onRemove={() => void removeWithUndo([id])} />
+                </div>
+              )}
+            </li>
+          );
+        })}
+        {dragId && (
+          <li
+            aria-hidden="true"
+            className="h-8"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDropBefore(null);
+            }}
+          >
+            {dropBefore === null && <span className="mx-2 mt-1 block h-0.5 rounded" style={{ background: v.color.primary, boxShadow: neonGlow(v.color.primary) }} />}
+          </li>
+        )}
+      </ol>
+    </>
+  );
+}
+
+/** Desktop: variantlås og fjern-knapp per rad. Mobil: bare håndtaket (dra/sveip gjør resten). */
+function EntryControls({ p, r, onRemove }: { p: Playlist; r: ResolvedEntry<LoadedAsset>; onRemove: () => void }) {
+  const t = r.track;
+  return (
+    <>
+      {t && t.variants.length > 1 && (
+        <label className="hidden items-center lg:flex">
+          <span className="sr-only">Variant for {t.main.manifest.title}</span>
+          <select
+            value={r.entry.variant ?? ''}
+            onChange={(e) => void usePlaylists.getState().setVariant(p.id, r.entry.id, e.target.value || null).catch(toastError)}
+            className="h-8 max-w-[160px] rounded-lg border border-white/10 bg-sunken px-2 text-[11px] text-champagne focus:outline-none"
+          >
+            <option value="">Følg hovedvarianten</option>
+            {t.variants
+              .filter((x) => x.manifest.variant)
+              .map((x) => (
+                <option key={x.manifest.variant!} value={x.manifest.variant!}>
+                  Alltid {variantName(x)}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
+      <button type="button" onClick={onRemove} aria-label="Fjern fra lista" title="Fjern (Delete)" className="hidden h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-white/[0.06] hover:text-[#FF8A7A] lg:flex">
+        <TrashIcon width={16} height={16} />
+      </button>
+      <span aria-hidden="true" className="flex h-9 w-6 items-center justify-center text-muted/70 lg:cursor-grab">
+        <GripIcon width={16} height={16} />
+      </span>
+    </>
+  );
+}
+
+export type { PlaylistEntry };

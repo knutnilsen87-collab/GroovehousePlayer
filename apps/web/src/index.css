@@ -62,3 +62,13 @@ body {
     animation-duration: 0ms !important;
   }
 }
+
+/* Spillelister: neon-gløden puster svakt med sub-bassen mens lista spilles (--sub er 0 ved «redusert bevegelse»). */
+.gv-pulse {
+  filter: brightness(calc(1 + var(--sub, 0) * 0.55)) saturate(calc(1 + var(--sub, 0) * 0.3));
+}
+@media (prefers-reduced-motion: reduce) {
+  .gv-pulse {
+    filter: none;
+  }
+}

@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import { findRoot, loadConfig } from './config';
 import { retagSlug } from './ingest';
+import { createPlaylistStore, PlaylistError, type PlaylistStore } from './playlists';
 import { overridePath, readOverrides, type MetaFile } from './sources';
 
 /**
@@ -13,9 +14,17 @@ import { overridePath, readOverrides, type MetaFile } from './sources';
  *   POST /api/assets/:slug/meta   { title?, artist?, album?, variants?: { extended: "Extended Mix" } }
  *        → lagrer, og kjører bare tag- og manifest-steget på nytt (ingen ny analyse).
  * Tom streng fjerner overstyringen. Eksportmappa røres aldri.
+ *
+ * Spillelister (del 9), lagret i <rot>/data/playlists.json:
+ *   GET    /api/playlists            → { playlists }
+ *   POST   /api/playlists            { name, kind?: "manual"|"smart", query?, entries?: [{ slug, variant? }] } → 201 { playlist }
+ *   PATCH  /api/playlists/:id        { updatedAt, name?, entries?, add?, query? } → { playlist } | 409 { error, playlist }
+ *   DELETE /api/playlists/:id        { updatedAt } → 204 | 409 { error, playlist }
  */
 export interface ApiOptions {
   mediaDir: string;
+  /** Mappe for playlists.json. Standard: <prosjektrot>/data. */
+  dataDir?: string;
 }
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,120}$/;
@@ -26,6 +35,7 @@ export const APP_ID = 'groovehouse-vault';
 export function createApiHandler(opts: ApiOptions) {
   const root = findRoot(opts.mediaDir);
   const cfg = loadConfig(root);
+  const playlists = createPlaylistStore(path.join(opts.dataDir ?? path.join(root, 'data'), 'playlists.json'));
   let version = '0.0.0';
   try {
     version = (JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string }).version ?? version;
@@ -35,6 +45,10 @@ export function createApiHandler(opts: ApiOptions) {
   return async function handle(req: IncomingMessage, res: ServerResponse, next?: () => void): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (url.pathname === '/api/health') return send(res, 200, { app: APP_ID, version });
+    if (url.pathname === '/api/playlists' || url.pathname.startsWith('/api/playlists/')) {
+      await handlePlaylists(playlists, url, req, res);
+      return;
+    }
     const m = url.pathname.match(/^\/api\/assets\/([^/]+)\/meta$/);
     if (!m) {
       if (next) return next();
@@ -82,6 +96,33 @@ export function createApiHandler(opts: ApiOptions) {
   };
 }
 
+async function handlePlaylists(store: PlaylistStore, url: URL, req: IncomingMessage, res: ServerResponse) {
+  const id = url.pathname === '/api/playlists' ? null : decodeURIComponent(url.pathname.slice('/api/playlists/'.length));
+  if (id !== null && !/^[\w-]{1,64}$/.test(id)) return send(res, 404, { error: 'not found' });
+  try {
+    if (req.method === 'GET' && id === null) return send(res, 200, { playlists: await store.list() });
+    if (!['POST', 'PATCH', 'DELETE'].includes(req.method ?? '')) return send(res, 405, { error: 'method not allowed' });
+    // Krever JSON (som meta-endepunktet): andre nettsider må da gjennom en CORS-preflight som aldri godkjennes.
+    if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+    const body = (await readJson(req, 512_000)) as Record<string, unknown>;
+    if (req.method === 'POST' && id === null) return send(res, 201, { playlist: await store.create(body as never) });
+    if (id === null) return send(res, 405, { error: 'method not allowed' });
+    if (typeof body.updatedAt !== 'string') return send(res, 400, { error: 'updatedAt mangler' });
+    if (req.method === 'PATCH') return send(res, 200, { playlist: await store.patch(id, body as never) });
+    if (req.method === 'DELETE') {
+      await store.remove(id, body.updatedAt);
+      res.statusCode = 204;
+      res.setHeader('Cache-Control', 'no-store');
+      return res.end();
+    }
+    return send(res, 405, { error: 'method not allowed' });
+  } catch (err) {
+    if (err instanceof PlaylistError) return send(res, err.status, { error: err.message, ...(err.current ? { playlist: err.current } : {}) });
+    const msg = err instanceof Error ? err.message.split('\n')[0]! : String(err);
+    return send(res, /JSON|stor forespørsel/.test(msg) ? 400 : 500, { error: msg });
+  }
+}
+
 function send(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -89,13 +130,13 @@ function send(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-function readJson(req: IncomingMessage): Promise<unknown> {
+function readJson(req: IncomingMessage, limit = 64_000): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let data = '';
     req.setEncoding('utf8');
     req.on('data', (c: string) => {
       data += c;
-      if (data.length > 64_000) reject(new Error('for stor forespørsel'));
+      if (data.length > limit) reject(new Error('for stor forespørsel'));
     });
     req.on('end', () => {
       try {

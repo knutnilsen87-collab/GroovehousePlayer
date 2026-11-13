@@ -20,3 +20,6 @@ fixtures/**/*.wav
 
 # Lokale verdier for denne PC-en (Tailscale-navn o.l.)
 /groovehouse.local.json
+
+# Spillelister o.l. (lagres av serveren på denne PC-en)
+/data/

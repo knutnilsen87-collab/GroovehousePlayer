@@ -1,33 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatTime } from '@gv/shared/web';
+import { formatTime, matchesQuery } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset } from '../lib/catalog';
 import { CoverArt } from './CoverArt';
+import { BoltIcon } from './Icons';
 
 /**
  * Ctrl/Cmd + K. Skriv «126», «8A», «sett», «extended» eller deler av tittelen – alle ord må treffe.
- *  - 2–3 sifre (evt. med desimal) = BPM ± 1,5
- *  - 1–12 + A/B = Camelot-toneart
- *  - sett/set/live = bare live-sett, låt/track = bare låter
+ * Reglene (matchesQuery i @gv/shared) er de samme som smarte spillelister bruker.
  */
-export function matches(a: LoadedAsset, query: string): boolean {
-  const m = a.manifest;
-  const hay = [m.title, m.slug, m.variantLabel, m.artist, m.venue, m.key?.name].filter(Boolean).join(' ').toLowerCase();
-  return query
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((tok) => {
-      if (/^\d{2,3}([.,]\d)?$/.test(tok)) return m.bpm != null && Math.abs(m.bpm - Number(tok.replace(',', '.'))) <= 1.5;
-      if (/^(1[0-2]|[1-9])[ab]$/.test(tok)) return m.key?.camelot.toLowerCase() === tok;
-      if (['sett', 'set', 'live'].includes(tok)) return m.kind === 'set';
-      if (['låt', 'lat', 'track', 'låter'].includes(tok)) return m.kind === 'track';
-      return hay.includes(tok);
-    });
-}
+export const matches = (a: LoadedAsset, query: string) => matchesQuery(a.manifest, query);
 
-export function CommandPalette({ open, onClose, assets, onPick }: { open: boolean; onClose: () => void; assets: LoadedAsset[]; onPick: (list: LoadedAsset[], i: number) => void }) {
+export function CommandPalette({
+  open,
+  onClose,
+  assets,
+  onPick,
+  onSaveSmart
+}: {
+  open: boolean;
+  onClose: () => void;
+  assets: LoadedAsset[];
+  onPick: (list: LoadedAsset[], i: number) => void;
+  /** «Lagre som smart liste»: lagrer selve søket. */
+  onSaveSmart?: (name: string, query: string) => Promise<void>;
+}) {
   const [q, setQ] = useState('');
   const [sel, setSel] = useState(0);
+  const [saving, setSaving] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const results = useMemo(() => (q.trim() ? assets.filter((a) => matches(a, q)) : assets).slice(0, 30), [assets, q]);
 
@@ -35,6 +34,7 @@ export function CommandPalette({ open, onClose, assets, onPick }: { open: boolea
     if (open) {
       setQ('');
       setSel(0);
+      setSaving(null);
       setTimeout(() => input.current?.focus(), 0);
     }
   }, [open]);
@@ -103,6 +103,31 @@ export function CommandPalette({ open, onClose, assets, onPick }: { open: boolea
             );
           })}
         </ul>
+        {onSaveSmart && q.trim() && saving === null && (
+          <button type="button" onClick={() => setSaving(q.trim())} className="flex min-h-11 w-full items-center gap-2 border-t border-white/[0.06] px-5 text-left text-sm font-semibold text-gold hover:bg-white/[0.04]">
+            <BoltIcon width={16} height={16} />
+            Lagre som smart liste
+            <span className="ml-auto truncate text-xs font-normal text-muted">«{q.trim()}» oppdaterer seg selv</span>
+          </button>
+        )}
+        {onSaveSmart && saving !== null && (
+          <form
+            className="flex gap-2 border-t border-white/[0.06] px-4 py-2.5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!saving.trim()) return;
+              void onSaveSmart(saving.trim(), q.trim()).then(onClose);
+            }}
+          >
+            <label htmlFor="gv-smart-name" className="sr-only">
+              Navn på smart liste
+            </label>
+            <input id="gv-smart-name" autoFocus value={saving} maxLength={80} onChange={(e) => setSaving(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setSaving(null))} className="h-10 min-w-0 flex-1 rounded-lg border border-white/10 bg-sunken px-3 text-sm text-ink-strong focus:border-gold/60 focus:outline-none" />
+            <button type="submit" className="h-10 rounded-lg bg-gold px-4 text-sm font-semibold text-[#120D02]">
+              Lagre
+            </button>
+          </form>
+        )}
         <p className="m-0 border-t border-white/[0.06] px-5 py-2.5 text-[11px] text-muted">↑↓ for å velge · Enter for å spille · Esc for å lukke</p>
       </div>
     </div>
