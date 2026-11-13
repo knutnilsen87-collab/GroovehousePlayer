@@ -7,3 +7,13 @@ media/*
 fixtures/*.wav
 *.log
 .DS_Store
+
+# Local design references (not part of the codebase)
+/Claude Design projects/
+/Claude Design projects.zip
+/Groovehouse Records plattform design.zip
+/Gemini_Generated_Image_*.jpg
+/Groovehouse_Records.ico
+/Groovehouse_Vault_Ikonpakke_v2.zip
+/logo.png
+fixtures/**/*.wav

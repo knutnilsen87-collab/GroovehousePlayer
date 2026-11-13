@@ -44,5 +44,18 @@ export const admin = {
   addRecipient: 'Legg til mottaker',
   revoke: 'Trekk tilbake',
   phase2: 'Kommer i fase 2 (Supabase)',
-  sampleData: 'eksempeldata for mottakere og lyttehendelser'
+  sampleData: 'eksempeldata for mottakere og lyttehendelser',
+  edit: 'Rediger',
+  close: 'Lukk',
+  save: 'Lagre',
+  saving: 'Lagrer…',
+  saveHint: 'Lagres i media/<slug>/meta.json. Bare tags og manifest skrives på nytt – lyden analyseres ikke igjen.',
+  fieldTitle: 'Tittel',
+  fieldArtist: 'Artist',
+  fieldAlbum: 'Album',
+  albumPlaceholder: 'Tomt = låttittelen (singel)',
+  fieldVariant: 'Variantnavn',
+  titleNeedsReview: 'Filnavnet var i versaler – sjekk tittelen',
+  sunoFound: (n: number) => `«suno» funnet ${n} ${n === 1 ? 'sted' : 'steder'}`,
+  sunoRemoved: 'Fjernet fra HLS, preview, cover og manifest. Original-fila er ikke endret.'
 };

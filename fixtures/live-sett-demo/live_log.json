@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "events": [
+    {
+      "tMs": 0,
+      "type": "sync"
+    },
+    {
+      "tMs": 1500,
+      "type": "track",
+      "slug": "blue-fire",
+      "label": "Blue Fire"
+    },
+    {
+      "tMs": 58000,
+      "type": "track",
+      "slug": "would-you-run",
+      "label": "Would You Run"
+    },
+    {
+      "tMs": 120000,
+      "type": "highlight",
+      "label": "Publikum tar av"
+    }
+  ]
+}

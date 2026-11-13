@@ -53,3 +53,15 @@ export async function probe(file: string): Promise<ProbeInfo> {
   if (!s || !Number.isFinite(dur) || dur <= 0) throw new Error(`ffprobe fant ingen gyldig lydstrøm i ${file}`);
   return { durationMs: Math.round(dur * 1000), sampleRate: Number(s.sample_rate), channels: s.channels, codec: s.codec_name };
 }
+
+/** Alle tags i kildefila (format + strømmer), som «nøkkel=verdi». Brukes bare til å varsle om uønskede tags. */
+export async function probeTags(file: string): Promise<string[]> {
+  const { stdout } = await run(FFPROBE, ['-v', 'error', '-show_entries', 'format_tags:stream_tags', '-of', 'json', file], { allowFail: true });
+  try {
+    const j = JSON.parse(stdout) as { format?: { tags?: Record<string, string> }; streams?: Array<{ tags?: Record<string, string> }> };
+    const all = [j.format?.tags ?? {}, ...(j.streams ?? []).map((s) => s.tags ?? {})];
+    return all.flatMap((t) => Object.entries(t).map(([k, v]) => `${k}=${v}`));
+  } catch {
+    return [];
+  }
+}

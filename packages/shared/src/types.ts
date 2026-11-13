@@ -60,6 +60,24 @@ export interface AssetManifest {
   kind: AssetKind;
   title: string;
   artist: string | null;
+  /** Album. Uten meta.json: låttittelen (singel). Aldri labelnavnet. */
+  album: string | null;
+  /** Plateselskap, f.eks. "Groovehouse Records". */
+  label: string | null;
+  /** f.eks. "℗ 2026 Groovehouse Records" – året er filens år. */
+  copyright: string | null;
+  /** Tittelen kom fra et filnavn i bare versaler og bør sjekkes i Studio. */
+  titleNeedsReview?: boolean;
+  /** Verdiene ingest kom fram til uten Studio-overstyringer. Tømmes et felt i Studio, gjelder disse igjen. */
+  sourceMeta?: {
+    title: string;
+    artist: string | null;
+    album: string | null;
+    label: string | null;
+    copyright: string | null;
+    variantLabel: string | null;
+    venue: string | null;
+  };
   durationMs: number;
   sampleRate: number;
   channels: number;
@@ -67,7 +85,8 @@ export interface AssetManifest {
   bpmConfidence: number | null;
   key: MusicalKey | null;
   masterSha256: string;
-  masterFile: string;
+  /** Hash av coverfila (null = gull). Nytt cover gir ny ingest selv om lyden er uendret. */
+  coverSha256: string | null;
   loudness: Loudness;
   palette: Palette;
   markers: AssetMarker[];

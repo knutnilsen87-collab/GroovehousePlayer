@@ -48,14 +48,60 @@ export async function loadCatalog(): Promise<LoadedAsset[]> {
 
 export function useCatalog() {
   const [state, setState] = useState<{ assets: LoadedAsset[]; loading: boolean }>({ assets: [], loading: true });
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
     loadCatalog().then((assets) => alive && setState({ assets, loading: false }));
     return () => {
       alive = false;
     };
-  }, []);
-  return state;
+  }, [tick]);
+  return { ...state, reload: () => setTick((t) => t + 1) };
+}
+
+/** media/ingest-log.json – skrevet av ingest-motoren. */
+export interface IngestLogEntry {
+  at: string;
+  slug: string;
+  variant: string | null;
+  version: number;
+  title: string;
+  status: 'ingested' | 'unchanged' | 'retagged' | 'failed';
+  suno: string[];
+  warnings: string[];
+}
+
+export function useIngestLog(tick = 0): IngestLogEntry[] {
+  const [entries, setEntries] = useState<IngestLogEntry[]>([]);
+  useEffect(() => {
+    let alive = true;
+    getJson<{ entries: IngestLogEntry[] }>('/ingest-log.json')
+      .then((j) => alive && setEntries(j.entries ?? []))
+      .catch(() => alive && setEntries([]));
+    return () => {
+      alive = false;
+    };
+  }, [tick]);
+  return entries;
+}
+
+/** Siste logglinje for en bestemt versjon (der ingest faktisk kjørte, ikke «uendret»). */
+export function lastLogFor(entries: IngestLogEntry[], a: LoadedAsset): IngestLogEntry | undefined {
+  const m = a.manifest;
+  return entries.find((e) => e.slug === m.slug && e.variant === m.variant && e.version === m.version && e.status !== 'unchanged');
+}
+
+/** Lagrer tittel/artist/album/variantnavn for en låt. Tom streng = bruk standard. */
+export async function saveAssetMeta(slug: string, body: { title?: string; artist?: string; album?: string; variants?: Record<string, string> }): Promise<void> {
+  const r = await fetch(`/api/assets/${encodeURIComponent(slug)}/meta`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!r.ok) {
+    const j = (await r.json().catch(() => ({}))) as { error?: string };
+    throw new Error(j.error ?? `Lagring feilet (${r.status})`);
+  }
 }
 
 /** Nedskalerer peaks til n søyler (maks per bøtte) for bølgeform-visning. */

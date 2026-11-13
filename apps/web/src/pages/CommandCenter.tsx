@@ -1,10 +1,10 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties, type FormEvent } from 'react';
 import { computeCoverage, formatTime, paletteToCssVars, type AccessTier, type AssetManifest } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
 import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, UploadIcon } from '../components/Icons';
 import { Waveform } from '../components/Waveform';
-import { assetUrl, downsample, findMain, useCatalog, type LoadedAsset } from '../lib/catalog';
+import { assetUrl, downsample, findMain, lastLogFor, saveAssetMeta, useCatalog, useIngestLog, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
@@ -13,7 +13,13 @@ type View = 'drops' | 'archive' | 'sets';
 
 /** Ditt arbeidsbord. Gull er systemfarge her, men data og kontroll har prioritet. */
 export function CommandCenter() {
-  const { assets, loading } = useCatalog();
+  const { assets, loading, reload } = useCatalog();
+  const [tick, setTick] = useState(0);
+  const log = useIngestLog(tick);
+  const refresh = () => {
+    reload();
+    setTick((x) => x + 1);
+  };
   const [view, setView] = useState<View>('drops');
 
   return (
@@ -23,9 +29,9 @@ export function CommandCenter() {
         {loading ? (
           <p className="text-muted">Laster katalog…</p>
         ) : view === 'drops' ? (
-          <DropsView assets={assets} />
+          <DropsView assets={assets} log={log} />
         ) : (
-          <ArchiveView assets={view === 'sets' ? assets.filter((a) => a.manifest.kind === 'set') : assets} title={view === 'sets' ? t.sets : t.archive} />
+          <ArchiveView assets={view === 'sets' ? assets.filter((a) => a.manifest.kind === 'set') : assets} title={view === 'sets' ? t.sets : t.archive} log={log} onSaved={refresh} />
         )}
       </main>
       <MiniPlayer />
@@ -75,7 +81,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
 
 // ---------------------------------------------------------------- Drops
 
-function DropsView({ assets }: { assets: LoadedAsset[] }) {
+function DropsView({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEntry[] }) {
   const [dropSlug, setDropSlug] = useState(SEED_DROPS[0]!.slug);
   const drop = SEED_DROPS.find((d) => d.slug === dropSlug)!;
 
@@ -94,7 +100,7 @@ function DropsView({ assets }: { assets: LoadedAsset[] }) {
         </button>
       </header>
 
-      <IngestStrip assets={assets} />
+      <IngestStrip assets={assets} log={log} />
 
       <section className="flex flex-wrap items-start gap-5">
         <div className="flex max-w-[360px] flex-[1_1_280px] flex-col gap-2.5">
@@ -109,7 +115,7 @@ function DropsView({ assets }: { assets: LoadedAsset[] }) {
   );
 }
 
-function IngestStrip({ assets }: { assets: LoadedAsset[] }) {
+function IngestStrip({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEntry[] }) {
   const recent = [...assets].sort((a, b) => b.manifest.createdAt.localeCompare(a.manifest.createdAt)).slice(0, 2);
   return (
     <section aria-label="Ingest" className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
@@ -119,13 +125,13 @@ function IngestStrip({ assets }: { assets: LoadedAsset[] }) {
         <span className="text-xs text-muted">{t.dropzoneHint}</span>
       </div>
       {recent.map((a) => (
-        <IngestCard key={a.manifest.id} a={a} />
+        <IngestCard key={a.manifest.id} a={a} entry={lastLogFor(log, a)} />
       ))}
     </section>
   );
 }
 
-function IngestCard({ a }: { a: LoadedAsset }) {
+function IngestCard({ a, entry }: { a: LoadedAsset; entry?: IngestLogEntry }) {
   const m = a.manifest;
   const steps = pipelineSteps(m);
   return (
@@ -134,7 +140,10 @@ function IngestCard({ a }: { a: LoadedAsset }) {
         <div className="flex min-w-0 items-center gap-2.5">
           <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={8} />
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold">{m.masterFile}</span>
+            <span className="truncate text-sm font-semibold">
+              {m.title}
+              {m.variantLabel ? ` (${m.variantLabel})` : ''}
+            </span>
             <span className="text-[11px] text-muted">
               {m.kind} · v{m.version} · {formatTime(m.durationMs)}
             </span>
@@ -142,6 +151,8 @@ function IngestCard({ a }: { a: LoadedAsset }) {
         </div>
         <span className="text-[11px] font-semibold tracking-[1px] text-gold">KLAR</span>
       </div>
+      <SunoNotice entry={entry} />
+      {m.titleNeedsReview && <p className="m-0 text-[11px] text-gold">{t.titleNeedsReview}</p>}
       <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
         {steps.map((s) => (
           <li key={s.label} className={`flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium ${s.ok ? 'bg-gold/10 text-gold-hi' : 'bg-white/[0.06] text-[#C9C4B6]'}`}>
@@ -149,6 +160,24 @@ function IngestCard({ a }: { a: LoadedAsset }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** Tydelig varsel når ingest fant «suno» i filnavn, tags eller tekstfelt. */
+function SunoNotice({ entry }: { entry?: IngestLogEntry }) {
+  if (!entry || entry.suno.length === 0) return null;
+  return (
+    <div role="status" className="rounded-xl border border-gold/50 bg-gold/[0.08] px-3 py-2 text-[12px] text-ink">
+      <p className="m-0 font-semibold text-gold-hi">{t.sunoFound(entry.suno.length)}</p>
+      <ul className="m-0 mt-1 list-disc pl-4 text-[11px] text-[#C9C4B6]">
+        {entry.suno.map((s) => (
+          <li key={s} className="break-all">
+            {s}
+          </li>
+        ))}
+      </ul>
+      <p className="m-0 mt-1 text-[11px] text-muted">{t.sunoRemoved}</p>
     </div>
   );
 }
@@ -410,7 +439,7 @@ function describeEvents(events: SeedRecipient['events'][string], m: AssetManifes
 
 // ---------------------------------------------------------------- Arkiv / Live-sett
 
-function ArchiveView({ assets, title }: { assets: LoadedAsset[]; title: string }) {
+function ArchiveView({ assets, title, log, onSaved }: { assets: LoadedAsset[]; title: string; log: IngestLogEntry[]; onSaved: () => void }) {
   const { setQueue, playIndex } = usePlayer();
   return (
     <div className="flex flex-col gap-5">
@@ -421,6 +450,8 @@ function ArchiveView({ assets, title }: { assets: LoadedAsset[]; title: string }
           <ArchiveRow
             key={a.manifest.id}
             a={a}
+            entry={lastLogFor(log, a)}
+            onSaved={onSaved}
             onPlay={() => {
               setQueue(assets, i);
               playIndex(i);
@@ -432,8 +463,9 @@ function ArchiveView({ assets, title }: { assets: LoadedAsset[]; title: string }
   );
 }
 
-function ArchiveRow({ a, onPlay }: { a: LoadedAsset; onPlay: () => void }) {
+function ArchiveRow({ a, entry, onPlay, onSaved }: { a: LoadedAsset; entry?: IngestLogEntry; onPlay: () => void; onSaved: () => void }) {
   const m = a.manifest;
+  const [editing, setEditing] = useState(false);
   const vars = paletteToCssVars(m.palette) as CSSProperties;
   const chapters = m.markers.filter((k) => k.kind === 'chapter' || k.kind === 'highlight');
   return (
@@ -441,7 +473,12 @@ function ArchiveRow({ a, onPlay }: { a: LoadedAsset; onPlay: () => void }) {
       <div className="flex flex-wrap items-center gap-4">
         <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={56} rounded={10} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="font-semibold text-ink-strong">{m.title}</span>
+          <span className="font-semibold text-ink-strong">
+            {m.title}
+            {m.variantLabel ? <span className="font-normal text-muted"> · {m.variantLabel}</span> : null}
+          </span>
+          <span className="text-xs text-[#C9C4B6]">{[m.artist, m.album && m.album !== m.title ? m.album : null, m.copyright].filter(Boolean).join(' · ')}</span>
+          {m.titleNeedsReview && <span className="text-[11px] text-gold">{t.titleNeedsReview}</span>}
           <span className="text-xs text-muted">
             {m.kind} · v{m.version} · {formatTime(m.durationMs)} · {m.loudness.integratedLufs} LUFS · {m.markers.length} markører
             {m.venue ? ` · ${m.venue}` : ''}
@@ -452,10 +489,28 @@ function ArchiveRow({ a, onPlay }: { a: LoadedAsset; onPlay: () => void }) {
           <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.secondary }} />
           {m.palette.source === 'cover' ? m.palette.primary : 'gull (fallback)'}
         </span>
+        <button
+          type="button"
+          onClick={() => setEditing((e) => !e)}
+          aria-expanded={editing}
+          className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-gold/50"
+        >
+          {editing ? t.close : t.edit}
+        </button>
         <button type="button" onClick={onPlay} aria-label={`Spill ${m.title}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-gold text-[#120D02]">
           <PlayIcon width={18} height={18} className="ml-0.5" />
         </button>
       </div>
+      <SunoNotice entry={entry} />
+      {editing && (
+        <MetaEditor
+          a={a}
+          onDone={() => {
+            setEditing(false);
+            onSaved();
+          }}
+        />
+      )}
       <Waveform peaks={a.analysis?.peaks ?? []} bars={120} height={40} progress={0} active markers={m.markers.filter((k) => k.kind === 'drop').map((k) => ({ pct: k.startMs / m.durationMs, label: 'DROP' }))} />
       {chapters.length > 0 && (
         <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
@@ -469,6 +524,67 @@ function ArchiveRow({ a, onPlay }: { a: LoadedAsset; onPlay: () => void }) {
         </ol>
       )}
     </li>
+  );
+}
+
+/** Tittel, artist, album og variantnavn. Lagres i media/<slug>/meta.json; bare tags og manifest skrives på nytt. */
+function MetaEditor({ a, onDone }: { a: LoadedAsset; onDone: () => void }) {
+  const m = a.manifest;
+  const [title, setTitle] = useState(m.title);
+  const [artist, setArtist] = useState(m.artist ?? '');
+  const [album, setAlbum] = useState(m.album && m.album !== m.title ? m.album : '');
+  const [variantLabel, setVariantLabel] = useState(m.variantLabel ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const id = `meta-${m.id}`;
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await saveAssetMeta(m.slug, { title, artist, album, ...(m.variant ? { variants: { [m.variant]: variantLabel } } : {}) });
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const field = 'min-h-11 w-full rounded-xl border border-white/10 bg-sunken px-3 text-sm text-ink focus:border-gold/60 focus:outline-none';
+  return (
+    <form onSubmit={submit} className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 rounded-xl border border-white/[0.08] bg-sunken/60 p-3">
+      <label className="flex flex-col gap-1 text-[11px] text-muted" htmlFor={`${id}-title`}>
+        {t.fieldTitle}
+        <input id={`${id}-title`} className={field} value={title} onChange={(e) => setTitle(e.target.value)} required maxLength={200} />
+      </label>
+      <label className="flex flex-col gap-1 text-[11px] text-muted" htmlFor={`${id}-artist`}>
+        {t.fieldArtist}
+        <input id={`${id}-artist`} className={field} value={artist} onChange={(e) => setArtist(e.target.value)} maxLength={200} />
+      </label>
+      <label className="flex flex-col gap-1 text-[11px] text-muted" htmlFor={`${id}-album`}>
+        {t.fieldAlbum}
+        <input id={`${id}-album`} className={field} value={album} placeholder={t.albumPlaceholder} onChange={(e) => setAlbum(e.target.value)} maxLength={200} />
+      </label>
+      {m.variant && (
+        <label className="flex flex-col gap-1 text-[11px] text-muted" htmlFor={`${id}-variant`}>
+          {t.fieldVariant}
+          <input id={`${id}-variant`} className={field} value={variantLabel} onChange={(e) => setVariantLabel(e.target.value)} maxLength={200} />
+        </label>
+      )}
+      <div className="col-span-full flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={busy} className="min-h-11 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02] disabled:opacity-60">
+          {busy ? t.saving : t.save}
+        </button>
+        <span className="text-[11px] text-muted">{t.saveHint}</span>
+        {error && (
+          <span role="alert" className="text-[12px] text-[#F2A08F]">
+            {error}
+          </span>
+        )}
+      </div>
+    </form>
   );
 }
 

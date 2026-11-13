@@ -1,0 +1,12 @@
+{
+  "$comment": "Standardverdier for ingest. meta.json (per låt) og redigering i Studio overstyrer alt her.",
+  "defaults": {
+    "artist": "Echo Groove",
+    "label": "Groovehouse Records",
+    "copyright": "℗ {year} Groovehouse Records"
+  },
+  "titleCleanup": {
+    "$comment": "Ord og mønstre som fjernes fra titler utledet av filnavn (store/små bokstaver spiller ingen rolle). Datoer, løpenummer som (1) og BPM-angivelser som (128BPM) fjernes alltid.",
+    "remove": ["suno ai", "suno", "v4.5", "v4", "v5.5", "v5", "(remastered)","final", "master", "bounce", "export", "stems"]
+  }
+}

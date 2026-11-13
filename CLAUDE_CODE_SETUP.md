@@ -18,13 +18,18 @@ Får du `'claude' is not recognized`: kjør `irm https://claude.ai/install.ps1 |
 
 # Oppdrag: Sett opp Groovehouse Vault på denne PC-en og fullfør det som mangler
 
-Du jobber på Knuts stasjonære Windows-PC. Prosjektets rotmappe er `F:\prosjekter_MAIN\GroovehousePlayer`. Groovehouse Vault er hans private spiller og arkiv for egen musikk (låter, demoer, varianter og hybride live-sett, kun eget materiale). Kodebasen er klonet fra GitHub (`knutnilsen87-collab/GroovehousePlayer`, gren `main`) til rotmappa. **Les `README.md` og `docs/CLAUDE_CODE_PROMPT.md` før du gjør noe**: der står arkitekturen og beslutningene som er låst.
+Du jobber på Knuts stasjonære Windows-PC. Prosjektets rotmappe er `F:\prosjekter_MAIN\GroovehousePlayer`. Groovehouse Vault er hans private spiller og arkiv for egen musikk (låter, demoer, varianter og hybride live-sett, kun eget materiale). Kodebasen er klonet fra GitHub (`knutnilsen87-collab/GroovehousePlayer`, gren `main`) til rotmappa. **Les `status_bundle.txt`, `README.md` og `docs/CLAUDE_CODE_PROMPT.md` før du gjør noe**: `status_bundle.txt` sier hvor prosjektet står nå, de to andre beskriver arkitekturen og beslutningene som er låst.
 
 ## Arbeidsmåte
 
+- **`status_bundle.txt` (i rotmappa) er prosjektets statusfil. Den skal alltid leses før du starter, og oppdateres når du har fullført noe nytt.**
+  - **Før start:** les `current_state` og `handoff`, og sjekk at fila stemmer med `git status` og `git log`. Motsier fila repoet, undersøk avviket og rett fila før du gjør noe annet.
+  - **Når noe er fullført** (en del, et delmål, en commit, en testkjøring): oppdater `last_updated`, `current_state`, `execution_log`, `validation`, `repo_health`, `acceptance_criteria`, `closure_readiness` og `handoff`, før du melder at det er ferdig.
+  - Følg reglene øverst i fila: ikke skriv «passed» for tester som ikke er kjørt, skill fakta fra antagelser, ingen hemmeligheter, og `can_claim_success: true` bare med dokumentert bevis.
+  - Fila skal være gyldig YAML. Commit den sammen med endringene den beskriver.
 - Jobb i delene under, i rekkefølge. Legg fram en kort plan per del, og **vent på OK** før du gjør endringer.
 - **Spør før** du installerer programmer (winget, npm -g), lager planlagte oppgaver, snarveier eller brannmurregler, eller skriver utenfor `F:\prosjekter_MAIN\GroovehousePlayer`.
-- Kjør det du bygger. Etter hver del: `pnpm test`, `pnpm typecheck`, og en faktisk sjekk av det delen skulle levere. Si tydelig fra hvis noe ikke virker, i stedet for å anta at det gjør det.
+- Kjør det du bygger. Etter hver del: `pnpm test`, `pnpm typecheck`, og en faktisk sjekk av det delen skulle levere. Si tydelig fra hvis noe ikke virker, i stedet for å anta at det gjør det. Skriv resultatene inn i `status_bundle.txt`.
 - Hemmeligheter (Supabase-nøkler, PIN) skal aldri i git eller i chatten. Bruk `.env` (gitignored) eller Windows Credential Manager.
 - Ikke endre de låste beslutningene uten å spørre: ingen Web Audio på mobil, aksentfarger kun fra `assets.palette` via CSS-variabler, gull som ramme, HLS AAC 256 kbps, ingest som CLI med watcher som trigger.
 - **Porter:** server **41733**, dev **41734** (ikke 5173/4747). Portene ligger i `groovehouse.config.json`, binder kun til `127.0.0.1` (unntak: LAN-modus i del 6), og velges etter sjekk mot `Get-NetTCPConnection` og `netsh interface ipv4 show excludedportrange protocol=tcp`. `GET /api/health` svarer `{ "app": "groovehouse-vault", "version": … }`. Launcheren sjekker dette før vinduet åpnes, og sier tydelig fra hvis et annet program bruker porten. Er porten tatt ved oppstart: prøv de neste 10, skriv valgt port til `%LOCALAPPDATA%\GroovehouseVault\port`, og la snarveien lese den.
@@ -209,4 +214,4 @@ Mål: Knut kan justere oppførselen uten å redigere filer. Alt lagres i `groove
 
 ## Avslutning
 
-Oppdater README (oppsett på Windows, desktop-app, LAN-modus, markør-editor, analyse-treffrate, ytelsestall), commit per del med beskrivende meldinger på egen gren, spør før push, og gi Knut en kort oppsummering: hva som virker, hva som er målt, og hva som gjenstår.
+Oppdater README (oppsett på Windows, desktop-app, LAN-modus, markør-editor, analyse-treffrate, ytelsestall) og `status_bundle.txt`, commit per del med beskrivende meldinger på egen gren, spør før push, og gi Knut en kort oppsummering: hva som virker, hva som er målt, og hva som gjenstår.
