@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<title>Groovehouse Vault – drop-side</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Oswald:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080B}
+a{color:#F0C030}a:hover{color:#F0DC6A}
+.gh-seek{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.gh-glow{transition:opacity 900ms ease}
+.gh-bar{transition:background-color 400ms ease}
+.gh-btn{transition:transform 150ms ease}
+.gh-btn:active{transform:scale(0.96)}
+.gh-row:hover{background:rgba(255,255,255,0.04)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; position: relative; overflow: hidden; background: #07080B; color: #EDEAE2; font-family: Inter, system-ui, sans-serif">
+
+  <div aria-hidden="true" style="position: absolute; inset: -200px; transform: rotate(-28deg); display: flex; flex-direction: column; justify-content: center; gap: 46px; pointer-events: none; z-index: 0">
+    <sc-for list="{{wmRows}}" as="row" hint-placeholder-count="14">
+      <div style="white-space: nowrap; font-family: Oswald, sans-serif; font-weight: 600; font-size: 22px; letter-spacing: 6px; color: rgba(255,255,255,0.05)">{{row.text}}</div>
+    </sc-for>
+  </div>
+
+  <div class="gh-glow" aria-hidden="true" style="position: absolute; left: 50%; top: 250px; width: 520px; height: 520px; margin-left: -260px; margin-top: -260px; border-radius: 50%; background: radial-gradient(circle, rgba(240,192,48,0.30) 0%, rgba(176,96,0,0.10) 40%, rgba(7,8,11,0) 70%); opacity: {{goldGlowOpacity}}; pointer-events: none; z-index: 0"></div>
+  <div class="gh-glow" aria-hidden="true" style="position: absolute; left: 50%; top: 250px; width: 560px; height: 560px; margin-left: -280px; margin-top: -280px; border-radius: 50%; background: {{coverGlow}}; opacity: {{coverGlowOpacity}}; pointer-events: none; z-index: 0"></div>
+
+  <div style="position: relative; z-index: 1; height: 100%; box-sizing: border-box; padding: 18px 22px 16px; display: flex; flex-direction: column">
+
+    <header style="display: flex; align-items: center; justify-content: space-between; height: 44px">
+      <div style="display: flex; align-items: center; gap: 10px">
+        <img src="/_blob/6b679bae38bc1e167c254a2690cf46ab" alt="Groovehouse Records" style="width: 38px; height: 38px; display: block">
+        <div style="display: flex; flex-direction: column; line-height: 1">
+          <span style="font-family: Oswald, sans-serif; font-weight: 600; font-size: 15px; letter-spacing: 2px; color: #F0C030">GROOVEHOUSE</span>
+          <span style="font-size: 9px; letter-spacing: 4px; color: #C9B98E; margin-top: 3px">RECORDS</span>
+        </div>
+      </div>
+      <div style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(240,192,48,0.45); color: #F0C030; font-size: 11px; font-weight: 600; letter-spacing: 1.5px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"></rect><path d="M8 11V8a4 4 0 0 1 8 0v3"></path></svg>
+        THE VAULT
+      </div>
+    </header>
+
+    <div style="margin-top: 14px; display: flex; align-items: baseline; justify-content: space-between">
+      <span style="font-size: 13px; color: #EDEAE2">Privat lytterom for <strong style="font-weight: 600">Jorrit</strong></span>
+      <span style="font-size: 12px; color: #A39E91">Utløper om 6 dager</span>
+    </div>
+
+    <div style="margin-top: 18px; display: flex; justify-content: center">
+      <div style="width: 248px; height: 248px; border-radius: 14px; position: relative; overflow: hidden; background: #0B0D12; box-shadow: 0 30px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.06)">
+        <div aria-hidden="true" style="position: absolute; inset: 0; background: {{coverRings}}"></div>
+        <div aria-hidden="true" style="position: absolute; left: 50%; top: 46%; width: 132px; height: 132px; margin-left: -66px; margin-top: -66px; border-radius: 50%; background: {{coverSun}}; box-shadow: 0 0 60px {{coverPrimary}}"></div>
+        <div style="position: absolute; left: 16px; bottom: 14px; right: 16px; display: flex; justify-content: space-between; align-items: flex-end">
+          <span style="font-family: Oswald, sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 3px; color: #F4F1EA">{{coverWord}}</span>
+          <span style="font-size: 9px; letter-spacing: 2px; color: rgba(244,241,234,0.7)">[COVER]</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 4px">
+      <h1 style="margin: 0; font-family: Oswald, sans-serif; font-weight: 600; font-size: 32px; letter-spacing: 1.5px; text-transform: uppercase; color: #F4F1EA">{{track.title}}</h1>
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #A39E91">
+        <span>Echo Groove</span>
+        <span aria-hidden="true">·</span>
+        <span style="color: {{accentText}}; font-weight: 600; letter-spacing: 1px; font-size: 11px">UUTGITT</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 16px">
+      <div style="position: relative; height: 56px; display: flex; align-items: center; gap: 2px">
+        <sc-for list="{{bars}}" as="b" hint-placeholder-count="64">
+          <span class="gh-bar" aria-hidden="true" style="flex: 1 1 0; border-radius: 2px; height: {{b.h}}px; background-color: {{b.c}}"></span>
+        </sc-for>
+        <div aria-hidden="true" style="position: absolute; top: -12px; left: {{dropPct}}%; transform: translateX(-50%); font-size: 8px; letter-spacing: 1.5px; color: {{accentText}}; font-weight: 600">DROP</div>
+        <label for="gh-seek" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Spol i låta</label>
+        <input id="gh-seek" class="gh-seek" type="range" min="0" max="1000" step="1" value="{{seekValue}}" onChange="{{onSeek}}" onInput="{{onSeek}}">
+      </div>
+      <div style="margin-top: 6px; display: flex; justify-content: space-between; font-size: 11px; color: #A39E91; font-variant-numeric: tabular-nums">
+        <span>{{elapsed}}</span>
+        <span>{{total}}</span>
+      </div>
+    </div>
+
+    <div style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 30px">
+      <button class="gh-btn" type="button" aria-label="Forrige spor" onClick="{{prev}}" style="width: 48px; height: 48px; border-radius: 50%; border: 0; background: transparent; color: #C9B98E; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 20 9 12l10-8v16Z"></path><path d="M5 19V5"></path></svg>
+      </button>
+      <button class="gh-btn" type="button" aria-label="{{playLabel}}" onClick="{{toggle}}" style="width: 72px; height: 72px; border-radius: 50%; border: 0; padding: 3px; background: linear-gradient(135deg, #F0DC6A 0%, #F0C030 45%, #B06000 100%); cursor: pointer; box-shadow: 0 10px 30px rgba(240,192,48,0.25)">
+        <span style="width: 100%; height: 100%; border-radius: 50%; background: #0B0D12; display: flex; align-items: center; justify-content: center; color: #F0C030">
+          <sc-if value="{{playing}}" hint-placeholder-val="{{ false }}">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+          </sc-if>
+          <sc-if value="{{paused}}" hint-placeholder-val="{{ true }}">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" style="margin-left: 3px"><path d="M7 4.5v15a1 1 0 0 0 1.5.86l12-7.5a1 1 0 0 0 0-1.72l-12-7.5A1 1 0 0 0 7 4.5Z"></path></svg>
+          </sc-if>
+        </span>
+      </button>
+      <button class="gh-btn" type="button" aria-label="Neste spor" onClick="{{next}}" style="width: 48px; height: 48px; border-radius: 50%; border: 0; background: transparent; color: #C9B98E; display: flex; align-items: center; justify-content: center; cursor: pointer">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 4 10 8-10 8V4Z"></path><path d="M19 5v14"></path></svg>
+      </button>
+    </div>
+
+    <div style="margin-top: 12px; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 6px; display: flex; flex-direction: column">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="2">
+        <button class="gh-row" type="button" onClick="{{r.pick}}" style="display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer">
+          <span aria-hidden="true" style="width: 30px; height: 30px; border-radius: 6px; background: {{r.swatch}}; flex: none"></span>
+          <span style="flex: 1 1 auto; display: flex; flex-direction: column">
+            <span style="font-size: 14px; font-weight: 600; color: {{r.titleColor}}">{{r.title}}</span>
+            <span style="font-size: 11px; color: #A39E91">{{r.meta}}</span>
+          </span>
+          <span style="font-size: 12px; color: #A39E91; font-variant-numeric: tabular-nums">{{r.dur}}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 10px; letter-spacing: 1px; color: #8E897D">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6l-8-3Z"></path></svg>
+      STRØMMES PRIVAT · PERSONLIG LENKE · IKKE DEL
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"coverPalette":{"editor":"enum","options":["blue-fire","magenta","ember","fargeløst"],"default":"blue-fire"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { playing: false, progress: 0, idx: 0, started: false };
+  }
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      if (!this.state.playing) return;
+      const dur = this.tracks()[this.state.idx].dur;
+      let p = this.state.progress + 0.25 / dur * 6;
+      if (p >= 1) { this.setState({ progress: 1, playing: false }); return; }
+      this.setState({ progress: p });
+    }, 250);
+  }
+  componentWillUnmount() { clearInterval(this.timer); }
+  palettes() {
+    return {
+      'blue-fire': { p: '#2FD8F0', s: '#3D63FF', word: 'BLUE FIRE' },
+      'magenta': { p: '#FF4FCF', s: '#7B3DFF', word: 'BLUE FIRE' },
+      'ember': { p: '#FF7438', s: '#C2185B', word: 'BLUE FIRE' },
+      'fargeløst': { p: '#F0C030', s: '#B06000', word: 'BLUE FIRE' }
+    };
+  }
+  tracks() {
+    const first = this.palettes()[this.props.coverPalette ?? 'blue-fire'] || this.palettes()['blue-fire'];
+    return [
+      { title: 'Blue Fire', dur: 372, drop: 0.215, p: first.p, s: first.s, word: 'BLUE FIRE', seed: 3 },
+      { title: 'Would You Run', dur: 248, drop: 0.3, p: '#FF7438', s: '#C2185B', word: 'WOULD YOU RUN', seed: 11 }
+    ];
+  }
+  fmt(sec) {
+    const s = Math.max(0, Math.round(sec));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+  hexA(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+  }
+  renderVals() {
+    const tracks = this.tracks();
+    const t = tracks[this.state.idx];
+    const active = this.state.started;
+    const N = 64;
+    const bars = [];
+    for (let i = 0; i < N; i++) {
+      const x = i / (N - 1);
+      let env = x < t.drop ? 0.35 + 0.35 * (x / t.drop) : (x > 0.55 && x < 0.68 ? 0.38 : (x > 0.92 ? 0.5 - (x - 0.92) * 4 : 0.95));
+      const n = Math.abs(Math.sin((i + 1) * 12.9898 * t.seed) * 43758.5453) % 1;
+      const h = Math.max(6, Math.round(52 * env * (0.6 + 0.4 * n)));
+      const played = x <= this.state.progress;
+      const c = played ? (active ? t.p : '#F0C030') : 'rgba(255,255,255,0.14)';
+      bars.push({ h: h, c: c });
+    }
+    const wmRows = [];
+    for (let i = 0; i < 14; i++) wmRows.push({ text: 'JORRIT · SNAPCHAT · PRIVAT LYTTEROM · JORRIT · SNAPCHAT · PRIVAT LYTTEROM' });
+    const rows = tracks.map((tr, i) => ({
+      title: tr.title,
+      meta: i === this.state.idx ? (this.state.playing ? 'Spilles nå' : 'Valgt') : 'Spor ' + (i + 1),
+      dur: this.fmt(tr.dur),
+      swatch: 'radial-gradient(circle at 50% 45%, ' + tr.p + ' 0 30%, ' + tr.s + ' 31% 46%, #0B0D12 47%)',
+      titleColor: i === this.state.idx ? '#F4F1EA' : '#C9C4B6',
+      pick: () => this.setState({ idx: i, progress: 0, playing: true, started: true })
+    }));
+    return {
+      wmRows: wmRows,
+      bars: bars,
+      track: t,
+      rows: rows,
+      playing: this.state.playing,
+      paused: !this.state.playing,
+      playLabel: this.state.playing ? 'Pause' : 'Spill av',
+      elapsed: this.fmt(this.state.progress * t.dur),
+      total: this.fmt(t.dur),
+      seekValue: Math.round(this.state.progress * 1000),
+      dropPct: Math.round(t.drop * 1000) / 10,
+      coverPrimary: this.hexA(t.p, 0.55),
+      coverWord: t.word,
+      coverSun: 'radial-gradient(circle at 38% 34%, #FFFFFF 0%, ' + t.p + ' 22%, ' + t.s + ' 70%, ' + this.hexA(t.s, 0.2) + ' 100%)',
+      coverRings: 'repeating-radial-gradient(circle at 50% 46%, ' + this.hexA(t.p, 0.10) + ' 0 1px, rgba(0,0,0,0) 2px 7px), linear-gradient(180deg, ' + this.hexA(t.s, 0.35) + ', #07080B 85%)',
+      coverGlow: 'radial-gradient(circle, ' + this.hexA(t.p, 0.42) + ' 0%, ' + this.hexA(t.s, 0.18) + ' 38%, rgba(7,8,11,0) 68%)',
+      goldGlowOpacity: active ? 0 : 1,
+      coverGlowOpacity: active ? 1 : 0,
+      accentText: active ? t.p : '#F0C030',
+      toggle: () => this.setState({ playing: !this.state.playing, started: true, progress: this.state.progress >= 1 ? 0 : this.state.progress }),
+      prev: () => this.setState({ idx: (this.state.idx + tracks.length - 1) % tracks.length, progress: 0 }),
+      next: () => this.setState({ idx: (this.state.idx + 1) % tracks.length, progress: 0 }),
+      onSeek: (e) => this.setState({ progress: Number(e.target.value) / 1000, started: true })
+    };
+  }
+}
+</script>
+</body>
+</html>

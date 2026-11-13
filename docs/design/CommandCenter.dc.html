@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<title>Groovehouse Vault – Command Center</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Oswald:wght@500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#07080B}
+a{color:#F0C030}a:hover{color:#F0DC6A}
+.cc-rowbtn:hover{background:rgba(255,255,255,0.04)}
+.cc-nav:hover{color:#F4F1EA}
+</style>
+</helmet>
+<div style="min-height: 100vh; box-sizing: border-box; background: #07080B; color: #EDEAE2; font-family: Inter, system-ui, sans-serif; display: flex; flex-wrap: wrap; align-items: stretch">
+
+  <aside style="flex: 1 1 220px; max-width: 260px; box-sizing: border-box; padding: 24px 18px; border-right: 1px solid rgba(255,255,255,0.06); background: #0A0B0F; display: flex; flex-direction: column; gap: 28px">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <img src="/_blob/6b679bae38bc1e167c254a2690cf46ab" alt="Groovehouse Records" style="width: 48px; height: 48px; display: block">
+      <div style="display: flex; flex-direction: column; line-height: 1">
+        <span style="font-family: Oswald, sans-serif; font-weight: 600; font-size: 17px; letter-spacing: 2px; color: #F0C030">GROOVEHOUSE</span>
+        <span style="font-size: 9px; letter-spacing: 4px; color: #C9B98E; margin-top: 4px">COMMAND CENTER</span>
+      </div>
+    </div>
+    <nav aria-label="Hovedmeny" style="display: flex; flex-direction: column; gap: 2px">
+      <a href="#drops" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px; background: rgba(240,192,48,0.08); color: #F0C030; text-decoration: none; font-size: 14px; font-weight: 600">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>Drops
+      </a>
+      <a class="cc-nav" href="#arkiv" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #A39E91; text-decoration: none; font-size: 14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="5" rx="1"></rect><path d="M5 9v10h14V9"></path><path d="M10 13h4"></path></svg>Arkiv
+      </a>
+      <a class="cc-nav" href="#sett" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #A39E91; text-decoration: none; font-size: 14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h3l3-8 4 16 3-8h5"></path></svg>Live-sett
+      </a>
+      <a class="cc-nav" href="#ingest" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #A39E91; text-decoration: none; font-size: 14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"></path><path d="m7 14 5-5 5 5"></path><path d="M5 3h14"></path></svg>Ingest
+      </a>
+      <a class="cc-nav" href="#mottakere" style="display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: 10px; color: #A39E91; text-decoration: none; font-size: 14px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><path d="M2.5 20a6.5 6.5 0 0 1 13 0"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7"></path><path d="M18 14.5a6.5 6.5 0 0 1 3.5 5.5"></path></svg>Mottakere
+      </a>
+    </nav>
+    <div style="margin-top: auto; padding: 14px; border-radius: 12px; background: #0E1015; border: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 6px">
+      <div style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #EDEAE2">
+        <span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 50%; background: #F0C030; box-shadow: 0 0 10px rgba(240,192,48,0.7)"></span>Watcher aktiv
+      </div>
+      <span style="font-size: 11px; color: #A39E91; word-break: break-all">Export\Groovehouse</span>
+      <span style="font-size: 11px; color: #A39E91">Siste bounce: [tid]</span>
+    </div>
+  </aside>
+
+  <main id="drops" style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 28px 32px 40px; display: flex; flex-direction: column; gap: 22px">
+
+    <header style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px">
+      <div>
+        <h1 style="margin: 0; font-family: Oswald, sans-serif; font-weight: 600; font-size: 34px; letter-spacing: 1.5px; text-transform: uppercase; color: #F4F1EA">Drops</h1>
+        <p style="margin: 4px 0 0; font-size: 13px; color: #A39E91">3 aktive drops · 1 utkast i ingest · eksempeldata</p>
+      </div>
+      <button type="button" style="min-height: 44px; padding: 0 20px; border: 0; border-radius: 999px; background: linear-gradient(135deg, #F0DC6A 0%, #F0C030 45%, #B06000 100%); color: #120D02; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>Ny drop
+      </button>
+    </header>
+
+    <section id="ingest" aria-label="Ingest" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px">
+      <div style="min-height: 128px; border-radius: 16px; border: 1.5px dashed rgba(240,192,48,0.35); background: rgba(240,192,48,0.03); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; text-align: center">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#F0C030" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4"></path><path d="m7 9 5-5 5 5"></path><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"></path></svg>
+        <span style="font-size: 14px; font-weight: 600; color: #EDEAE2">Slipp WAV + cover her</span>
+        <span style="font-size: 12px; color: #A39E91">eller bounce til eksportmappen – watcheren tar resten</span>
+      </div>
+      <div style="border-radius: 16px; background: #0E1015; border: 1px solid rgba(255,255,255,0.06); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px">
+          <div style="display: flex; align-items: center; gap: 10px; min-width: 0">
+            <span aria-hidden="true" style="width: 36px; height: 36px; border-radius: 8px; flex: none; background: radial-gradient(circle at 50% 45%, #FF7438 0 30%, #C2185B 31% 46%, #0B0D12 47%)"></span>
+            <div style="display: flex; flex-direction: column; min-width: 0">
+              <span style="font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">would-you-run_v3.wav</span>
+              <span style="font-size: 11px; color: #A39E91">Utkast · versjon 3 · fra watcher</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; font-weight: 600; letter-spacing: 1px; color: #F0C030">BEHANDLER</span>
+        </div>
+        <ul style="list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px">
+          <sc-for list="{{ingestSteps}}" as="s" hint-placeholder-count="6">
+            <li style="display: flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 999px; background: {{s.bg}}; color: {{s.fg}}; font-size: 11px; font-weight: 500">{{s.label}}</li>
+          </sc-for>
+        </ul>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start">
+
+      <div style="flex: 1 1 280px; max-width: 360px; display: flex; flex-direction: column; gap: 10px">
+        <h2 style="margin: 0 0 2px; font-size: 11px; letter-spacing: 2px; color: #A39E91; font-weight: 600">AKTIVE DROPS</h2>
+        <sc-for list="{{drops}}" as="d" hint-placeholder-count="3">
+          <div style="border-radius: 14px; padding: 14px; background: #0E1015; border: 1px solid {{d.border}}; display: flex; gap: 12px; align-items: center">
+            <span aria-hidden="true" style="width: 44px; height: 44px; border-radius: 9px; flex: none; background: {{d.swatch}}"></span>
+            <div style="flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+              <span style="font-size: 14px; font-weight: 600; color: #F4F1EA">{{d.title}}</span>
+              <span style="font-size: 11px; color: #A39E91">{{d.meta}}</span>
+            </div>
+            <span style="font-size: 10px; font-weight: 600; letter-spacing: 1.2px; padding: 4px 8px; border-radius: 6px; border: 1px solid {{d.tierBorder}}; color: {{d.tierColor}}">{{d.tier}}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="flex: 999 1 520px; min-width: 0; border-radius: 18px; background: #0E1015; border: 1px solid rgba(255,255,255,0.06); padding: 22px; display: flex; flex-direction: column; gap: 20px; position: relative; overflow: hidden">
+        <div aria-hidden="true" style="position: absolute; right: -120px; top: -160px; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(circle, rgba(47,216,240,0.18) 0%, rgba(61,99,255,0.06) 45%, rgba(14,16,21,0) 70%); pointer-events: none"></div>
+
+        <div style="position: relative; display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between">
+          <div style="display: flex; gap: 16px; align-items: center">
+            <span aria-hidden="true" style="width: 72px; height: 72px; border-radius: 12px; flex: none; background: radial-gradient(circle at 50% 46%, #FFFFFF 0 4%, #2FD8F0 12% 26%, #3D63FF 40% 48%, rgba(0,0,0,0) 49%), repeating-radial-gradient(circle at 50% 46%, rgba(47,216,240,0.12) 0 1px, rgba(0,0,0,0) 2px 5px), #0B0D12"></span>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <span style="font-size: 10px; letter-spacing: 2px; font-weight: 600; color: #2FD8F0">PARTNER-DROP</span>
+              <h2 style="margin: 0; font-family: Oswald, sans-serif; font-weight: 600; font-size: 26px; letter-spacing: 1px; text-transform: uppercase; color: #F4F1EA">Blue Fire – pitch</h2>
+              <span style="font-size: 12px; color: #A39E91">2 spor · 4 mottakere · utløper om 6 dager</span>
+            </div>
+          </div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px">
+            <button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(240,192,48,0.45); background: transparent; color: #F0C030; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Legg til mottaker</button>
+            <button type="button" style="min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.12); background: transparent; color: #EDEAE2; font: inherit; font-size: 13px; cursor: pointer">Trekk tilbake</button>
+          </div>
+        </div>
+
+        <div style="position: relative; overflow-x: auto">
+          <table style="width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px">
+            <thead>
+              <tr style="text-align: left; color: #A39E91; font-size: 10px; letter-spacing: 1.5px">
+                <th scope="col" style="padding: 0 10px 10px 0; font-weight: 600">MOTTAKER</th>
+                <th scope="col" style="padding: 0 10px 10px; font-weight: 600">ÅPNET</th>
+                <th scope="col" style="padding: 0 10px 10px; font-weight: 600">LYTTEDEKNING · BLUE FIRE</th>
+                <th scope="col" style="padding: 0 10px 10px; font-weight: 600">STATUS</th>
+                <th scope="col" style="padding: 0 0 10px 10px; font-weight: 600">ENHETER</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{recipients}}" as="r" hint-placeholder-count="4">
+                <tr style="border-top: 1px solid rgba(255,255,255,0.06); background: {{r.rowBg}}">
+                  <td style="padding: 0 10px 0 0">
+                    <button class="cc-rowbtn" type="button" onClick="{{r.pick}}" aria-pressed="{{r.selected}}" style="width: 100%; min-height: 56px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; display: flex; flex-direction: column; justify-content: center; padding: 0 8px">
+                      <span style="font-weight: 600; color: #F4F1EA">{{r.name}}</span>
+                      <span style="font-size: 11px; color: #A39E91">{{r.org}}</span>
+                    </button>
+                  </td>
+                  <td style="padding: 0 10px; font-variant-numeric: tabular-nums; color: #C9C4B6">{{r.opens}}</td>
+                  <td style="padding: 0 10px">
+                    <div style="position: relative; display: flex; align-items: center; gap: 2px; height: 30px; width: 300px">
+                      <sc-for list="{{r.bars}}" as="b" hint-placeholder-count="48">
+                        <span aria-hidden="true" style="flex: 1 1 0; border-radius: 1.5px; height: {{b.h}}px; background-color: {{b.c}}"></span>
+                      </sc-for>
+                      <span aria-hidden="true" style="position: absolute; top: -2px; bottom: -2px; left: 21.5%; width: 1px; background: rgba(240,192,48,0.6)"></span>
+                    </div>
+                  </td>
+                  <td style="padding: 0 10px; color: {{r.statusColor}}; font-weight: 500; white-space: nowrap">{{r.status}}</td>
+                  <td style="padding: 0 0 0 10px; white-space: nowrap; color: {{r.deviceColor}}">{{r.devices}}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <p style="margin: 10px 0 0; font-size: 11px; color: #A39E91">Gul strek = DROP-markør fra asset_markers. Sterk farge = spilt flere ganger.</p>
+        </div>
+
+        <div style="position: relative; border-radius: 14px; background: #0A0B0F; border: 1px solid rgba(255,255,255,0.06); padding: 18px; display: flex; flex-direction: column; gap: 12px">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap">
+            <h3 style="margin: 0; font-size: 15px; font-weight: 600; color: #F4F1EA">Lyttelogg · {{sel.name}}</h3>
+            <span style="font-size: 12px; color: #A39E91">{{sel.device}}</span>
+          </div>
+          <ol style="list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px">
+            <sc-for list="{{sel.events}}" as="e" hint-placeholder-count="4">
+              <li style="display: flex; gap: 14px; align-items: baseline">
+                <span style="width: 52px; flex: none; font-size: 12px; color: #A39E91; font-variant-numeric: tabular-nums">{{e.at}}</span>
+                <span aria-hidden="true" style="width: 8px; height: 8px; flex: none; border-radius: 50%; background: {{e.dot}}; transform: translateY(-1px)"></span>
+                <span style="font-size: 13px; color: #EDEAE2">{{e.text}}</span>
+              </li>
+            </sc-for>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1180}}'>
+class Component extends DCLogic {
+  constructor(props) { super(props); this.state = { sel: 0 }; }
+  bars(seed, listened, replay) {
+    const out = [];
+    const N = 48;
+    for (let i = 0; i < N; i++) {
+      const x = i / (N - 1);
+      const env = x < 0.215 ? 0.35 + 0.35 * (x / 0.215) : (x > 0.55 && x < 0.68 ? 0.38 : (x > 0.92 ? 0.5 - (x - 0.92) * 4 : 0.95));
+      const n = Math.abs(Math.sin((i + 1) * 12.9898 * seed) * 43758.5453) % 1;
+      const h = Math.max(4, Math.round(28 * env * (0.6 + 0.4 * n)));
+      let c = 'rgba(255,255,255,0.12)';
+      if (x <= listened) c = 'rgba(47,216,240,0.55)';
+      if (replay && x >= replay[0] && x <= replay[1]) c = '#2FD8F0';
+      out.push({ h: h, c: c });
+    }
+    return out;
+  }
+  renderVals() {
+    const data = [
+      { name: 'Jorrit', org: 'Snapchat', opens: '2×', listened: 1, replay: [0.215, 0.28], status: 'Lyttet ferdig', statusColor: '#2FD8F0', devices: '1 enhet', deviceColor: '#C9C4B6', device: 'iPhone · Safari',
+        events: [
+          { at: '23:02', text: 'Åpnet lenken', dot: '#F0C030' },
+          { at: '23:02', text: 'Spilte Blue Fire 0:00 → 1:45', dot: '#2FD8F0' },
+          { at: '23:04', text: 'Spolte tilbake til 1:20 (DROP)', dot: '#F0C030' },
+          { at: '23:04', text: 'Spilte 1:20 → 6:12 · lyttet ferdig', dot: '#2FD8F0' },
+          { at: '23:11', text: 'Startet Would You Run', dot: '#FF7438' }
+        ] },
+      { name: '[Navn]', org: 'Kurator', opens: '1×', listened: 0.29, replay: null, status: 'Falt av 1:48', statusColor: '#EDEAE2', devices: '1 enhet', deviceColor: '#C9C4B6', device: 'Desktop · Chrome',
+        events: [
+          { at: '[tid]', text: 'Åpnet lenken', dot: '#F0C030' },
+          { at: '[tid]', text: 'Spilte Blue Fire 0:00 → 1:48 · stoppet', dot: '#2FD8F0' }
+        ] },
+      { name: '[Navn]', org: 'A&R', opens: '—', listened: -1, replay: null, status: 'Ikke åpnet', statusColor: '#A39E91', devices: '—', deviceColor: '#A39E91', device: 'Ingen enhet registrert',
+        events: [ { at: '—', text: 'Ingen aktivitet ennå. Lenken er sendt.', dot: '#5A5650' } ] },
+      { name: '[Navn]', org: 'Management', opens: '3×', listened: 1, replay: [0.6, 0.7], status: 'Lyttet ferdig', statusColor: '#2FD8F0', devices: '3 enheter · sjekk', deviceColor: '#F0C030', device: '3 enheter – over grensen på 2, mulig videresendt',
+        events: [
+          { at: '[tid]', text: 'Åpnet lenken på ny enhet (nr. 3) – flagget', dot: '#F0C030' },
+          { at: '[tid]', text: 'Spilte Blue Fire 0:00 → 6:12', dot: '#2FD8F0' }
+        ] }
+    ];
+    const recipients = data.map((r, i) => ({
+      name: r.name, org: r.org, opens: r.opens, status: r.status, statusColor: r.statusColor, devices: r.devices, deviceColor: r.deviceColor,
+      bars: this.bars(3, r.listened, r.replay),
+      selected: i === this.state.sel ? 'true' : 'false',
+      rowBg: i === this.state.sel ? 'rgba(240,192,48,0.05)' : 'transparent',
+      pick: () => this.setState({ sel: i })
+    }));
+    const s = data[this.state.sel];
+    const ok = { bg: 'rgba(240,192,48,0.10)', fg: '#F0DC6A' };
+    return {
+      recipients: recipients,
+      sel: { name: s.name + (s.org ? ' · ' + s.org : ''), device: s.device, events: s.events },
+      ingestSteps: [
+        { label: '✓ HLS 256k', bg: ok.bg, fg: ok.fg },
+        { label: '✓ Bølgeform', bg: ok.bg, fg: ok.fg },
+        { label: '✓ Palett', bg: ok.bg, fg: ok.fg },
+        { label: '✓ LUFS', bg: ok.bg, fg: ok.fg },
+        { label: '… Forhåndsvisning 30 s', bg: 'rgba(255,255,255,0.06)', fg: '#C9C4B6' },
+        { label: '… Master til R2', bg: 'rgba(255,255,255,0.06)', fg: '#C9C4B6' }
+      ],
+      drops: [
+        { title: 'Blue Fire – pitch', meta: '4 mottakere · 2 har lyttet ferdig', tier: 'PARTNER', tierColor: '#F0C030', tierBorder: 'rgba(240,192,48,0.45)', border: 'rgba(240,192,48,0.55)',
+          swatch: 'radial-gradient(circle at 50% 45%, #2FD8F0 0 30%, #3D63FF 31% 46%, #0B0D12 47%)' },
+        { title: 'Would You Run – demoer', meta: '2 mottakere · stems vedlagt', tier: 'INNER', tierColor: '#F0DC6A', tierBorder: '#F0C030', border: 'rgba(255,255,255,0.06)',
+          swatch: 'radial-gradient(circle at 50% 45%, #FF7438 0 30%, #C2185B 31% 46%, #0B0D12 47%)' },
+        { title: 'Live-sett [dato]', meta: 'Supporter-drop · åpner om 2 dager', tier: 'SUPPORTER', tierColor: '#C9C4B6', tierBorder: 'rgba(255,255,255,0.2)', border: 'rgba(255,255,255,0.06)',
+          swatch: 'radial-gradient(circle at 50% 45%, #FF4FCF 0 30%, #7B3DFF 31% 46%, #0B0D12 47%)' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+media/*
+!media/.gitkeep
+fixtures/*.wav
+*.log
+.DS_Store

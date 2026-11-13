@@ -1,0 +1,16 @@
+{
+  "name": "groovehouse-vault",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "gh-ingest": "pnpm --filter @gv/ingest exec tsx src/cli.ts",
+    "gh-watch": "pnpm --filter @gv/ingest exec tsx src/watch.ts",
+    "dev": "pnpm --filter @gv/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "make-fixtures": "pnpm --filter @gv/ingest exec tsx src/make-fixtures.ts"
+  }
+}

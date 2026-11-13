@@ -1,0 +1,27 @@
+{
+  "name": "@gv/ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "gh-ingest": "src/cli.ts"
+  },
+  "scripts": {
+    "ingest": "tsx src/cli.ts",
+    "watch": "tsx src/watch.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gv/shared": "workspace:*",
+    "chokidar": "^4.0.3",
+    "node-vibrant": "^4.0.3",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,48 @@
+/**
+ * UI-tekster. Lytter-UI på engelsk (partnere er internasjonale), admin på norsk.
+ * Bytt `listener` til `listenerNo` hvis drop-siden skal være norsk.
+ */
+export const listener = {
+  privateRoomFor: 'Private listening room for',
+  privateRoom: 'Private listening room',
+  expiresIn: (d: number) => (d <= 1 ? 'Expires within a day' : `Expires in ${d} days`),
+  opensIn: 'Opens in',
+  unreleased: 'Unreleased',
+  play: 'Play',
+  pause: 'Pause',
+  next: 'Next track',
+  prev: 'Previous track',
+  seek: 'Seek in track',
+  nowPlaying: 'Now playing',
+  selected: 'Selected',
+  track: (n: number) => `Track ${n}`,
+  set: 'Live set',
+  footer: 'Streamed privately · personal link · please don’t share',
+  notFound: 'This link isn’t valid or has expired.',
+  empty: 'Nothing here yet.',
+  loading: 'Opening the vault…'
+};
+
+export const admin = {
+  drops: 'Drops',
+  archive: 'Arkiv',
+  sets: 'Live-sett',
+  newDrop: 'Ny drop',
+  watcher: 'Watcher',
+  watcherHint: 'Kjør «pnpm gh-watch» for å følge eksportmappa',
+  dropzone: 'Slipp WAV + cover her',
+  dropzoneHint: 'Fase 1: kjør «pnpm gh-ingest <mappe>» eller bounce til eksportmappa',
+  activeDrops: 'Aktive drops',
+  recipient: 'Mottaker',
+  opened: 'Åpnet',
+  coverage: 'Lyttedekning',
+  status: 'Status',
+  devices: 'Enheter',
+  listenLog: 'Lyttelogg',
+  copyLink: 'Kopier lenke',
+  copied: 'Kopiert',
+  addRecipient: 'Legg til mottaker',
+  revoke: 'Trekk tilbake',
+  phase2: 'Kommer i fase 2 (Supabase)',
+  sampleData: 'eksempeldata for mottakere og lyttehendelser'
+};
