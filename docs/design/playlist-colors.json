@@ -1,0 +1,199 @@
+{
+  "schema": 1,
+  "background": "#07080B",
+  "minContrast": 4.5,
+  "colors": [
+    {
+      "id": "neon-cyan",
+      "name": "Neon Cyan",
+      "primary": "#2FE6FF",
+      "secondary": "#0092A6",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 13.24
+    },
+    {
+      "id": "sky",
+      "name": "Himmelblå",
+      "primary": "#5EC8FF",
+      "secondary": "#007EC0",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 10.66
+    },
+    {
+      "id": "electric-blue",
+      "name": "Elektrisk blå",
+      "primary": "#5B8CFF",
+      "secondary": "#0039BE",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.33
+    },
+    {
+      "id": "ultramarine",
+      "name": "Ultramarin",
+      "primary": "#7A6BFF",
+      "secondary": "#1400C7",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 5.13
+    },
+    {
+      "id": "violet-haze",
+      "name": "Fiolett dis",
+      "primary": "#A879FF",
+      "secondary": "#4900CF",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.53
+    },
+    {
+      "id": "ultraviolet",
+      "name": "Ultrafiolett",
+      "primary": "#C45CFF",
+      "secondary": "#7A00BF",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.03
+    },
+    {
+      "id": "magenta-pulse",
+      "name": "Magenta puls",
+      "primary": "#FF45D0",
+      "secondary": "#B20085",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.69
+    },
+    {
+      "id": "hot-pink",
+      "name": "Hot pink",
+      "primary": "#FF5CA8",
+      "secondary": "#BF0059",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 7.01
+    },
+    {
+      "id": "cherry",
+      "name": "Kirsebær",
+      "primary": "#FF3D6E",
+      "secondary": "#AE002C",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 5.86
+    },
+    {
+      "id": "sunset-red",
+      "name": "Solnedgang",
+      "primary": "#FF5454",
+      "secondary": "#BA0000",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.34
+    },
+    {
+      "id": "coral",
+      "name": "Korall",
+      "primary": "#FF7A66",
+      "secondary": "#C41A00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 7.85
+    },
+    {
+      "id": "ember",
+      "name": "Glo",
+      "primary": "#FF8136",
+      "secondary": "#AA3F00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 8.05
+    },
+    {
+      "id": "tangerine",
+      "name": "Mandarin",
+      "primary": "#FFA126",
+      "secondary": "#A15B00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 9.9
+    },
+    {
+      "id": "acid-lime",
+      "name": "Syre-lime",
+      "primary": "#C8FF3D",
+      "secondary": "#7DAE00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 17.0
+    },
+    {
+      "id": "neon-green",
+      "name": "Neongrønn",
+      "primary": "#3DFF8F",
+      "secondary": "#00AE49",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 15.16
+    },
+    {
+      "id": "mint",
+      "name": "Mynte",
+      "primary": "#5CFFC9",
+      "secondary": "#00BF80",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 15.83
+    },
+    {
+      "id": "aqua",
+      "name": "Akva",
+      "primary": "#22E8C8",
+      "secondary": "#0E8571",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 12.82
+    },
+    {
+      "id": "teal-glow",
+      "name": "Turkis glød",
+      "primary": "#1FCFC0",
+      "secondary": "#11726A",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 10.25
+    },
+    {
+      "id": "ice",
+      "name": "Is",
+      "primary": "#A9E8FF",
+      "secondary": "#00ABE9",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 14.95
+    },
+    {
+      "id": "lavender",
+      "name": "Lavendel",
+      "primary": "#BCA9FF",
+      "secondary": "#3400E9",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 9.78
+    },
+    {
+      "id": "rose-quartz",
+      "name": "Rosekvarts",
+      "primary": "#F7ABDA",
+      "secondary": "#D21489",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 11.25
+    },
+    {
+      "id": "peach",
+      "name": "Fersken",
+      "primary": "#FFB591",
+      "secondary": "#DC4800",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 11.7
+    },
+    {
+      "id": "electric-orchid",
+      "name": "Orkidé",
+      "primary": "#E07BFF",
+      "secondary": "#9F00D0",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 8.06
+    },
+    {
+      "id": "laser-lemon",
+      "name": "Laser-sitron",
+      "primary": "#F2FF5C",
+      "secondary": "#B0BF00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 18.34
+    }
+  ]
+}

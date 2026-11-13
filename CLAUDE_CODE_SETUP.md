@@ -215,28 +215,54 @@ Mål: Knut lager og endrer spillelister med ett eller to trykk, både på mobile
 1. «⋯» på hver låtrad og i fullskjermspilleren → **Legg til i spilleliste**: et ark nederfra med de 3 sist brukte listene øverst, deretter resten, og **+ Ny spilleliste** (navn → lagre → låta er lagt til).
 2. Bekreftelse som liten melding nederst («Lagt til i Club Ready – Angre»).
 3. I en liste: hold inne og dra for å endre rekkefølge, sveip til venstre for å fjerne (med angre).
-4. Spillelister får egen plass i bunnmenyen eller under Katalog. Ikke lag en femte fane hvis det blir trangt. Foreslå løsningen og vis Knut før du bygger.
+4. **Velgemodus:** hold inne på en låt for å starte velgemodus, trykk på flere låter, og en flytende knapp viser **Legg til i spilleliste (3)**. «Avbryt» eller tilbake-knappen avslutter velgemodus.
+5. Spillelister får egen plass i bunnmenyen eller under Katalog. Ikke lag en femte fane hvis det blir trangt. Foreslå løsningen og vis Knut før du bygger.
 
 **Lage og legge til, desktop**
-5. Spillelister i sidemenyen, med **+ Ny spilleliste** øverst.
-6. Dra låter (én eller flere) fra tabellen til en liste i sidemenyen. Høyreklikk → **Legg til i spilleliste**. Flervalg med Ctrl/Shift-klikk.
-7. Snarvei: `Ctrl+Shift+P` legger låta som spilles nå til i sist brukte liste.
-8. Endre rekkefølge med dra og slipp, og fjern med Delete (med angre).
+6. Spillelister i sidemenyen, med **+ Ny spilleliste** øverst. Hver liste vises med fargeprikken sin.
+7. Dra låter (én eller flere) fra tabellen til en liste i sidemenyen. Høyreklikk → **Legg til i spilleliste**. Flervalg med Ctrl/Shift-klikk.
+8. Snarvei: `Ctrl+Shift+P` legger låta som spilles nå til i sist brukte liste.
+9. Endre rekkefølge med dra og slipp, og fjern med Delete (med angre).
 
 **Spillelista**
-9. Viser cover-mosaikk av de fire første låtene, total tid, antall låter og BPM-spenn. Spill, Bland og Fortsett. For sett gjelder fortsett-posisjonen som før.
-10. Når lista spilles, er køen lista. Varianter som er låst brukes, og ellers hovedversjonen.
-11. Gi nytt navn, dupliser og slett (med bekreftelse) fra «⋯»-menyen.
+10. Viser cover-mosaikk av de fire første låtene (eller eget cover, se under), total tid, antall låter og BPM-spenn. Spill, Bland og Fortsett. For sett gjelder fortsett-posisjonen som før.
+11. Når lista spilles, er køen lista. Låste varianter og versjoner brukes, og ellers hovedversjonen.
+12. Gi nytt navn, dupliser og slett (med bekreftelse) fra «⋯»-menyen.
+13. **Låse en bestemt versjon:** per oppføring kan Knut velge «følg nyeste» (standard), en bestemt variant, eller en bestemt **versjon** (f.eks. v3 Demo). Det krever at eldre versjoner fortsatt kan spilles. Katalogen viser i dag bare nyeste versjon per variant, så legg til en versjonsvelger på asset-siden og la eldre versjoner ligge i `media/` (de slettes ikke ved ny ingest). Står en låst versjon ikke lenger i media, vises raden som utilgjengelig med en forklaring i stedet for å forsvinne.
+14. **Eget cover for lista:** last opp et bilde (lagres i `data/playlist-covers/`, renset for EXIF som andre cover). Paletten hentes fra det med samme kontrastlås. Uten eget cover brukes mosaikken.
+15. **Fargekoding:** hver liste har en farge, valgt fra paletten i `docs/design/playlist-colors.json` (24 farger, alle testet til ≥ 5:1 kontrast mot `#07080B`, med `primary`, `secondary` og `onPrimary`). Forhåndsvisning: `docs/design/playlist-colors.png`.
+    - Fargevelger som et rutenett av runde prikker med navn ved hover/langt trykk. Ny liste får en tilfeldig farge som ikke allerede er brukt av en annen liste, om mulig.
+    - Fargen brukes på prikken i sidemenyen/lista, bakgrunnsgløden i listevisningen, «Spill»-knappen i lista og en tynn kant på mosaikken.
+    - **Mens musikken spilles, styrer fortsatt coveret til låta rommet** (fargetyveriet). Listefargen er listens identitet, ikke spillerens.
+    - Ikke legg gull (`#F0C030`-familien) i paletten. Gull er rammen for hele appen.
 
 **Smarte lister (enkelt, gjenbruker søket)**
 12. I Ctrl+K-søket: **Lagre som smart liste** lagrer selve søket (f.eks. `124 8A`, `sett`, `extended`) som en liste som oppdaterer seg selv. Den vises med eget ikon og kan ikke sorteres manuelt.
 13. To innebygde smarte lister: **Nylig lagt til** (siste 14 dager) og **Live-sett**.
 
-**Senere (ikke i denne delen):** «Gjør om til drop» (en spilleliste blir en delbar lenke i delingsfasen), harmonisk forslag til neste låt etter Camelot, og eksport til M3U eller rekordbox.
+**Senere (ikke i denne delen):** «Gjør om til drop» (se utkastet til delingsfasen under), harmonisk forslag til neste låt etter Camelot, og eksport til M3U eller rekordbox.
 
 **Tester:** API (opprett, legg til, flytt, fjern, 409 ved konflikt), at en ny versjon av en låt dukker opp i eksisterende lister, at smarte lister gir samme treff som søket, og at mobil og desktop ser samme liste etter en endring.
 
 **Ferdig når:** Knut lager en liste på mobilen via Tailscale, legger til tre låter, åpner desktop-appen og ser den samme lista, endrer rekkefølgen der, og ser endringen på mobilen.
+
+## Utkast: delingsfasen (drops til andre) – ikke bygg ennå
+
+Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailscale-adressen virker bare for Knuts egne enheter og kan **ikke** brukes til å sende lenker til andre. Tailscale Funnel (offentlig) skal ikke brukes til uutgitt musikk. Teksten under er designet å bygge videre på.
+
+**Flyt**
+1. **Samle:** en spilleliste (del 9) er utgangspunktet. «Gjør om til drop» på lista, eller velg låter i velgemodus/flervalg og velg **Opprett drop (3 låter)**.
+2. **Konfigurere:**
+   - **Mottaker** (påkrevd, f.eks. «Jorrit»): brukes i vannmerket og i lytteinnsikten.
+   - **Nivå:** Partner (kun strømming, lytteinnsikt, låst til mottaker) eller Inner Circle (nedlasting av stems og kommentarer), med standarder fra innstillingene (del 8). Supporter og Teaser bruker samme mekanisme.
+   - **Versjon per låt:** arves fra lista (låst versjon/variant).
+   - **Drop-cover:** listens cover som standard (styrer fargene på drop-siden), ellers coveret til spor 1, eller et eget opplastet.
+   - **Utløp og maks antall enheter.**
+   - **Live-sett** tar med kapitler og markører automatisk.
+3. **Sende:** lag en personlig magisk lenke og del den med mobilens delingsmeny (Web Share API) til Snapchat, iMessage osv. På desktop: kopier lenke + QR.
+4. **Følge opp:** lytteinnsikt per mottaker i Command Center, som allerede er designet.
+
+**Forutsetninger:** opplasting av HLS/cover/analyse til R2, Worker med tokensjekk, Supabase-tabellene `drops`, `invites`, `invite_devices`, `listen_events` (finnes i migrasjonen), håndheving av enhetsgrense, personvernerklæring for partnere og sletting av lyttelogger etter en periode.
 
 ## Ikke gjør nå
 
