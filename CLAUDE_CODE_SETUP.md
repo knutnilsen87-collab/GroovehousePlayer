@@ -87,11 +87,15 @@ Mål: Knut dobbeltklikker «Groovehouse Vault» på skrivebordet og får spiller
    - I `manifest.webmanifest`: `"display": "minimal-ui"`, **ikke** `standalone`. iOS kutter bakgrunnslyd i hjemskjerm-PWA-er, og minimal-ui støttes ikke på iOS, så den åpnes i Safari der lyden virker. Ikke legg inn `apple-mobile-web-app-capable`.
    - Valgfritt, spør Knut: i 48 px har ikonet fortsatt «GROOVEHOUSE»-tekst som blir uleselig. Foreslå å bruke det forenklede merket (hus + plate) også i 48 px.
 3. **Skrivebordssnarvei «Groovehouse Vault»** og samme snarvei i Startmenyen. Dobbeltklikk starter serveren usynlig hvis den ikke kjører, venter på `/api/health`, og åpner spilleren i Edge `--app=` (Chrome `--app=` som reserve). Kjører den allerede, åpnes bare vinduet.
-4. **`pnpm vault:install` og `pnpm vault:uninstall`** lager og fjerner alt dette, så det er reversibelt. Spør før noe lages utenfor prosjektmappa.
+4. **`pnpm vault:install` og `pnpm vault:uninstall`** lager og fjerner alt dette, så det er reversibelt. Spør før noe lages utenfor prosjektmappa (godkjent av Knut: skrivebordssnarvei, Startmeny-snarvei og `%LOCALAPPDATA%\GroovehouseVault\`).
+   - `vault:install` kjører `pnpm build` først. Launcheren sjekker at `apps/web/dist` finnes og sier tydelig fra hvis ikke, i stedet for å vise en tom side.
+   - `vault:uninstall` fjerner begge snarveiene og `%LOCALAPPDATA%\GroovehouseVault\`, men spør først om loggene skal beholdes.
+5. **Ikon på oppgavelinja:** start via snarveien og sjekk hvilket ikon som vises på oppgavelinja. Står det Edge-ikonet og ikke Groovehouse, vis Knut det og foreslå en løsning (f.eks. eget `--app-id` eller installert Edge-app fra manifestet) før du gjør noe mer.
+6. **Reversibilitet:** test `vault:install` → dobbeltklikk → `vault:uninstall` → `vault:install` én gang.
 
 **Deretter**
-5. **Autostart ved innlogging** via Planlagte oppgaver (`Register-ScheduledTask`, kun for denne brukeren, uten admin). Uten synlig konsollvindu: lag en liten launcher (`.vbs` eller `node` med `windowsHide`).
-6. **Systemvarsel** (Windows toast, f.eks. `node-notifier`) når watcheren har ingestet en ny bounce: «Would You Run (Extended) er klar – 125 BPM · 8A».
+7. **Autostart ved innlogging** via Planlagte oppgaver (`Register-ScheduledTask`, kun for denne brukeren, uten admin). Uten synlig konsollvindu: lag en liten launcher (`.vbs` eller `node` med `windowsHide`).
+8. **Systemvarsel** (Windows toast, f.eks. `node-notifier`) når watcheren har ingestet en ny bounce: «Would You Run (Extended) er klar – 125 BPM · 8A».
 
 Tauri er **ikke** med i denne runden. Edge-app-vindu gir samme opplevelse uten Rust-bygg. Nevn i README at Tauri er neste steg hvis Knut vil ha automix med Web Audio på desktop.
 
