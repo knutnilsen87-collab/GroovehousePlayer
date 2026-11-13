@@ -155,6 +155,25 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 2. Vis en QR-kode i Studio med `http://<pc-ip>:<server-port>` for rask åpning på telefonen.
 3. Si tydelig i README: dette er HTTP på lokalnettet, kun hjemme, og ikke for partnere. Partnerlenker kommer med R2 og invitasjonstokens i en egen fase.
 
+## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
+
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → del 1 punkt 7–8 (autostart og varsel).
+
+Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
+
+1. Knut installerer Tailscale på PC og mobil og logger inn med samme konto. Vent på ham. Spør før du installerer på PC-en (`winget install Tailscale.Tailscale`).
+2. Bruk **Tailscale Serve**, aldri **Funnel** (Funnel er offentlig):
+   `tailscale serve --bg --https=<port> http://127.0.0.1:<server-port>`
+   Første gang ber Tailscale om å skru på Serve og HTTPS-sertifikater i admin-konsollen. Vis Knut lenken og vent. Serveren skal fortsatt bare lytte på `127.0.0.1`. Tailscale står for HTTPS og tilgang.
+3. Serveren må godta vertsnavnet `<maskin>.<tailnet>.ts.net` (Host-header) og bruke relative URL-er, så alt virker både på `127.0.0.1` og via ts.net.
+4. Siden bare Knuts egne enheter i tailnetet når adressen, trengs ikke PIN her. Ta den bort for forespørsler som kommer via Tailscale Serve, men behold den for LAN-modus. Sjekk at Serve ikke er tilgjengelig for andre i tailnetet hvis Knut deler det med noen. Vis tilgangsreglene.
+5. `pnpm vault:remote on/off/status` setter opp og fjerner Serve-oppsettet og viser adressen. Vis QR-kode for ts.net-adressen i Studio.
+6. Oppdater snarveien/launcheren: hvis serveren bytter port (reserveport), må Serve-regelen følge med. Varsle tydelig hvis de ikke stemmer.
+7. Test fra mobilen på 4G (Wi-Fi av): katalogen laster, lyden spilles, fortsetter med låst skjerm, og hopp mellom deler virker. Android: «Legg til på startskjermen» virker nå med HTTPS. iPhone: bruk Safari-fanen, ikke hjemskjermen.
+8. README: hvordan Tailscale er satt opp, hvordan det slås av, og at PC-en må være på og serveren kjøre for at mobilen skal nå musikken.
+
+**Ferdig når:** spilleren spilles på mobilen over 4G via ts.net-adressen, og ingenting er tilgjengelig fra internett utenfor tailnetet.
+
 ## Ikke gjør nå
 
 - **Volum på iPhone:** kan ikke fikses i en nettside (iOS ignorerer `audio.volume`). Først mulig i en native app (Capacitor). Bare dokumenter det.
