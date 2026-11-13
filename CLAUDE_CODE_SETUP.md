@@ -27,18 +27,20 @@ Du jobber på Knuts stasjonære Windows-PC. Prosjektets rotmappe er `F:\prosjekt
 - Kjør det du bygger. Etter hver del: `pnpm test`, `pnpm typecheck`, og en faktisk sjekk av det delen skulle levere. Si tydelig fra hvis noe ikke virker, i stedet for å anta at det gjør det.
 - Hemmeligheter (Supabase-nøkler, PIN) skal aldri i git eller i chatten. Bruk `.env` (gitignored) eller Windows Credential Manager.
 - Ikke endre de låste beslutningene uten å spørre: ingen Web Audio på mobil, aksentfarger kun fra `assets.palette` via CSS-variabler, gull som ramme, HLS AAC 256 kbps, ingest som CLI med watcher som trigger.
+- **Porter:** server **41733**, dev **41734** (ikke 5173/4747). Portene ligger i `groovehouse.config.json`, binder kun til `127.0.0.1` (unntak: LAN-modus i del 6), og velges etter sjekk mot `Get-NetTCPConnection` og `netsh interface ipv4 show excludedportrange protocol=tcp`. `GET /api/health` svarer `{ "app": "groovehouse-vault", "version": … }`. Launcheren sjekker dette før vinduet åpnes, og sier tydelig fra hvis et annet program bruker porten. Er porten tatt ved oppstart: prøv de neste 10, skriv valgt port til `%LOCALAPPDATA%\GroovehouseVault\port`, og la snarveien lese den.
+- **Media-URL:** media serveres under `/media/...` (dev og server). `apps/web/public/` er vanlig public-mappe for ikoner og manifest.
 - Kode og identifikatorer på engelsk. UI-tekst: spiller og admin på norsk, lytterside (`/drop/...`) på engelsk.
 
 ## Del 0 – Oppsett og grønn start
 
-1. Sjekk at `package.json`, `apps/`, `packages/`, `supabase/` og `docs/` ligger i rotmappa, og at `git status` er ren. Ikke init git på nytt. Jobb på en egen gren per del (`setup/del-0` osv.) og spør før du pusher til GitHub.
+1. Sjekk at `package.json`, `apps/`, `packages/`, `supabase/` og `docs/` ligger i rotmappa, og at `git status` er ren. Løse designfiler i rotmappa (`Claude Design projects/`, Gemini-bildet, `logo.png`, `Groovehouse_Records.ico`, zip-filer) legges i `.gitignore`. Ikke init git på nytt. Jobb på en egen gren per del (`setup/del-0` osv.) og spør før du pusher til GitHub.
 2. Sjekk og installer det som mangler, etter å ha spurt:
    - Node 20+ (`node -v`)
    - pnpm (`corepack enable`)
    - ffmpeg og ffprobe på PATH (`winget install Gyan.FFmpeg`). Sjekk i et nytt skall etterpå.
 3. `pnpm install`, `pnpm test`, `pnpm typecheck`. Alle tester skal være grønne. Er de ikke det på Windows, fiks årsaken (stier, linjeskift, spawn-quoting), ikke testen.
 4. `pnpm make-fixtures`, `pnpm gh-ingest fixtures/blue-fire`, `pnpm gh-ingest fixtures/live-sett-demo`.
-5. `pnpm dev`, og sjekk at `/`, `/studio` og `/drop/blue-fire-pitch?r=Test` laster uten feil i konsollen, og at lyd faktisk spilles.
+5. `pnpm dev` (port 41734), og sjekk at `/`, `/studio` og `/drop/blue-fire-pitch?r=Test` laster uten feil i konsollen, og at lyd faktisk spilles.
 6. **Eksportmappe (avklart):** `F:\EchoGroove\EchoAI\REASONDONE`. Sett `GH_EXPORT_DIR` til den i `.env`. Mappa er i bruk fra før, med WAV-er og Reason-prosjekter, og er **kun lesing**: watcher og ingest skal aldri flytte, gi nytt navn til, endre eller slette noe der. Se del 0b.
 7. **Ekte test:** De eksisterende WAV-ene i REASONDONE importeres med `gh-ingest --backlog` (del 0b). Vis BPM, toneart, struktur og palett for et par av dem, og spør Knut om de stemmer. Noter svaret. Det brukes i del 3.
 
@@ -55,35 +57,45 @@ Du jobber på Knuts stasjonære Windows-PC. Prosjektets rotmappe er `F:\prosjekt
 - Tester for navnetolkning (mellomrom, norske tegn, `_v2`, `__extended`, ` (1)`) og for at ingenting i kildemappa endres. Sammenlign mtime og hash før og etter.
 
 **Metadata-rensing** (alt som havner i spilleren)
-1. `groovehouse.config.json` med standardverdier. Bekreft dem med Knut: artist `Echo Groove`, album/label `Groovehouse Records`, copyright `℗ <år> Groovehouse Records`. Brukes når `meta.json` ikke sier noe annet.
-2. Ingen kildetags videre: HLS og `preview.m4a` kodes med `-map_metadata -1`, deretter settes bare egne tags (title, artist, album, copyright, encoder `Groovehouse Vault`). Cover uten EXIF/XMP/C2PA. Originalfilene røres ikke.
+1. `groovehouse.config.json` med standardverdier (avklart med Knut): `artist: "Echo Groove"`, `label: "Groovehouse Records"`, copyright `℗ <filens år> Groovehouse Records` (årstall fra filens dato, kan overstyres i `meta.json`). **Groovehouse Records er labelet, ikke albumet.** Album settes per låt i `meta.json`. Mangler det, brukes låttittelen som album, som for en singel. Labelnavnet havner aldri i album-feltet. Label skrives i `copyright`, i en `label`/`publisher`-tag der formatet støtter det, og som `label` i `manifest.json`.
+2. Ingen kildetags videre: HLS og `preview.m4a` kodes med `-map_metadata -1`, deretter settes bare egne tags (title, artist, album, copyright, label der det støttes, encoder `Groovehouse Vault`). Cover uten EXIF/XMP/C2PA. Originalfilene røres ikke.
 3. Rens titler fra filnavn med en liste i config (start: `suno`, `suno ai`, `v4`, `v4.5`, `v5`, `v5.5`, `(remastered)`, `final`, `master`, `bounce`, `export`, datoer og løpenummer som ` (1)`). Rydd mellomrom og bindestreker, og bruk riktig store bokstaver. Stilisering satt i `meta.json` (f.eks. `WOULD YOU RUN`) vinner alltid.
+   - **Ikke gjett apostrofer.** Filnavn i bare versaler får vanlig tittel-format og vises i backlog-lista, så Knut kan rette dem i Studio. Avklart: `ILL KEEP IT REAL` → «I'll Keep It Real».
+   - **BPM i filnavn** (`(128BPM)`, `128 BPM`, `128bpm`) fjernes fra tittelen og brukes som BPM-hint. Analysen bekrefter innenfor ±2. Ellers vinner analysen, og det vises en advarsel.
+   - **«Stems»** står i renselista. Er en fil faktisk enkeltspor (trommer, bass osv.), skal den ikke inn i spilleren som låt. Spør Knut ved tvil.
 4. Varsle i terminal og på ingest-kortet i Studio når «suno» (uansett store/små bokstaver) finnes i filnavn, tags eller tekstfelt: hva som ble funnet, og at det er fjernet.
-5. Tittel, artist og variantnavn kan rettes i Studio. Det lagres som `meta.json` i **media-mappa** for asseten (ikke i REASONDONE) og kjører bare tag- og manifest-steget på nytt.
+5. Tittel, artist, album og variantnavn kan rettes i Studio. Det lagres som `meta.json` i **media-mappa** for asseten (ikke i REASONDONE) og kjører bare tag- og manifest-steget på nytt.
 6. Test: fixture-WAV med Suno-tags og «suno» i filnavnet. Verifiser med `ffprobe` at ingenting av det finnes i HLS, preview eller manifest.
 
 **Ferdig når:** de eksisterende WAV-ene i REASONDONE ligger i spilleren med rene titler og riktig artist, REASONDONE er uendret, og en ny bounce dukker opp automatisk.
 
-## Del 1 – Desktop-app med autostart
+## Del 1 – Startfil, desktop-app og autostart
 
-Mål: Knut dobbeltklikker et Groovehouse-ikon på skrivebordet og får et eget vindu. Bounces fra Reason dukker opp av seg selv, uten at han starter noe manuelt.
+Mål: Knut dobbeltklikker «Groovehouse Vault» på skrivebordet og får spilleren i eget vindu. Bounces fra Reason dukker opp av seg selv.
 
-1. **`apps/server`** (ny pakke): én Node-prosess som
-   - serverer bygget web-app (`apps/web/dist`) og `media/` på `http://127.0.0.1:4747`, med SPA-fallback,
-   - kjører watcheren (`gh-watch`-logikken som modul, ikke som eget skall) mot `GH_EXPORT_DIR`,
-   - har et lite API for del 2 (`/api/...`),
+**Først: startfila** (rett etter at del 0 og 0b er godkjent)
+1. **`apps/server`** (ny pakke), én Node-prosess som
+   - serverer bygget web-app (`apps/web/dist`) med SPA-fallback, og `media/` under `/media/...`, på `http://127.0.0.1:41733` (se Porter under Arbeidsmåte),
+   - har `GET /api/health` og API-et fra del 0b/2,
+   - kjører watcheren som modul mot `GH_EXPORT_DIR`,
    - logger til `%LOCALAPPDATA%\GroovehouseVault\logs\` med rotering,
-   - nekter å starte en ny instans hvis porten allerede er i bruk (åpner da bare vinduet).
-   Web-appen bruker samme kode i dev (Vite-middleware) og i server-modus.
-2. **Autostart ved innlogging** via Planlagte oppgaver (`Register-ScheduledTask`, kun for denne brukeren, uten admin). Prosessen skal kjøre uten synlig konsollvindu, så skriv en liten launcher (`.vbs` eller `node` med `windowsHide`).
-3. **Skrivebordssnarvei «Groovehouse Vault»** som åpner `http://127.0.0.1:4747` i app-modus. Bruk Edge `--app=` (eget vindu uten adresselinje), og fall tilbake til Chrome `--app=`. Start serveren først hvis den ikke kjører.
-   - Ikon: lag `groovehouse.ico` (16–256 px) fra `docs/design/groovehouse-logo-round.png`. Logoen er detaljert, så sjekk at 16 og 32 px er lesbare. Er de ikke det, si fra og foreslå et forenklet merke.
-4. **`pnpm vault:install` og `pnpm vault:uninstall`** som gjør punkt 2–3 og fjerner dem igjen, så det er reversibelt.
-5. Legg til et **systemvarsel** (Windows toast via f.eks. `node-notifier`) når watcheren har ingestet en ny bounce: «Would You Run (Extended) er klar – 125 BPM · 8A».
+   - ikke starter en ny instans hvis den allerede kjører (helse-sjekk), men bare åpner vinduet.
+2. **Ikoner:** Knuts ikonpakke `Groovehouse_Vault_Ikonpakke_v2.zip` ligger i rotmappa. Pakk den ut til `assets/brand/` (hele pakken, også Android og iOS til senere native-apper) og legg zip-en i `.gitignore`.
+   - Windows-snarvei: `assets/brand/Windows/Groovehouse_Vault_IconPack.ico`.
+   - Web: kopier `assets/brand/Web/public/*` til `apps/web/public/` og legg `<head>`-snippeten inn i `apps/web/index.html`.
+   - Lag `icon-192.png` og `icon-512.png` på nytt fra `Windows/groovehouse-transparent-512.png`, så `purpose: "any"` har gjennomsiktige hjørner. Maskable-, iOS- og Play Store-ikoner beholdes uten alfa.
+   - I `manifest.webmanifest`: `"display": "minimal-ui"`, **ikke** `standalone`. iOS kutter bakgrunnslyd i hjemskjerm-PWA-er, og minimal-ui støttes ikke på iOS, så den åpnes i Safari der lyden virker. Ikke legg inn `apple-mobile-web-app-capable`.
+   - Valgfritt, spør Knut: i 48 px har ikonet fortsatt «GROOVEHOUSE»-tekst som blir uleselig. Foreslå å bruke det forenklede merket (hus + plate) også i 48 px.
+3. **Skrivebordssnarvei «Groovehouse Vault»** og samme snarvei i Startmenyen. Dobbeltklikk starter serveren usynlig hvis den ikke kjører, venter på `/api/health`, og åpner spilleren i Edge `--app=` (Chrome `--app=` som reserve). Kjører den allerede, åpnes bare vinduet.
+4. **`pnpm vault:install` og `pnpm vault:uninstall`** lager og fjerner alt dette, så det er reversibelt. Spør før noe lages utenfor prosjektmappa.
 
-Tauri er **ikke** en del av denne runden. Edge-app-vindu gir samme opplevelse uten Rust-bygg. Nevn i README at Tauri er neste steg hvis Knut vil ha automix med Web Audio på desktop.
+**Deretter**
+5. **Autostart ved innlogging** via Planlagte oppgaver (`Register-ScheduledTask`, kun for denne brukeren, uten admin). Uten synlig konsollvindu: lag en liten launcher (`.vbs` eller `node` med `windowsHide`).
+6. **Systemvarsel** (Windows toast, f.eks. `node-notifier`) når watcheren har ingestet en ny bounce: «Would You Run (Extended) er klar – 125 BPM · 8A».
 
-**Ferdig når:** etter omstart av PC-en kjører serveren, snarveien åpner spilleren, og en ny fil i eksportmappa dukker opp i katalogen med varsel uten at Knut gjør noe.
+Tauri er **ikke** med i denne runden. Edge-app-vindu gir samme opplevelse uten Rust-bygg. Nevn i README at Tauri er neste steg hvis Knut vil ha automix med Web Audio på desktop.
+
+**Ferdig når:** snarveien med Groovehouse-ikonet åpner spilleren, og etter omstart av PC-en kjører serveren og nye filer i eksportmappa dukker opp med varsel uten at Knut gjør noe.
 
 ## Del 2 – Redigere strukturmarkører i Studio
 
@@ -136,7 +148,7 @@ Dagens toneart-analyse (Krumhansl på enkelt kromagram) har lav sikkerhet.
 Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 1. LAN-modus av som standard. Slås på med `pnpm vault:lan on`: serveren binder til nettverkskortet og krever en **PIN** (lagret hashet i Credential Manager). Etter riktig PIN får mobilen en httpOnly-cookie som varer 30 dager. Spør før du lager brannmurregel.
-2. Vis en QR-kode i Studio med `http://<pc-ip>:4747` for rask åpning på telefonen.
+2. Vis en QR-kode i Studio med `http://<pc-ip>:<server-port>` for rask åpning på telefonen.
 3. Si tydelig i README: dette er HTTP på lokalnettet, kun hjemme, og ikke for partnere. Partnerlenker kommer med R2 og invitasjonstokens i en egen fase.
 
 ## Ikke gjør nå
