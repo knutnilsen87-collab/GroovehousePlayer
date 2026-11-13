@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 10 (del en låt som fil)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 10 (del en låt som fil)** → **del 12 (Android-app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -281,6 +281,68 @@ Knut vil kunne sende én låt til noen via WhatsApp, e-post eller lignende. Dett
 
 **Ferdig når:** Knut deler en låt fra mobilen (via Tailscale) til seg selv på WhatsApp, og en annen låt fra desktop-appen på e-post. Begge spilles av hos mottakeren med riktig tittel og artist, og coveret vises i musikkappen og i e-postvedlegget.
 
+## Del 11 – «⋯»-meny for låta som spilles
+
+Mål: Når en låt spilles, er det alltid en «⋯»-knapp som gir alle valg for **akkurat den låta** (versjonen og varianten som spilles nå).
+
+1. **Én komponent** for låthandlinger (`TrackActions`), brukt overalt: låtrader (del 9), fullskjermspilleren, minispilleren (mobil) og spillerdokken (desktop). Ikke lag flere varianter av menyen.
+2. **Plassering:**
+   - Mobil: «⋯» øverst til høyre i fullskjermspilleren, og hold inne på minispilleren.
+   - Desktop: «⋯» i dokken ved siden av tittelen, og høyreklikk på coveret i dokken.
+3. **Innhold**, i denne rekkefølgen (lenge-brukte øverst):
+   - **Legg til i spilleliste** (arket fra del 9 punkt 1, med «+ Ny spilleliste»)
+   - **Del…** (del 10)
+   - **Spill neste** og **Legg til i køen** (gjelder låtrader; på låta som spilles: **Vis køen**)
+   - **Bytt variant** (Original/Extended osv., beholder seksjonen som i dag via `mapPositionBetweenVariants`)
+   - **Velg versjon** (v1…vN, fra versjonsvelgeren i del 9 punkt 13)
+   - **Gå til seksjon** (Intro/Build/Drop … fra markørene)
+   - **Info:** BPM, toneart/Camelot, LUFS, varighet, filnavn, dato for ingest
+   - **Åpne i Studio** (kun desktop, eller når Studio er tilgjengelig)
+4. Køen: legg til `insertNext(asset)` og `enqueue(asset)` i spiller-storen. Køvisning med dra for å endre rekkefølge og sveip for å fjerne. Køen overlever omstart (localStorage), men en ny `playFrom` erstatter den som før.
+5. På mobil er menyen et ark nederfra med store treffflater (minst 48 px). På desktop er den en vanlig kontekstmeny med snarveier vist til høyre (f.eks. `Ctrl+Shift+P` for spilleliste).
+6. Tastatur: `Shift+F10` eller menytasten åpner menyen for låta som spilles.
+
+**Ferdig når:** Knut spiller en låt på mobilen, trykker «⋯» i fullskjermspilleren, legger den til i en liste og deler den, uten å forlate spilleren.
+
+## Del 12 – Android-app (APK) med avspilling i bakgrunnen
+
+Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken fortsetter når skjermen er av eller han bruker andre apper. Den skal også kunne styres fra låseskjermen, varslingslinja, Bluetooth-hodetelefoner og bilen.
+
+**Hvorfor native avspilling:** Chrome og WebView kan stoppe lyd i bakgrunnen, og Samsungs batterisparing dreper prosesser aggressivt. Løsningen er en Android-tjeneste i forgrunnen (foreground service) som eier avspillingen. Lyd i WebView-en er ikke nok.
+
+**Arkitektur**
+1. **Capacitor** (siste stabile), i `apps/android`. Den pakker den bygde web-appen (`apps/web/dist`) inn i APK-en. UI-et er det samme som på web, så del 9–11 følger med.
+2. **Egen Capacitor-plugin `NativePlayer`** (Kotlin) med **AndroidX Media3**: `ExoPlayer` + `media3-exoplayer-hls` + `MediaSessionService`. Den spiller HLS-strømmene direkte og gir varsel med cover, låseskjermkontroller, Bluetooth-knapper og lydfokus (pause ved telefonsamtale).
+3. **Motor-abstraksjon i spiller-storen:** `PlayerEngine` med `HtmlAudioEngine` (web/desktop, dagens kode) og `NativeEngine` (Android, snakker med pluginen). Storen skal ikke vite hvilken som brukes. Pluginen sender posisjon (hvert 250 ms når appen er synlig, sjeldnere i bakgrunnen), tilstand og «låt ferdig» tilbake. Visualiseringen interpolerer mellom posisjonene som i dag.
+4. **Køen eies av den native spilleren** når appen er i bakgrunnen, så neste låt starter uten at JavaScript kjører. Send hele køen (URL-er, tittel, artist, cover-URL, varighet) til pluginen ved `playFrom`/endringer i køen.
+5. Knapper i varselet: forrige, spill/pause, neste. Ekstra egendefinert knapp: **Neste seksjon** (samme som Shift+→). Fortsett-posisjonen lagres også fra native-siden.
+
+**Tilkobling til PC-en**
+6. Første oppstart: et skjermbilde **Koble til Vault** der Knut limer inn Tailscale-adressen og skriver PIN-en. Serveren gir tilbake et **enhetstoken** (langlivet, kan trekkes tilbake). Tokenet lagres kryptert (Android Keystore via en secure storage-plugin), aldri i vanlig `localStorage`.
+7. **Adressen skal ikke ligge i koden eller i git.** Den lagres bare i appen. Valgfritt: QR-kode i Studio → Innstillinger som inneholder adressen og en engangskode for paring, i stedet for PIN.
+8. Serveren: godta `Authorization: Bearer <enhetstoken>` på API og `/media/...` (ExoPlayer setter headeren via `DefaultHttpDataSource`). Legg til CORS kun for app-opprinnelsen (`https://localhost`). **Tilkoblede enheter** listes i innstillingene (del 8) med «Trekk tilbake».
+9. Bare HTTPS (Tailscale). Ingen `cleartextTrafficPermitted`. Wi-Fi-adressen `http://10.0.0.47` brukes ikke i appen.
+10. Er PC-en av eller utenfor rekkevidde: vis «Får ikke kontakt med Vault på PC-en» med «Prøv igjen», ikke en hvit side.
+
+**Ting som oppfører seg annerledes i appen**
+11. **Deling (del 10):** WebView har ikke Web Share API. I appen: last ned fila til appens cache med `@capacitor/filesystem` og del med `@capacitor/share`. Abstraher dette i samme `share()`-funksjon som web bruker.
+12. **Volum:** `audio.volume`-dempingen (LUFS-utjevning) gjøres i ExoPlayer (`player.volume`), så den virker i appen.
+13. Tilbake-knappen på Android: lukker ark og fullskjermspiller før den går ut av appen. Ut av appen = musikken fortsetter.
+
+**Ikon, navn og bygg**
+14. Appnavn **Groovehouse Vault**, `applicationId` `no.groovehouse.vault`. Adaptivt ikon fra ikonpakken i `assets/brand/` (forgrunn = merket, bakgrunn = `#07080B`), og varselikon i hvitt (monokrom). Mørk oppstartsskjerm.
+15. Tillatelser: `FOREGROUND_SERVICE`, `FOREGROUND_SERVICE_MEDIA_PLAYBACK`, `POST_NOTIFICATIONS` (spør ved første avspilling), `INTERNET`. Ingen andre.
+16. **Spør Knut før** du installerer JDK (17 eller 21), Android SDK (kommandolinjeverktøy eller Android Studio) og Gradle via winget, og før du skriver utenfor rotmappa.
+17. **Signering:** lag en egen keystore utenfor repoet (`%APPDATA%\GroovehouseVault\android\release.jks`), med passordet i Windows Credential Manager. Samme nøkkel må brukes for alle oppdateringer, ellers må appen avinstalleres. Ta en backup-påminnelse i README.
+18. `pnpm android:build` bygger web + APK. `pnpm android:install` installerer via `adb` over USB (sjekk at USB-feilsøking er på; forklar Knut hvordan han slår det på hvis ikke). Legg APK-en også i `dist/android/` for manuell installasjon.
+19. **Samsung:** etter installasjon, vis Knut hvordan han setter appen til «Ubegrenset» under Batteri, så den ikke stoppes. Skriv det i README.
+
+**Senere (ikke i denne delen):** Android Auto (krever `MediaLibraryService` og at «ukjente kilder» slås på i Android Auto for sideloadede apper), nedlasting for offline-lytting i bilen, og iPhone-app.
+
+**Tester:** enhetstester for `PlayerEngine`-kontrakten (begge motorer), tokenpåkrevd på API og media, CORS kun for app-opprinnelsen, og at adressen ikke finnes i bygget/git (`git grep` etter `.ts.net`).
+
+**Ferdig når:** Knut installerer APK-en på S22, kobler til via Tailscale, starter en spilleliste, låser skjermen og bytter til en annen app. Musikken fortsetter i 15 minutter med flere låtskifter, kan pauses og hoppes fra låseskjermen og fra Bluetooth i bilen, og «⋯ → Del…» sender fila til WhatsApp.
+
 ## Utkast: delingsfasen (drops til andre) – ikke bygg ennå
 
 **Enkeltlåt som lenke (første steg i denne fasen):** «Del lenke» på én låt lager en drop med én låt. Lenken gir en fin forhåndsvisning i WhatsApp/iMessage med cover og tittel (Open Graph-bilde generert fra coveret og paletten), kan strømmes uten nedlasting, utløper, og gir lytteinnsikt. Dette er alternativet til fildelingen i del 10 når Knut vil ha kontroll over hvor musikken havner.
@@ -303,8 +365,8 @@ Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailsca
 
 ## Ikke gjør nå
 
-- **Volum på iPhone:** kan ikke fikses i en nettside (iOS ignorerer `audio.volume`). Først mulig i en native app (Capacitor). Bare dokumenter det.
-- Tauri, Capacitor, R2, partnerlenker med tokens og vannmerke i lyd: egne faser.
+- **Volum på iPhone:** kan ikke fikses i en nettside (iOS ignorerer `audio.volume`). Først mulig i en native iPhone-app. Bare dokumenter det. (Android-appen i del 12 løser det for Android.)
+- Tauri, iPhone-app, R2, partnerlenker med tokens og vannmerke i lyd: egne faser.
 - Ikke last opp musikk til skyen i denne runden. Supabase brukes bare til innlogging og posisjoner.
 
 ## Avslutning
