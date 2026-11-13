@@ -1,0 +1,375 @@
+{
+  "schema": 1,
+  "background": "#07080B",
+  "minContrast": 4.5,
+  "neonGlow": {
+    "description": "Glød rundt prikk/knapp: to lag box-shadow i primary",
+    "css": "0 0 6px {primary}, 0 0 18px {primary}99, 0 0 36px {primary}55"
+  },
+  "groups": {
+    "neon": "Neon",
+    "candy": "Candy"
+  },
+  "colors": [
+    {
+      "id": "neon-cyan",
+      "name": "Neon Cyan",
+      "primary": "#2FE6FF",
+      "secondary": "#0092A6",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 13.24,
+      "group": "neon"
+    },
+    {
+      "id": "sky",
+      "name": "Himmelblå",
+      "primary": "#5EC8FF",
+      "secondary": "#007EC0",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 10.66,
+      "group": "neon"
+    },
+    {
+      "id": "electric-blue",
+      "name": "Elektrisk blå",
+      "primary": "#5B8CFF",
+      "secondary": "#0039BE",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.33,
+      "group": "neon"
+    },
+    {
+      "id": "ultramarine",
+      "name": "Ultramarin",
+      "primary": "#7A6BFF",
+      "secondary": "#1400C7",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 5.13,
+      "group": "neon"
+    },
+    {
+      "id": "violet-haze",
+      "name": "Fiolett dis",
+      "primary": "#A879FF",
+      "secondary": "#4900CF",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.53,
+      "group": "neon"
+    },
+    {
+      "id": "ultraviolet",
+      "name": "Ultrafiolett",
+      "primary": "#C45CFF",
+      "secondary": "#7A00BF",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.03,
+      "group": "neon"
+    },
+    {
+      "id": "magenta-pulse",
+      "name": "Magenta puls",
+      "primary": "#FF45D0",
+      "secondary": "#B20085",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.69,
+      "group": "neon"
+    },
+    {
+      "id": "hot-pink",
+      "name": "Hot pink",
+      "primary": "#FF5CA8",
+      "secondary": "#BF0059",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 7.01,
+      "group": "neon"
+    },
+    {
+      "id": "cherry",
+      "name": "Kirsebær",
+      "primary": "#FF3D6E",
+      "secondary": "#AE002C",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 5.86,
+      "group": "neon"
+    },
+    {
+      "id": "sunset-red",
+      "name": "Solnedgang",
+      "primary": "#FF5454",
+      "secondary": "#BA0000",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.34,
+      "group": "neon"
+    },
+    {
+      "id": "coral",
+      "name": "Korall",
+      "primary": "#FF7A66",
+      "secondary": "#C41A00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 7.85,
+      "group": "neon"
+    },
+    {
+      "id": "ember",
+      "name": "Glo",
+      "primary": "#FF8136",
+      "secondary": "#AA3F00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 8.05,
+      "group": "neon"
+    },
+    {
+      "id": "acid-lime",
+      "name": "Syre-lime",
+      "primary": "#C8FF3D",
+      "secondary": "#7DAE00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 17.0,
+      "group": "neon"
+    },
+    {
+      "id": "neon-green",
+      "name": "Neongrønn",
+      "primary": "#3DFF8F",
+      "secondary": "#00AE49",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 15.16,
+      "group": "neon"
+    },
+    {
+      "id": "mint",
+      "name": "Mynte",
+      "primary": "#5CFFC9",
+      "secondary": "#00BF80",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 15.83,
+      "group": "neon"
+    },
+    {
+      "id": "aqua",
+      "name": "Akva",
+      "primary": "#22E8C8",
+      "secondary": "#0E8571",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 12.82,
+      "group": "neon"
+    },
+    {
+      "id": "teal-glow",
+      "name": "Turkis glød",
+      "primary": "#1FCFC0",
+      "secondary": "#11726A",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 10.25,
+      "group": "neon"
+    },
+    {
+      "id": "ice",
+      "name": "Is",
+      "primary": "#A9E8FF",
+      "secondary": "#00ABE9",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 14.95,
+      "group": "neon"
+    },
+    {
+      "id": "lavender",
+      "name": "Lavendel",
+      "primary": "#BCA9FF",
+      "secondary": "#3400E9",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 9.78,
+      "group": "neon"
+    },
+    {
+      "id": "rose-quartz",
+      "name": "Rosekvarts",
+      "primary": "#F7ABDA",
+      "secondary": "#D21489",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 11.25,
+      "group": "neon"
+    },
+    {
+      "id": "peach",
+      "name": "Fersken",
+      "primary": "#FFB591",
+      "secondary": "#DC4800",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 11.7,
+      "group": "neon"
+    },
+    {
+      "id": "electric-orchid",
+      "name": "Orkidé",
+      "primary": "#E07BFF",
+      "secondary": "#9F00D0",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 8.06,
+      "group": "neon"
+    },
+    {
+      "id": "bubblegum",
+      "name": "Tyggegummi",
+      "primary": "#FF7AD9",
+      "secondary": "#CF0094",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 8.62,
+      "group": "candy"
+    },
+    {
+      "id": "blue-raspberry",
+      "name": "Blå bringebær",
+      "primary": "#3DC2FF",
+      "secondary": "#0077AE",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 9.88,
+      "group": "candy"
+    },
+    {
+      "id": "sour-apple",
+      "name": "Sur eple",
+      "primary": "#8CFF4D",
+      "secondary": "#41B700",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 15.76,
+      "group": "candy"
+    },
+    {
+      "id": "watermelon",
+      "name": "Vannmelon",
+      "primary": "#FF5C7A",
+      "secondary": "#BF0023",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.74,
+      "group": "candy"
+    },
+    {
+      "id": "plasma",
+      "name": "Plasma",
+      "primary": "#9D4DFF",
+      "secondary": "#5200B7",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 4.71,
+      "group": "candy"
+    },
+    {
+      "id": "toxic",
+      "name": "Giftgrønn",
+      "primary": "#7CFF2E",
+      "secondary": "#3EA600",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 15.45,
+      "group": "candy"
+    },
+    {
+      "id": "holo-blue",
+      "name": "Holoblå",
+      "primary": "#4DE1FF",
+      "secondary": "#0098B7",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 12.9,
+      "group": "candy"
+    },
+    {
+      "id": "candy-apple",
+      "name": "Kandisert eple",
+      "primary": "#FF3B3B",
+      "secondary": "#AD0000",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 5.67,
+      "group": "candy"
+    },
+    {
+      "id": "electric-lilac",
+      "name": "Elektrisk syrin",
+      "primary": "#D69CFF",
+      "secondary": "#8400E2",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 9.59,
+      "group": "candy"
+    },
+    {
+      "id": "peach-fizz",
+      "name": "Fersken-brus",
+      "primary": "#FF9A7A",
+      "secondary": "#CF3200",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 9.68,
+      "group": "candy"
+    },
+    {
+      "id": "ultra-pink",
+      "name": "Ultrarosa",
+      "primary": "#FF66F5",
+      "secondary": "#C400B8",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 8.08,
+      "group": "candy"
+    },
+    {
+      "id": "glacier-mint",
+      "name": "Isbre-mynte",
+      "primary": "#7DFFF2",
+      "secondary": "#00D1BC",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 16.65,
+      "group": "candy"
+    },
+    {
+      "id": "razzle",
+      "name": "Razzle",
+      "primary": "#FF3D9A",
+      "secondary": "#AE0053",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 6.09,
+      "group": "candy"
+    },
+    {
+      "id": "cotton-candy",
+      "name": "Sukkerspinn",
+      "primary": "#FFB8F5",
+      "secondary": "#F100CF",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 12.8,
+      "group": "candy"
+    },
+    {
+      "id": "lemon-drop",
+      "name": "Sitrondrops",
+      "primary": "#FFEA3D",
+      "secondary": "#AE9B00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 16.3,
+      "group": "candy"
+    },
+    {
+      "id": "cyber-pink",
+      "name": "Cyberrosa",
+      "primary": "#FF1FC4",
+      "secondary": "#9D0074",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 5.96,
+      "group": "candy"
+    },
+    {
+      "id": "berry-blast",
+      "name": "Bærbombe",
+      "primary": "#E03DFF",
+      "secondary": "#9200AE",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 5.99,
+      "group": "candy"
+    },
+    {
+      "id": "sherbet-lime",
+      "name": "Lime-sorbet",
+      "primary": "#DAFF7A",
+      "secondary": "#96CF00",
+      "onPrimary": "#07080B",
+      "contrastOnObsidian": 17.71,
+      "group": "candy"
+    }
+  ]
+}
