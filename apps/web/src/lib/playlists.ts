@@ -60,8 +60,12 @@ interface State {
   removeEntries: (id: string, entryIds: string[]) => Promise<Playlist>;
   /** Angre fjerning: legger oppføringene tilbake på sine gamle plasser. */
   restoreEntries: (id: string, removed: Array<{ entry: PlaylistEntry; index: number }>) => Promise<Playlist>;
-  setVariant: (id: string, entryId: string, variant: string | null) => Promise<Playlist>;
+  /** Lås oppføringen: variant (null = hovedvarianten) og versjon (null = følg nyeste). */
+  setLock: (id: string, entryId: string, variant: string | null, version: number | null) => Promise<Playlist>;
   setColor: (id: string, color: string) => Promise<Playlist>;
+  /** Eget cover (pkt. 14). Ved 409 prøves det på nytt med den ferske lista. */
+  setCover: (id: string, file: Blob) => Promise<Playlist>;
+  removeCover: (id: string) => Promise<Playlist>;
   remove: (id: string) => Promise<void>;
 }
 
@@ -95,6 +99,26 @@ export const usePlaylists = create<State>((set, get) => {
     }
     await get().load();
     throw new Error('Lista endres et annet sted akkurat nå – prøv igjen');
+  }
+
+  /** Cover-forespørsler sender updatedAt selv; ved 409 brukes lista serveren sendte tilbake (maks 3 forsøk). */
+  async function coverRequest(id: string, send: (p: Playlist) => Promise<Response>): Promise<Playlist> {
+    let cur = get().playlists.find((p) => p.id === id);
+    for (let attempt = 0; cur && attempt < 3; attempt++) {
+      const r = await send(cur);
+      const j = (await r.json().catch(() => ({}))) as { error?: string; playlist?: Playlist };
+      if (r.ok && j.playlist) {
+        replace(j.playlist);
+        return j.playlist;
+      }
+      if (r.status === 409 && j.playlist) {
+        cur = j.playlist;
+        replace(cur);
+        continue;
+      }
+      throw new Error(j.error ?? `Feil ${r.status}`);
+    }
+    throw new Error(cur ? 'Lista endres et annet sted akkurat nå – prøv igjen' : 'Fant ikke spillelista');
   }
 
   return {
@@ -163,11 +187,13 @@ export const usePlaylists = create<State>((set, get) => {
       };
       return mutate(id, (p) => ({ entries: put(p) }), (p) => ({ ...p, entries: put(p) }));
     },
-    setVariant: (id, entryId, variant) => {
-      const change = (p: Playlist) => p.entries.map((e) => (e.id === entryId ? { ...e, variant } : e));
+    setLock: (id, entryId, variant, version) => {
+      const change = (p: Playlist) => p.entries.map((e) => (e.id === entryId ? { ...e, variant, version } : e));
       return mutate(id, (p) => ({ entries: change(p) }), (p) => ({ ...p, entries: change(p) }));
     },
     setColor: (id, color) => mutate(id, (p) => (p.color === color ? null : { color }), (p) => ({ ...p, color })),
+    setCover: (id, file) => coverRequest(id, (p) => fetch(`/api/playlists/${encodeURIComponent(id)}/cover?updatedAt=${encodeURIComponent(p.updatedAt)}`, { method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file })),
+    removeCover: (id) => coverRequest(id, (p) => fetch(`/api/playlists/${encodeURIComponent(id)}/cover`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updatedAt: p.updatedAt }) })),
     remove: async (id) => {
       for (let attempt = 0; attempt < 3; attempt++) {
         const cur = get().playlists.find((p) => p.id === id);

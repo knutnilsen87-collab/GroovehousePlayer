@@ -25,36 +25,57 @@ async function getJson<T>(url: string): Promise<T> {
   return (await r.json()) as T;
 }
 
-export async function loadCatalog(): Promise<LoadedAsset[]> {
+/** Én linje i media/index.json – én per slug + variant + versjon (eldre versjoner blir liggende). */
+export type IndexEntry = CatalogIndex['assets'][number];
+
+const versionCache = new Map<string, Promise<LoadedAsset>>();
+
+/** Laster én versjon (manifest + analyse). Bufres, så hver versjon hentes bare én gang. */
+export function loadVersion(entry: IndexEntry, fresh = false): Promise<LoadedAsset> {
+  let p = fresh ? undefined : versionCache.get(entry.manifest);
+  if (!p) {
+    p = (async () => {
+      const base = `${MEDIA}/${entry.manifest.replace(/manifest\.json$/, '')}`;
+      const manifest = await getJson<AssetManifest>(`${MEDIA}/${entry.manifest}`);
+      const analysis = await getJson<Analysis>(`${base}${manifest.files.analysis}`).catch(() => null);
+      return { manifest, analysis, base };
+    })();
+    p.catch(() => versionCache.delete(entry.manifest));
+    versionCache.set(entry.manifest, p);
+  }
+  return p;
+}
+
+export const versionKey = (slug: string, variant: string | null, version: number) => `${slug}::${variant ?? ''}::${version}`;
+
+/** Alle versjoner av en slug + variant i indeksen, nyeste først. */
+export function versionsOf(index: IndexEntry[], slug: string, variant: string | null): IndexEntry[] {
+  return index.filter((e) => e.slug === slug && (e.variant ?? null) === variant).sort((a, b) => b.version - a.version);
+}
+
+export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: IndexEntry[] }> {
   let idx: CatalogIndex;
   try {
     idx = await getJson<CatalogIndex>(`${MEDIA}/index.json`);
   } catch {
-    return [];
+    return { assets: [], index: [] };
   }
-  // Kun nyeste versjon per slug + variant
-  const latest = new Map<string, CatalogIndex['assets'][number]>();
+  // Katalogen viser nyeste versjon per slug + variant. Eldre versjoner hentes ved behov (låst versjon i spilleliste, versjonsvelger i Studio).
+  const latest = new Map<string, IndexEntry>();
   for (const a of idx.assets) {
     const k = `${a.slug}::${a.variant ?? ''}`;
     const cur = latest.get(k);
     if (!cur || a.version > cur.version) latest.set(k, a);
   }
-  return Promise.all(
-    [...latest.values()].map(async (entry) => {
-      const base = `${MEDIA}/${entry.manifest.replace(/manifest\.json$/, '')}`;
-      const manifest = await getJson<AssetManifest>(`${MEDIA}/${entry.manifest}`);
-      const analysis = await getJson<Analysis>(`${base}${manifest.files.analysis}`).catch(() => null);
-      return { manifest, analysis, base };
-    })
-  );
+  return { assets: await Promise.all([...latest.values()].map((e) => loadVersion(e, true))), index: idx.assets };
 }
 
 export function useCatalog() {
-  const [state, setState] = useState<{ assets: LoadedAsset[]; loading: boolean }>({ assets: [], loading: true });
+  const [state, setState] = useState<{ assets: LoadedAsset[]; index: IndexEntry[]; loading: boolean }>({ assets: [], index: [], loading: true });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
-    loadCatalog().then((assets) => alive && setState({ assets, loading: false }));
+    loadCatalog().then((c) => alive && setState({ ...c, loading: false }));
     return () => {
       alive = false;
     };

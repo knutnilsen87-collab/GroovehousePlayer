@@ -4,7 +4,7 @@ import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
 import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, UploadIcon } from '../components/Icons';
 import { Waveform } from '../components/Waveform';
-import { assetUrl, downsample, findMain, lastLogFor, saveAssetMeta, useCatalog, useIngestLog, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
+import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, useCatalog, useIngestLog, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
@@ -13,7 +13,7 @@ type View = 'drops' | 'archive' | 'sets' | 'mobile';
 
 /** Ditt arbeidsbord. Gull er systemfarge her, men data og kontroll har prioritet. */
 export function CommandCenter() {
-  const { assets, loading, reload } = useCatalog();
+  const { assets, index, loading, reload } = useCatalog();
   const [tick, setTick] = useState(0);
   const log = useIngestLog(tick);
   const refresh = () => {
@@ -34,7 +34,7 @@ export function CommandCenter() {
         ) : view === 'mobile' ? (
           <MobileView />
         ) : (
-          <ArchiveView assets={view === 'sets' ? assets.filter((a) => a.manifest.kind === 'set') : assets} title={view === 'sets' ? t.sets : t.archive} log={log} onSaved={refresh} />
+          <ArchiveView assets={view === 'sets' ? assets.filter((a) => a.manifest.kind === 'set') : assets} title={view === 'sets' ? t.sets : t.archive} log={log} onSaved={refresh} index={index} />
         )}
       </main>
       <MiniPlayer />
@@ -519,7 +519,7 @@ function describeEvents(events: SeedRecipient['events'][string], m: AssetManifes
 
 // ---------------------------------------------------------------- Arkiv / Live-sett
 
-function ArchiveView({ assets, title, log, onSaved }: { assets: LoadedAsset[]; title: string; log: IngestLogEntry[]; onSaved: () => void }) {
+function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAsset[]; title: string; log: IngestLogEntry[]; onSaved: () => void; index: IndexEntry[] }) {
   const { setQueue, playIndex } = usePlayer();
   return (
     <div className="flex flex-col gap-5">
@@ -532,9 +532,12 @@ function ArchiveView({ assets, title, log, onSaved }: { assets: LoadedAsset[]; t
             a={a}
             entry={lastLogFor(log, a)}
             onSaved={onSaved}
-            onPlay={() => {
-              setQueue(assets, i);
-              playIndex(i);
+            versions={versionsOf(index, a.manifest.slug, a.manifest.variant)}
+            onPlay={(shown) => {
+              // Eldre versjon: spill bare den. Nyeste: hele arkivet som kø, som før.
+              const latest = shown === a;
+              setQueue(latest ? assets : [shown], latest ? i : 0);
+              playIndex(latest ? i : 0);
             }}
           />
         ))}
@@ -543,7 +546,16 @@ function ArchiveView({ assets, title, log, onSaved }: { assets: LoadedAsset[]; t
   );
 }
 
-function ArchiveRow({ a, entry, onPlay, onSaved }: { a: LoadedAsset; entry?: IngestLogEntry; onPlay: () => void; onSaved: () => void }) {
+function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions }: { a: LoadedAsset; entry?: IngestLogEntry; onPlay: (shown: LoadedAsset) => void; onSaved: () => void; versions: IndexEntry[] }) {
+  // Versjonsvelger (del 9 pkt. 13): eldre versjoner blir liggende i media/ og kan åpnes og spilles her.
+  const [picked, setPicked] = useState<number>(latest.manifest.version);
+  const [older, setOlder] = useState<LoadedAsset | null>(null);
+  useEffect(() => {
+    if (picked === latest.manifest.version) return setOlder(null);
+    const e = versions.find((v) => v.version === picked);
+    if (e) void loadVersion(e).then(setOlder).catch(() => setOlder(null));
+  }, [picked, latest, versions]);
+  const a = older && older.manifest.version === picked ? older : latest;
   const m = a.manifest;
   const [editing, setEditing] = useState(false);
   const vars = paletteToCssVars(m.palette) as CSSProperties;
@@ -560,7 +572,23 @@ function ArchiveRow({ a, entry, onPlay, onSaved }: { a: LoadedAsset; entry?: Ing
           <span className="text-xs text-[#C9C4B6]">{[m.artist, m.album && m.album !== m.title ? m.album : null, m.copyright].filter(Boolean).join(' · ')}</span>
           {m.titleNeedsReview && <span className="text-[11px] text-gold">{t.titleNeedsReview}</span>}
           <span className="text-xs text-muted">
-            {m.kind} · v{m.version} · {formatTime(m.durationMs)} · {m.loudness.integratedLufs} LUFS · {m.markers.length} markører
+            {m.kind} ·{' '}
+            {versions.length > 1 ? (
+              <label className="inline-flex items-center gap-1">
+                <span className="sr-only">Versjon av {m.title}</span>
+                <select value={picked} onChange={(e) => setPicked(Number(e.target.value))} className="rounded border border-white/15 bg-sunken px-1 text-xs text-champagne focus:outline-none">
+                  {versions.map((v) => (
+                    <option key={v.version} value={v.version}>
+                      v{v.version}
+                      {v.version === latest.manifest.version ? ' (nyeste)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              `v${m.version}`
+            )}{' '}
+            · {formatTime(m.durationMs)} · {m.loudness.integratedLufs} LUFS · {m.markers.length} markører
             {m.venue ? ` · ${m.venue}` : ''}
           </span>
         </div>
@@ -577,7 +605,7 @@ function ArchiveRow({ a, entry, onPlay, onSaved }: { a: LoadedAsset; entry?: Ing
         >
           {editing ? t.close : t.edit}
         </button>
-        <button type="button" onClick={onPlay} aria-label={`Spill ${m.title}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-gold text-[#120D02]">
+        <button type="button" onClick={() => onPlay(a)} aria-label={`Spill ${m.title} v${m.version}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-gold text-[#120D02]">
           <PlayIcon width={18} height={18} className="ml-0.5" />
         </button>
       </div>

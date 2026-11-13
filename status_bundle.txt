@@ -28,7 +28,7 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-13T20:15:00+01:00"
+last_updated: "2026-11-13T22:30:00+01:00"
 updated_by: "Claude Code (Claude Opus 5.5)"
 
 # ============================================================
@@ -59,12 +59,14 @@ current_state:
     Del 9 (spillelister) er bygget på setup/del-9 (lokal, ikke pushet): server-API med 409-låsing og
     atomisk lagring i data/playlists.json, mobil (Lister-fane, ⋯-ark, velgemodus, dra/sveip), desktop
     (sidemeny, dra og slipp, høyreklikk, Ctrl+Shift+P, Delete), smarte lister, og farger med neon-glød (pkt. 15).
-    pnpm test 95/95 og typecheck grønne. Mobil↔desktop-synk verifisert via API over Tailscale og 127.0.0.1.
-    Visuell sjekk i nettleser er IKKE gjort (Claude in Chrome er slått av). Del 9 pkt. 13 (låse versjon,
-    versjonsvelger) og pkt. 14 (eget cover) er ikke bygget – venter på Knuts OK til plan.
+    Pkt. 13 (låse bestemt versjon, versjonsvelger i Studio → Arkiv, utilgjengelige rader) og pkt. 14
+    (eget cover uten EXIF, palett, opprydding) er nå bygget. pnpm test 97/97 og typecheck grønne.
+    «Ferdig når»-testen er kjørt mot den ekte serveren (Tailscale ↔ 127.0.0.1, inkl. 409, versjonslås og cover).
+    Visuell sjekk i nettleser er IKKE gjort (Claude in Chrome er slått av). Ingen låt i media har mer enn én
+    versjon i dag, så avspilling av en eldre låst versjon er bare dekket av enhetstester.
   recommended_next_action: >
-    Knut tester spillelistene på mobil (Tailscale) og desktop. Deretter OK til plan for del 9 pkt. 13 og 14,
-    og videre del 1 punkt 7–8 og del 8.
+    Knut tester spillelistene på mobil (Tailscale) og desktop. PR for setup/del-0 og setup/del-9 må lages
+    (gh mangler). Deretter del 1 punkt 7–8 og del 8.
   active_blockers:
     - "Del 3 krever fasit (BPM/toneart) for 5–10 låter fra Knut."
     - "Del 5 krever at Knut oppretter Supabase-prosjekt og legger URL og anon-nøkkel i .env."
@@ -323,6 +325,12 @@ validation:
 # EXECUTION LOG / HENDELSESLOGG
 # ============================================================
 execution_log:
+  - at: "2026-11-13T22:30:00+01:00"
+    actor: "Claude Code"
+    action: "Del 9 pkt. 13 (versjonslås + versjonsvelger) og pkt. 14 (eget cover) bygget. «Ferdig når» kjørt mot ekte server."
+    command: "pnpm test; pnpm typecheck; pnpm --filter ./apps/web build; vault:remote on; node gv-ferdig-naar.mjs (scratch)"
+    result: "passed"
+    evidence: "97/97 tester. Flyt: liste laget via Tailscale, 3 låter, sett på 127.0.0.1, flyttet der, endring sett via Tailscale, utdatert → 409, versjonslås lagret, cover lastet opp via Tailscale og hentet fra PC (JPEG), liste + coverfiler slettet. Knuts egen liste «Test» i data/playlists.json er ikke rørt."
   - at: "2026-11-13T21:30:00+01:00"
     actor: "Claude Code"
     action: "Del 9: merget origin/main (del 9 + utvidelser) inn i setup/del-9, bygget spillelister (API, mobil, desktop, smarte lister, farger pkt. 15, velgemodus pkt. 4). Mobilmeny: Lister i stedet for Søk (valgt av Knut)."
@@ -557,7 +565,7 @@ handoff:
     er committet på setup/del-0 (ikke pushet). Tester 82/82 grønne. Fjerntilgang via Tailscale
     Serve er på (https://<pc>.<tailnet>.ts.net/). Gjenstår: mobiltest, resten av
     del 1, del 2, 3, 4 og 5. Del 3 og 5 krever innspill fra Knut.
-  next_action: "Vent på Knuts test av spillelister (mobil og desktop) og OK til plan for del 9 pkt. 13 (versjonslås) og 14 (eget cover). PR for setup/del-0 må lages (gh mangler, eller via nettleser). Rekkefølge etter det: del 1 punkt 7–8, så del 8."
+  next_action: "Vent på Knuts test av spillelister (mobil og desktop). PR for setup/del-0 og setup/del-9 mot main må lages (gh mangler). Rekkefølge etter det: del 1 punkt 7–8, så del 8."
   next_checks:
     - "Spiller mobilen via ts.net uten PIN?"
     - "Får «Opprett snarvei» over Wi-Fi Groovehouse-ikonet?"

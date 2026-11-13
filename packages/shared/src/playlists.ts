@@ -1,4 +1,5 @@
 import { NEON_GLOW_CSS, PLAYLIST_COLORS, type PlaylistColor } from './playlistColors';
+import type { Palette } from './types';
 export * from './playlistColors';
 
 /**
@@ -30,8 +31,10 @@ export interface Playlist {
   query: string | null;
   /** Fargen til lista (id i PLAYLIST_COLORS). */
   color: string;
-  /** Eget cover (filnavn i data/playlist-covers/), ellers null = mosaikk. */
+  /** Eget cover (filnavn i data/playlist-covers/, uten EXIF), ellers null = mosaikk. Thumb: samme navn med _300. */
   cover: string | null;
+  /** Palett fra eget cover, med samme kontrastlås som låtcoverne (brukes av drop-siden i delingsfasen). */
+  coverPalette?: Palette | null;
   createdAt: string;
   /** Optimistisk låsing: klienten sender denne med, serveren svarer 409 hvis lista er endret i mellomtiden. */
   updatedAt: string;

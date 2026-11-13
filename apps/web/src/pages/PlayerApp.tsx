@@ -25,6 +25,7 @@ import { assetUrl, groupTracks, useCatalog, variantName, type LoadedAsset, type 
 import { savedPosition, usePlayer } from '../lib/player';
 import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, useToast, type AddItem } from '../lib/playlists';
 import { useSubBass } from '../lib/useSubBass';
+import { useVersionCtx } from '../lib/versions';
 
 type View = 'catalog' | 'sets' | 'playlists';
 
@@ -42,7 +43,7 @@ type Filter = 'all' | 'track' | 'set';
  * Desktop: sidebar, presisjonstabell og transport-dock. Gull er rammen; det som spilles farger rommet.
  */
 export function PlayerApp() {
-  const { assets, loading } = useCatalog();
+  const { assets, index: catalogIndex, loading } = useCatalog();
   const tracks = useMemo(() => groupTracks(assets), [assets]);
   const [view, setView] = useState<View>('catalog');
   const [filter, setFilter] = useState<Filter>('all');
@@ -58,6 +59,7 @@ export function PlayerApp() {
   const root = useRef<HTMLDivElement>(null);
   useSubBass(root, cur, playing);
   usePlaylistSync();
+  const vctx = useVersionCtx(catalogIndex, usePlaylists((s) => s.playlists));
 
   const openList = (id: string | null) => {
     setListId(id);
@@ -196,9 +198,9 @@ export function PlayerApp() {
           <EmptyState />
         ) : view === 'playlists' ? (
           listId ? (
-            <PlaylistDetail id={listId} tracks={tracks} onBack={() => setListId(null)} onClosed={() => setListId(null)} />
+            <PlaylistDetail id={listId} tracks={tracks} vctx={vctx} onBack={() => setListId(null)} onClosed={() => setListId(null)} />
           ) : (
-            <PlaylistsOverview tracks={tracks} onOpen={openList} />
+            <PlaylistsOverview tracks={tracks} onOpen={openList} vctx={vctx} />
           )
         ) : view === 'catalog' ? (
           <>

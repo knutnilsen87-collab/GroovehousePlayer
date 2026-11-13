@@ -4,9 +4,11 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { resolveEntries, smartListAssets, type Playlist } from '@gv/shared';
 import { createApiHandler } from '../src/api';
+import { updateCatalog } from '../src/ingest';
 
 let tmp: string;
 let server: http.Server;
@@ -183,5 +185,78 @@ describe('farger på lister', () => {
     expect(r.status).toBe(200);
     expect(r.json.playlist.color).toBe(ids[5]);
     expect((await call('POST', '/api/playlists', { name: 'Ugyldig', color: 'gull' })).status).toBe(400);
+  });
+});
+
+describe('eget cover (pkt. 14)', () => {
+  it('lagres uten EXIF, med thumb og palett; utdatert enhet får 409; fjernes ryddig', async () => {
+    let p = (await call('POST', '/api/playlists', { name: 'Med cover' })).json.playlist;
+    // Rødt testbilde med EXIF (inkl. «GPS»-tekst) som ikke skal bli med videre.
+    const img = await sharp({ create: { width: 900, height: 600, channels: 3, background: { r: 220, g: 40, b: 60 } } })
+      .withExif({ IFD0: { Copyright: 'HEMMELIG GPS 59.91N', Artist: 'Kamera' } })
+      .jpeg()
+      .toBuffer();
+    expect((await sharp(img).metadata()).exif).toBeDefined();
+    const put = (body: Buffer, updatedAt: string, type = 'image/jpeg') => fetch(`${base}/api/playlists/${p.id}/cover?updatedAt=${encodeURIComponent(updatedAt)}`, { method: 'PUT', headers: { 'content-type': type }, body: new Uint8Array(body) });
+
+    expect((await put(Buffer.from('ikke et bilde'), p.updatedAt)).status).toBe(400);
+    expect((await put(img, p.updatedAt, 'text/plain')).status).toBe(415);
+
+    const r = await put(img, p.updatedAt);
+    expect(r.status).toBe(200);
+    const stale = p.updatedAt;
+    p = ((await r.json()) as { playlist: Playlist }).playlist;
+    expect(p.cover).toMatch(/\.jpg$/);
+    expect(p.coverPalette?.source).toBe('cover');
+    const dir = path.join(tmp, 'data', 'playlist-covers');
+    const big = path.join(dir, p.cover!);
+    const thumb = path.join(dir, p.cover!.replace(/\.jpg$/, '_300.jpg'));
+    const meta = await sharp(big).metadata();
+    expect([meta.width, meta.height]).toEqual([1200, 1200]);
+    expect(meta.exif).toBeUndefined();
+    expect((await readFile(big)).includes(Buffer.from('HEMMELIG'))).toBe(false);
+    expect((await sharp(thumb).metadata()).width).toBe(300);
+
+    const served = await fetch(`${base}/api/playlist-covers/${p.cover}`);
+    expect(served.status).toBe(200);
+    expect(served.headers.get('content-type')).toBe('image/jpeg');
+    expect((await fetch(`${base}/api/playlist-covers/..%2Fplaylists.json`)).status).toBe(404);
+
+    // Utdatert enhet: 409, og ingen nye filer blir liggende igjen
+    const before = (await import('node:fs/promises')).readdir(dir);
+    expect((await put(img, stale)).status).toBe(409);
+    expect((await (await import('node:fs/promises')).readdir(dir)).length).toBe((await before).length);
+
+    // Nytt cover erstatter det gamle (gamle filer slettes)
+    const old = p.cover!;
+    p = ((await (await put(img, p.updatedAt)).json()) as { playlist: Playlist }).playlist;
+    expect(p.cover).not.toBe(old);
+    expect(existsSync(path.join(dir, old))).toBe(false);
+
+    // Fjern cover → mosaikk, og filene er borte
+    const del = await call('DELETE', `/api/playlists/${p.id}/cover`, { updatedAt: p.updatedAt });
+    expect(del.status).toBe(200);
+    expect(del.json.playlist.cover).toBeNull();
+    expect(existsSync(path.join(dir, p.cover!))).toBe(false);
+
+    // Slett lista → coverfilene ryddes
+    p = del.json.playlist;
+    p = ((await (await put(img, p.updatedAt)).json()) as { playlist: Playlist }).playlist;
+    expect((await call('DELETE', `/api/playlists/${p.id}`, { updatedAt: p.updatedAt })).status).toBe(204);
+    expect(existsSync(path.join(dir, p.cover!))).toBe(false);
+  });
+});
+
+describe('eldre versjoner blir liggende (pkt. 13)', () => {
+  it('ny versjon i indeksen fjerner ikke den forrige', async () => {
+    const media = path.join(tmp, 'media-versjoner');
+    await mkdir(media, { recursive: true });
+    const m = (version: number) => ({ slug: 'demo', variant: null, version, title: 'Demo', kind: 'track' }) as never;
+    await updateCatalog(media, m(3));
+    await updateCatalog(media, m(4));
+    await updateCatalog(media, m(4)); // samme versjon på nytt (--force) erstatter bare seg selv
+    const idx = JSON.parse(await readFile(path.join(media, 'index.json'), 'utf8')) as { assets: Array<{ version: number; manifest: string }> };
+    expect(idx.assets.map((a) => a.version)).toEqual([4, 3]);
+    expect(idx.assets[1]!.manifest).toBe('demo/main/v3/manifest.json');
   });
 });

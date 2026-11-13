@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { isPlaylistColor, pickColor, PLAYLIST_LIMITS, type Playlist, type PlaylistEntry, type PlaylistsFile } from '@gv/shared';
+import { isPlaylistColor, pickColor, PLAYLIST_LIMITS, type Palette, type Playlist, type PlaylistEntry, type PlaylistsFile } from '@gv/shared';
 
 /**
  * Spillelistene i data/playlists.json (gitignored). Én skriver om gangen (kø), atomisk skriving
@@ -45,9 +45,18 @@ export interface PatchInput {
   color?: string;
 }
 
+/** Coverfilene til en liste: «<navn>.jpg» og thumb «<navn>_300.jpg» i data/playlist-covers/. */
+export const COVER_FILE_RE = /^[\w-]{1,80}(_300)?\.jpg$/;
+export const thumbOf = (cover: string) => cover.replace(/\.jpg$/, '_300.jpg');
+
 export function createPlaylistStore(file: string, now: () => Date = () => new Date()) {
   let chain: Promise<unknown> = Promise.resolve();
   let last = 0;
+  const coversDir = path.join(path.dirname(file), 'playlist-covers');
+  const removeCoverFiles = async (cover: string) => {
+    if (!COVER_FILE_RE.test(cover)) return;
+    await Promise.all([cover, thumbOf(cover)].map((f) => rm(path.join(coversDir, f), { force: true }).catch(() => {})));
+  };
 
   /** Strengt stigende tidsstempel, så to endringer i samme millisekund ikke får samme updatedAt. */
   const stamp = () => {
@@ -64,6 +73,7 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
           // Eldre filer: fyll inn felt som kom senere (farge, cover, versjon).
           if (!isPlaylistColor(p.color)) p.color = pickColor(j.playlists.map((x) => x.color).filter(isPlaylistColor));
           p.cover ??= null;
+          p.coverPalette ??= null;
           for (const e of p.entries) e.version ??= null;
         }
         return j;
@@ -119,6 +129,7 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
 
   return {
     file,
+    coversDir,
     list: () => serial(async () => (await read()).playlists),
 
     create: (input: CreateInput) =>
@@ -187,6 +198,31 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
         if (updatedAt !== cur.updatedAt) throw new PlaylistError(409, 'lista er endret et annet sted', cur);
         data.playlists = data.playlists.filter((p) => p.id !== id);
         await write(data);
+        if (cur.cover) await removeCoverFiles(cur.cover);
+      }),
+
+    /**
+     * Eget cover (pkt. 14). `prepare` lager filene (renset for EXIF) og paletten; kjøres bare hvis
+     * updatedAt stemmer, så en utdatert enhet ikke legger igjen filer. Forrige cover slettes.
+     */
+    setCover: (id: string, updatedAt: string | undefined, prepare: (() => Promise<{ file: string; palette: Palette }>) | null) =>
+      serial(async () => {
+        const data = await read();
+        const i = data.playlists.findIndex((p) => p.id === id);
+        if (i < 0) throw new PlaylistError(404, 'fant ikke spillelista');
+        const cur = data.playlists[i]!;
+        if (updatedAt !== cur.updatedAt) throw new PlaylistError(409, 'lista er endret et annet sted', cur);
+        const made = prepare ? await prepare() : null;
+        const next: Playlist = { ...cur, cover: made?.file ?? null, coverPalette: made?.palette ?? null, updatedAt: stamp() };
+        data.playlists[i] = next;
+        try {
+          await write(data);
+        } catch (err) {
+          if (made) await removeCoverFiles(made.file);
+          throw err;
+        }
+        if (cur.cover && cur.cover !== next.cover) await removeCoverFiles(cur.cover);
+        return next;
       })
   };
 }

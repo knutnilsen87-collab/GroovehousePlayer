@@ -1,10 +1,13 @@
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
+import sharp from 'sharp';
 import { findRoot, loadConfig } from './config';
+import { paletteFrom } from './cover';
 import { retagSlug } from './ingest';
-import { createPlaylistStore, PlaylistError, type PlaylistStore } from './playlists';
+import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { overridePath, readOverrides, type MetaFile } from './sources';
 
 /**
@@ -20,6 +23,9 @@ import { overridePath, readOverrides, type MetaFile } from './sources';
  *   POST   /api/playlists            { name, kind?: "manual"|"smart", query?, entries?: [{ slug, variant? }] } → 201 { playlist }
  *   PATCH  /api/playlists/:id        { updatedAt, name?, entries?, add?, query? } → { playlist } | 409 { error, playlist }
  *   DELETE /api/playlists/:id        { updatedAt } → 204 | 409 { error, playlist }
+ *   PUT    /api/playlists/:id/cover?updatedAt=…  (bilde som body) → { playlist } | 409
+ *   DELETE /api/playlists/:id/cover  { updatedAt } → { playlist } (tilbake til mosaikk)
+ *   GET    /api/playlist-covers/:fil.jpg → coveret (uten EXIF)
  */
 export interface ApiOptions {
   mediaDir: string;
@@ -47,6 +53,10 @@ export function createApiHandler(opts: ApiOptions) {
     if (url.pathname === '/api/health') return send(res, 200, { app: APP_ID, version });
     if (url.pathname === '/api/playlists' || url.pathname.startsWith('/api/playlists/')) {
       await handlePlaylists(playlists, url, req, res);
+      return;
+    }
+    if (url.pathname.startsWith('/api/playlist-covers/') && (req.method === 'GET' || req.method === 'HEAD')) {
+      await serveCover(playlists, url, res);
       return;
     }
     const m = url.pathname.match(/^\/api\/assets\/([^/]+)\/meta$/);
@@ -96,10 +106,62 @@ export function createApiHandler(opts: ApiOptions) {
   };
 }
 
-async function handlePlaylists(store: PlaylistStore, url: URL, req: IncomingMessage, res: ServerResponse) {
-  const id = url.pathname === '/api/playlists' ? null : decodeURIComponent(url.pathname.slice('/api/playlists/'.length));
-  if (id !== null && !/^[\w-]{1,64}$/.test(id)) return send(res, 404, { error: 'not found' });
+const COVER_TYPES = /^image\/(jpeg|png|webp|avif|gif|tiff)$/;
+const COVER_MAX = 15 * 1024 * 1024;
+
+/** GET /api/playlist-covers/<fil>.jpg – bare filnavn som lageret selv har laget. */
+async function serveCover(store: PlaylistStore, url: URL, res: ServerResponse) {
+  const name = decodeURIComponent(url.pathname.slice('/api/playlist-covers/'.length));
+  if (!COVER_FILE_RE.test(name)) return send(res, 404, { error: 'not found' });
   try {
+    const buf = await readFile(path.join(store.coversDir, name));
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'image/jpeg');
+    // Filnavnet byttes ved hvert nytt cover, så det kan bufres lenge.
+    res.setHeader('Cache-Control', 'private, max-age=31536000, immutable');
+    res.end(buf);
+  } catch {
+    send(res, 404, { error: 'not found' });
+  }
+}
+
+/**
+ * Eget cover (pkt. 14): PUT /api/playlists/:id/cover?updatedAt=… med bildet som body (image/*).
+ * Et bilde-content-type er ikke en «enkel» forespørsel, så andre nettsider stoppes av CORS-preflight.
+ * Bildet normaliseres med sharp (rotasjon fra EXIF, 1200 px + 300 px thumb, JPEG). sharp skriver ikke
+ * med metadata, så EXIF/XMP/GPS forsvinner. Paletten hentes med samme kontrastlås som låtcoverne.
+ */
+async function putCover(store: PlaylistStore, id: string, url: URL, req: IncomingMessage, res: ServerResponse) {
+  const type = String(req.headers['content-type'] ?? '').split(';')[0]!.trim();
+  if (!COVER_TYPES.test(type)) return send(res, 415, { error: 'krever et bilde (JPEG, PNG, WebP …)' });
+  const buf = await readRaw(req, COVER_MAX);
+  const playlist = await store.setCover(id, url.searchParams.get('updatedAt') ?? undefined, async () => {
+    const meta = await sharp(buf).metadata().catch(() => null);
+    if (!meta?.width || !meta.height) throw new PlaylistError(400, 'fila er ikke et bilde som kan leses');
+    await mkdir(store.coversDir, { recursive: true });
+    const file = `${id.slice(0, 36)}-${randomUUID().slice(0, 8)}.jpg`;
+    const big = path.join(store.coversDir, file);
+    const img = sharp(buf).rotate();
+    await img.clone().resize(1200, 1200, { fit: 'cover' }).jpeg({ quality: 88, mozjpeg: true }).toFile(big);
+    await img.clone().resize(300, 300, { fit: 'cover' }).jpeg({ quality: 82, mozjpeg: true }).toFile(path.join(store.coversDir, thumbOf(file)));
+    return { file, palette: await paletteFrom(big) };
+  });
+  return send(res, 200, { playlist });
+}
+
+async function handlePlaylists(store: PlaylistStore, url: URL, req: IncomingMessage, res: ServerResponse) {
+  const rest = url.pathname === '/api/playlists' ? null : decodeURIComponent(url.pathname.slice('/api/playlists/'.length));
+  const parts = rest === null ? null : rest.match(/^([\w-]{1,64})(\/cover)?$/);
+  if (rest !== null && !parts) return send(res, 404, { error: 'not found' });
+  const id = parts ? parts[1]! : null;
+  try {
+    if (parts?.[2]) {
+      if (req.method === 'PUT') return await putCover(store, id!, url, req, res);
+      if (req.method !== 'DELETE') return send(res, 405, { error: 'method not allowed' });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      const body = (await readJson(req)) as Record<string, unknown>;
+      return send(res, 200, { playlist: await store.setCover(id!, typeof body.updatedAt === 'string' ? body.updatedAt : undefined, null) });
+    }
     if (req.method === 'GET' && id === null) return send(res, 200, { playlists: await store.list() });
     if (!['POST', 'PATCH', 'DELETE'].includes(req.method ?? '')) return send(res, 405, { error: 'method not allowed' });
     // Krever JSON (som meta-endepunktet): andre nettsider må da gjennom en CORS-preflight som aldri godkjennes.
@@ -145,6 +207,22 @@ function readJson(req: IncomingMessage, limit = 64_000): Promise<unknown> {
         reject(new Error('ugyldig JSON'));
       }
     });
+    req.on('error', reject);
+  });
+}
+
+function readRaw(req: IncomingMessage, limit: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > limit) {
+        reject(new PlaylistError(413, 'bildet er for stort (maks 15 MB)'));
+        req.destroy();
+      } else chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }

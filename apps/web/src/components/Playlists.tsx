@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   addTargets,
   BUILTIN_SMART,
@@ -23,6 +24,7 @@ import {
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { playList, savedEntry, toastError, useNowList, usePlaylists, useToast, type AddItem } from '../lib/playlists';
+import { lockOptions, lockValue, type VersionCtx } from '../lib/versions';
 import { CoverArt } from './CoverArt';
 import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
 
@@ -67,6 +69,23 @@ export function Mosaic({ assets, size, color, rounded = 10 }: { assets: LoadedAs
   );
 }
 
+/** Eget cover hvis lista har det (pkt. 14), ellers mosaikken. Tynn kant i listefargen uansett. */
+export function ListCover({ v, size, rounded = 10 }: { v: ListView; size: number; rounded?: number }) {
+  const cover = v.playlist?.cover;
+  if (!cover) return <Mosaic assets={v.assets} size={size} color={v.color} rounded={rounded} />;
+  const file = size <= 300 ? cover.replace(/\.jpg$/, '_300.jpg') : cover;
+  return (
+    <img
+      src={`/api/playlist-covers/${encodeURIComponent(file)}`}
+      alt={`Cover: ${v.name}`}
+      width={size}
+      height={size}
+      className="block flex-none object-cover"
+      style={{ width: size, height: size, borderRadius: rounded, boxShadow: `0 0 0 1px ${v.color.primary}80` }}
+    />
+  );
+}
+
 // ---------------------------------------------------------------- Lister som modell (manuell, smart, innebygd)
 
 export interface ListView {
@@ -84,7 +103,7 @@ export interface ListView {
 
 const BUILTIN_COLORS: Record<string, string> = { 'builtin:recent': 'neon-cyan', 'builtin:sets': 'neon-violet' };
 
-export function buildListView(id: string, playlists: Playlist[], tracks: Track[]): ListView | null {
+export function buildListView(id: string, playlists: Playlist[], tracks: Track[], vctx?: VersionCtx): ListView | null {
   if (isBuiltin(id)) {
     const b = BUILTIN_SMART.find((x) => x.id === id)!;
     const assets = smartListAssets(tracks, 'days' in b ? { days: b.days } : { query: b.query });
@@ -96,7 +115,10 @@ export function buildListView(id: string, playlists: Playlist[], tracks: Track[]
     const assets = smartListAssets(tracks, { query: p.query });
     return { id, name: p.name, kind: 'smart', color: colorById(p.color), playlist: p, rows: [], assets, keys: assets.map((a) => a.manifest.slug) };
   }
-  const rows = resolveEntries(p.entries, tracks);
+  const rows = resolveEntries(p.entries, tracks, vctx?.find).map((r) =>
+    // Låst versjon som finnes i media/, men ikke er hentet ennå: «henter», ikke «utilgjengelig».
+    !r.asset && r.entry.version != null && vctx?.pending(r.entry.slug, r.entry.variant, r.entry.version) ? { ...r, reason: `Henter v${r.entry.version} …` } : r
+  );
   const ok = playableEntries(rows);
   return { id, name: p.name, kind: 'manual', color: colorById(p.color), playlist: p, rows, assets: ok.map((r) => r.asset), keys: ok.map((r) => r.entry.id) };
 }
@@ -307,7 +329,7 @@ export function ColorPicker({ value, onPick, onClose }: { value: string; onPick:
 
 // ---------------------------------------------------------------- Oversikt (fanen «Lister» på mobil)
 
-export function PlaylistsOverview({ tracks, onOpen }: { tracks: Track[]; onOpen: (id: string) => void }) {
+export function PlaylistsOverview({ tracks, onOpen, vctx }: { tracks: Track[]; onOpen: (id: string) => void; vctx?: VersionCtx }) {
   const playlists = usePlaylists((s) => s.playlists);
   const loaded = usePlaylists((s) => s.loaded);
   const error = usePlaylists((s) => s.error);
@@ -353,12 +375,12 @@ export function PlaylistsOverview({ tracks, onOpen }: { tracks: Track[]; onOpen:
       {loaded && manual.length === 0 && <p className="px-1.5 text-sm text-muted">Ingen egne lister ennå. Trykk «Ny liste», eller ⋯ på en låt → Legg til i spilleliste.</p>}
       <ul className="m-0 list-none p-0">
         {manual.map((p) => {
-          const v = buildListView(p.id, playlists, tracks)!;
+          const v = buildListView(p.id, playlists, tracks, vctx)!;
           const s = playlistStats(v.assets);
           return (
             <li key={p.id}>
               <button type="button" onClick={() => onOpen(p.id)} className="flex min-h-[64px] w-full items-center gap-3 rounded-xl px-1.5 text-left active:bg-white/[0.05] lg:hover:bg-white/[0.03]">
-                <Mosaic assets={v.assets} size={48} color={v.color} rounded={8} />
+                <ListCover v={v} size={48} rounded={8} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="flex items-center gap-2 truncate text-[15px] font-semibold text-ink-strong">
                     <ColorDot color={v.color} size={8} pulse={nowList === p.id} />
@@ -482,10 +504,10 @@ export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]
 
 // ---------------------------------------------------------------- Lista
 
-export function PlaylistDetail({ id, tracks, onBack, onClosed }: { id: string; tracks: Track[]; onBack: () => void; onClosed: () => void }) {
+export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: string; tracks: Track[]; onBack: () => void; onClosed: () => void; vctx?: VersionCtx }) {
   const playlists = usePlaylists((s) => s.playlists);
   const loaded = usePlaylists((s) => s.loaded);
-  const v = buildListView(id, playlists, tracks);
+  const v = buildListView(id, playlists, tracks, vctx);
   const nowList = useNowList((s) => s.listId);
   const { queue, index, playing } = usePlayer();
   const [menu, setMenu] = useState(false);
@@ -493,6 +515,21 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed }: { id: string; t
   const [picking, setPicking] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [resumeKey, setResumeKey] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const coverInput = useRef<HTMLInputElement>(null);
+  const uploadCover = async (file: File | undefined) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      await usePlaylists.getState().setCover(id, file);
+      useToast.getState().show('Coveret er lagret (uten EXIF)');
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setUploading(false);
+      if (coverInput.current) coverInput.current.value = '';
+    }
+  };
 
   useEffect(() => setResumeKey(savedEntry(id)), [id, nowList, index]);
   if (!v) return loaded ? <p className="text-sm text-muted">Fant ikke spillelista (slettet på en annen enhet?). <button type="button" className="text-gold underline" onClick={onBack}>Tilbake</button></p> : <p className="text-sm text-muted">Laster …</p>;
@@ -524,7 +561,11 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed }: { id: string; t
       </button>
       <header className="relative flex flex-col gap-4 sm:flex-row sm:items-end">
         {v.kind === 'manual' ? (
-          <Mosaic assets={v.assets} size={168} color={c} rounded={14} />
+          <span className={`relative block ${uploading ? 'opacity-50' : ''}`}>
+            <ListCover v={v} size={168} rounded={14} />
+            {uploading && <span className="absolute inset-0 flex items-center justify-center text-xs text-ink-strong">Laster opp …</span>}
+            <input ref={coverInput} type="file" accept="image/jpeg,image/png,image/webp,image/avif" className="sr-only" tabIndex={-1} aria-label="Velg cover for lista" onChange={(e) => void uploadCover(e.target.files?.[0])} />
+          </span>
         ) : (
           <span className="flex h-[168px] w-[168px] flex-none items-center justify-center rounded-[14px] bg-surface" style={{ color: c.primary, boxShadow: `0 0 0 1px ${c.primary}80, ${neonGlow(c.primary)}` }}>
             <BoltIcon width={64} height={64} />
@@ -574,6 +615,12 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed }: { id: string; t
                       [
                         ['Gi nytt navn', () => setRenaming(true)],
                         ['Farge', () => setPicking(true)],
+                        ...(v.kind === 'manual'
+                          ? ([
+                              [v.playlist?.cover ? 'Bytt cover …' : 'Eget cover …', () => coverInput.current?.click()],
+                              ...(v.playlist?.cover ? [['Fjern eget cover', () => void usePlaylists.getState().removeCover(id).catch(toastError)]] : [])
+                            ] as Array<[string, () => void]>)
+                          : []),
                         ['Dupliser', () => void usePlaylists.getState().duplicate(v.playlist!).then((p) => useToast.getState().show(`Lagde «${p.name}»`)).catch(toastError)],
                         ['Slett …', () => setConfirmDelete(true)]
                       ] as Array<[string, () => void]>
@@ -639,7 +686,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed }: { id: string; t
 
       <div className="relative mt-6">
         {v.kind === 'manual' ? (
-          <ManualRows v={v} playingId={isNow ? v.keys[index] : undefined} onPlay={play} queueLen={queue.length} />
+          <ManualRows v={v} playingId={isNow ? v.keys[index] : undefined} onPlay={play} queueLen={queue.length} vctx={vctx} />
         ) : (
           <ol className="m-0 list-none p-0">
             {v.assets.length === 0 && <li className="text-sm text-muted">Ingen treff ennå.</li>}
@@ -700,7 +747,7 @@ function EntryButton({ a, i, current, onPlay, children }: { a: LoadedAsset; i: n
  * Mobil: hold inne og dra for å flytte, sveip til venstre for å fjerne (med angre).
  * Desktop: dra og slipp for å flytte, klikk/Ctrl/Shift for å velge, Delete fjerner (med angre).
  */
-function ManualRows({ v, playingId, onPlay }: { v: ListView; playingId: string | undefined; onPlay: (i: number) => void; queueLen: number }) {
+function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: string | undefined; onPlay: (i: number) => void; queueLen: number; vctx?: VersionCtx }) {
   const listRef = useRef<HTMLOListElement>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [anchor, setAnchor] = useState<string | null>(null);
@@ -905,7 +952,7 @@ function ManualRows({ v, playingId, onPlay }: { v: ListView; playingId: string |
               )}
               {r.asset ? (
                 <EntryButton a={r.asset} i={i} current={playingId === id} onPlay={() => onPlay(playIndexOf(id))}>
-                  <EntryControls p={p} r={r} onRemove={() => void removeWithUndo([id])} />
+                  <EntryControls p={p} r={r} vctx={vctx} onRemove={() => void removeWithUndo([id])} />
                 </EntryButton>
               ) : (
                 <div className="flex min-h-[60px] items-center gap-3 rounded-xl px-1.5 opacity-70">
@@ -915,7 +962,7 @@ function ManualRows({ v, playingId, onPlay }: { v: ListView; playingId: string |
                     <span className="truncate text-sm font-semibold text-muted line-through">{r.track?.main.manifest.title ?? r.entry.slug}</span>
                     <span className="truncate text-xs text-[#FFB4A8]">Utilgjengelig: {r.reason}</span>
                   </span>
-                  <EntryControls p={p} r={r} onRemove={() => void removeWithUndo([id])} />
+                  <EntryControls p={p} r={r} vctx={vctx} onRemove={() => void removeWithUndo([id])} />
                 </div>
               )}
             </li>
@@ -938,36 +985,89 @@ function ManualRows({ v, playingId, onPlay }: { v: ListView; playingId: string |
   );
 }
 
-/** Desktop: variantlås og fjern-knapp per rad. Mobil: bare håndtaket (dra/sveip gjør resten). */
-function EntryControls({ p, r, onRemove }: { p: Playlist; r: ResolvedEntry<LoadedAsset>; onRemove: () => void }) {
+/**
+ * Låsen per oppføring (pkt. 13): følg nyeste, lås variant, eller lås en bestemt versjon.
+ * Desktop: nedtrekksliste og fjern-knapp. Mobil: ⋯ åpner et ark med de samme valgene + Fjern.
+ */
+function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry<LoadedAsset>; vctx?: VersionCtx; onRemove: () => void }) {
   const t = r.track;
+  const [sheet, setSheet] = useState(false);
+  const options = t && vctx ? lockOptions(t, vctx.index) : [];
+  const current = lockValue(r.entry.variant, r.entry.version);
+  // Står den låste versjonen ikke lenger i indeksen, vises den likevel som valgt (med forklaring i raden).
+  const all = options.some((o) => o.value === current) ? options : [...options, { value: current, label: `v${r.entry.version} · finnes ikke`, variant: r.entry.variant, version: r.entry.version }];
+  const choose = (value: string) => {
+    const o = all.find((x) => x.value === value);
+    if (o) void usePlaylists.getState().setLock(p.id, r.entry.id, o.variant, o.version).catch(toastError);
+  };
+  const lockLabel = r.entry.version != null ? `v${r.entry.version}` : r.entry.variant ? 'låst' : null;
   return (
     <>
-      {t && t.variants.length > 1 && (
+      {lockLabel && (
+        <span className="flex-none rounded border border-white/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[1px] text-champagne" title={all.find((o) => o.value === current)?.label}>
+          {lockLabel}
+        </span>
+      )}
+      {all.length > 1 && (
         <label className="hidden items-center lg:flex">
-          <span className="sr-only">Variant for {t.main.manifest.title}</span>
-          <select
-            value={r.entry.variant ?? ''}
-            onChange={(e) => void usePlaylists.getState().setVariant(p.id, r.entry.id, e.target.value || null).catch(toastError)}
-            className="h-8 max-w-[160px] rounded-lg border border-white/10 bg-sunken px-2 text-[11px] text-champagne focus:outline-none"
-          >
-            <option value="">Følg hovedvarianten</option>
-            {t.variants
-              .filter((x) => x.manifest.variant)
-              .map((x) => (
-                <option key={x.manifest.variant!} value={x.manifest.variant!}>
-                  Alltid {variantName(x)}
-                </option>
-              ))}
+          <span className="sr-only">Versjon for {t?.main.manifest.title ?? r.entry.slug}</span>
+          <select value={current} onChange={(e) => choose(e.target.value)} className="h-8 max-w-[190px] rounded-lg border border-white/10 bg-sunken px-2 text-[11px] text-champagne focus:outline-none">
+            {all.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </label>
       )}
       <button type="button" onClick={onRemove} aria-label="Fjern fra lista" title="Fjern (Delete)" className="hidden h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-white/[0.06] hover:text-[#FF8A7A] lg:flex">
         <TrashIcon width={16} height={16} />
       </button>
-      <span aria-hidden="true" className="flex h-9 w-6 items-center justify-center text-muted/70 lg:cursor-grab">
+      <button type="button" onClick={() => setSheet(true)} aria-label={`Valg for ${t?.main.manifest.title ?? r.entry.slug}`} className="flex h-10 w-9 flex-none items-center justify-center rounded-full text-muted active:bg-white/[0.06] lg:hidden">
+        <MoreIcon width={18} height={18} />
+      </button>
+      <span aria-hidden="true" className="hidden h-9 w-6 items-center justify-center text-muted/70 lg:flex lg:cursor-grab">
         <GripIcon width={16} height={16} />
       </span>
+      {sheet &&
+        createPortal(
+        <div className="fixed inset-0 z-50 bg-black/55 lg:hidden" onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) setSheet(false); }}>
+          <div role="dialog" aria-modal="true" aria-label="Versjon og variant" className="fixed inset-x-0 bottom-0 max-h-[75svh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-surface px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+            <div aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/15" />
+            <h2 className="m-0 px-3 pb-2 text-sm font-semibold text-ink-strong">{t?.main.manifest.title ?? r.entry.slug}</h2>
+            <ul role="radiogroup" aria-label="Spill" className="m-0 list-none p-0">
+              {all.map((o) => (
+                <li key={o.value}>
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={o.value === current}
+                    onClick={() => {
+                      setSheet(false);
+                      choose(o.value);
+                    }}
+                    className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-ink-strong active:bg-white/[0.08]"
+                  >
+                    <span aria-hidden="true" className={`h-4 w-4 flex-none rounded-full border ${o.value === current ? 'border-gold bg-gold' : 'border-white/30'}`} />
+                    {o.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={() => {
+                setSheet(false);
+                onRemove();
+              }}
+              className="mt-1 flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-[#FF8A7A] active:bg-white/[0.08]"
+            >
+              <TrashIcon width={16} height={16} /> Fjern fra lista
+            </button>
+          </div>
+        </div>,
+          document.body
+        )}
     </>
   );
 }
