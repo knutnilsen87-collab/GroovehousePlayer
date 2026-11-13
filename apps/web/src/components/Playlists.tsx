@@ -133,7 +133,7 @@ export function Toast() {
       key={seq}
       role="status"
       aria-live="polite"
-      className="fixed inset-x-3 bottom-[calc(150px+env(safe-area-inset-bottom))] z-[60] mx-auto flex max-w-[460px] items-center gap-3 rounded-xl border border-white/10 bg-[#15181F] px-4 py-3 text-sm text-ink-strong shadow-[0_12px_40px_rgba(0,0,0,0.6)] lg:bottom-[128px] lg:left-auto lg:right-6"
+      className="fixed inset-x-3 bottom-[calc(150px+env(safe-area-inset-bottom))] z-[45] mx-auto flex max-w-[460px] items-center gap-3 rounded-xl border border-white/10 bg-[#15181F] px-4 py-3 text-sm text-ink-strong shadow-[0_12px_40px_rgba(0,0,0,0.6)] lg:bottom-[128px] lg:left-auto lg:right-6"
     >
       <span className="min-w-0 flex-1">{message}</span>
       {action && (
@@ -286,7 +286,8 @@ export function ColorPicker({ value, onPick, onClose }: { value: string; onPick:
   const [group, setGroup] = useState<'neon' | 'candy'>(colorById(value).group);
   const [hover, setHover] = useState<PlaylistColor | null>(null);
   const shown = hover ?? colorById(value);
-  return (
+  // Portal til body: lista ligger i <main> (egen stablingskontekst), og arket må over minispilleren og bunnmenyen.
+  return createPortal(
     <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div role="dialog" aria-modal="true" aria-label="Velg farge" className="fixed inset-x-0 bottom-0 rounded-t-2xl border-t border-white/10 bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[20vh] lg:w-[380px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
         <div role="tablist" aria-label="Fargegruppe" className="mb-4 flex gap-2">
@@ -323,7 +324,8 @@ export function ColorPicker({ value, onPick, onClose }: { value: string; onPick:
           {shown.name}
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -502,6 +504,9 @@ export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]
   );
 }
 
+/** Desktop-oppsett (samme brytepunkt som Tailwind `lg`): klikk velger, dobbeltklikk spiller. */
+const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
+
 // ---------------------------------------------------------------- Lista
 
 export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: string; tracks: Track[]; onBack: () => void; onClosed: () => void; vctx?: VersionCtx }) {
@@ -517,6 +522,19 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
   const [resumeKey, setResumeKey] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const coverInput = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Menyen lukkes ved trykk utenfor eller Esc (ikke på mouseleave, som er upålitelig med berøring).
+  useEffect(() => {
+    if (!menu) return;
+    const onDown = (e: PointerEvent) => !menuRef.current?.contains(e.target as Node) && setMenu(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenu(false);
+    document.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menu]);
   const uploadCover = async (file: File | undefined) => {
     if (!file) return;
     setUploading(true);
@@ -605,12 +623,12 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
               </button>
             )}
             {editable && (
-              <div className="relative">
+              <div className="relative" ref={menuRef}>
                 <button type="button" aria-label="Flere valg for lista" aria-expanded={menu} onClick={() => setMenu((m) => !m)} className="flex h-12 w-12 items-center justify-center rounded-full text-champagne hover:bg-white/[0.06]">
                   <MoreIcon width={20} height={20} />
                 </button>
                 {menu && (
-                  <ul role="menu" className="absolute left-0 top-12 z-20 m-0 w-52 list-none rounded-xl border border-white/10 bg-[#15181F] p-1.5 shadow-2xl" onMouseLeave={() => setMenu(false)}>
+                  <ul role="menu" className="absolute right-0 top-12 z-20 m-0 w-52 max-w-[calc(100vw-32px)] lg:left-0 lg:right-auto list-none rounded-xl border border-white/10 bg-[#15181F] p-1.5 shadow-2xl">
                     {(
                       [
                         ['Gi nytt navn', () => setRenaming(true)],
@@ -724,11 +742,11 @@ function RenameForm({ p, onDone }: { p: Playlist; onDone: () => void }) {
   );
 }
 
-function EntryButton({ a, i, current, onPlay, children }: { a: LoadedAsset; i: number; current: boolean; onPlay: () => void; children?: ReactNode }) {
+function EntryButton({ a, i, current, onPlay, children }: { a: LoadedAsset; i: number; current: boolean; onPlay: (e: MouseEvent) => void; children?: ReactNode }) {
   const m = a.manifest;
   return (
     <div className={`flex min-h-[60px] items-center gap-3 rounded-xl px-1.5 ${current ? 'bg-white/[0.04]' : ''}`}>
-      <button type="button" onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Spill ${m.title}`}>
+      <button type="button" data-play onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Spill ${m.title}`}>
         <span className="tabular w-5 flex-none text-right text-xs text-muted">{current ? <span className="text-accent">▶</span> : i + 1}</span>
         <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={6} />
         <span className="flex min-w-0 flex-1 flex-col">
@@ -936,6 +954,7 @@ function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: st
                 setDropBefore(undefined);
               }}
               onClick={(e) => {
+                // Avspillingsknappen i raden håndterer klikket selv (velg på desktop, spill på mobil).
                 if ((e.target as HTMLElement).closest('button,select')) return;
                 select(id, e);
               }}
@@ -951,7 +970,7 @@ function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: st
                 </span>
               )}
               {r.asset ? (
-                <EntryButton a={r.asset} i={i} current={playingId === id} onPlay={() => onPlay(playIndexOf(id))}>
+                <EntryButton a={r.asset} i={i} current={playingId === id} onPlay={(e) => (isDesktop() && e.detail > 0 ? select(id, e) : onPlay(playIndexOf(id)))}>
                   <EntryControls p={p} r={r} vctx={vctx} onRemove={() => void removeWithUndo([id])} />
                 </EntryButton>
               ) : (

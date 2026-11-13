@@ -28,7 +28,7 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-13T22:30:00+01:00"
+last_updated: "2026-11-13T23:30:00+01:00"
 updated_by: "Claude Code (Claude Opus 5.5)"
 
 # ============================================================
@@ -55,18 +55,16 @@ environment: "lokal (Windows, Knuts stasjonære PC)"
 current_state:
   status: "in_progress"
   state_summary: >
-    setup/del-0 (del 0b, 1+6, manifest-fiks, del 7) er pushet; PR mot main er ikke laget ennå (gh mangler).
-    Del 9 (spillelister) er bygget på setup/del-9 (lokal, ikke pushet): server-API med 409-låsing og
-    atomisk lagring i data/playlists.json, mobil (Lister-fane, ⋯-ark, velgemodus, dra/sveip), desktop
-    (sidemeny, dra og slipp, høyreklikk, Ctrl+Shift+P, Delete), smarte lister, og farger med neon-glød (pkt. 15).
-    Pkt. 13 (låse bestemt versjon, versjonsvelger i Studio → Arkiv, utilgjengelige rader) og pkt. 14
-    (eget cover uten EXIF, palett, opprydding) er nå bygget. pnpm test 97/97 og typecheck grønne.
-    «Ferdig når»-testen er kjørt mot den ekte serveren (Tailscale ↔ 127.0.0.1, inkl. 409, versjonslås og cover).
-    Visuell sjekk i nettleser er IKKE gjort (Claude in Chrome er slått av). Ingen låt i media har mer enn én
-    versjon i dag, så avspilling av en eldre låst versjon er bare dekket av enhetstester.
+    setup/del-0 (del 0b, 1+6, manifest-fiks, del 7) og setup/del-9 er pushet; ingen PR mot main ennå (gh mangler).
+    Del 9 (spillelister) er FERDIG på setup/del-9: alle punkter 1–15 + smarte lister er bygget, 97/97 enhetstester
+    og typecheck grønne, «Ferdig når» kjørt mot ekte server, og UI-et er verifisert i hodeløs Edge (DevTools-
+    protokollen, egen tom profil) på desktop 1440×900 og mobil 384×854 med berøring: 31/31 sjekker, ingen JS-feil.
+    Verifiseringen fant og rettet 3 feil: klikk på rad på desktop spilte i stedet for å velge (Delete virket ikke),
+    ⋯-menyen i lista stakk utenfor skjermen på mobil, og fargevelgeren lå bak minispilleren/bunnmenyen.
+    Rekkefølge videre (main 7dc8714): del 11 («⋯»-meny) → del 10 (del låt som fil) → del 12 (Android) → del 1 pkt. 7–8 → del 8.
+    Ikke verifisert: ekte telefon/berøring (bare emulert), og avspilling av en eldre låst versjon (ingen låt har >1 versjon i media).
   recommended_next_action: >
-    Knut tester spillelistene på mobil (Tailscale) og desktop. PR for setup/del-0 og setup/del-9 må lages
-    (gh mangler). Deretter del 1 punkt 7–8 og del 8.
+    Knut sier OK til plan for del 11. PR for setup/del-9 mot main må lages (gh mangler).
   active_blockers:
     - "Del 3 krever fasit (BPM/toneart) for 5–10 låter fra Knut."
     - "Del 5 krever at Knut oppretter Supabase-prosjekt og legger URL og anon-nøkkel i .env."
@@ -135,6 +133,10 @@ acceptance_criteria:
     description: "Manifest-fiks: «Opprett snarvei» i Chrome på mobil over HTTP får Groovehouse-ikonet."
     status: "partial"
     evidence: "Committet i bbd6f82. /manifest.webmanifest svarer 200 (application/manifest+json) uten PIN, index.html har icon 192/512. Test i lan.test.ts. Selve snarveien på mobilen er ikke testet ennå."
+  - id: "AC-09"
+    description: "Del 9: liste laget på mobil via Tailscale, tre låter lagt til, sett på desktop, rekkefølge endret der, endringen sett på mobil."
+    status: "passed"
+    evidence: "API-flyt mot ekte server (Tailscale ↔ 127.0.0.1) inkl. 409, versjonslås og cover; UI i hodeløs Edge desktop + mobil (berøring emulert): 31/31 sjekker, ingen JS-feil. Ikke testet på fysisk telefon."
   - id: "AC-07"
     description: "Del 7: spilleren åpnes og spiller fra mobilen via ts.net-adressen uten PIN, og Wi-Fi-modus krever fortsatt PIN."
     status: "partial"
@@ -325,6 +327,12 @@ validation:
 # EXECUTION LOG / HENDELSESLOGG
 # ============================================================
 execution_log:
+  - at: "2026-11-13T23:30:00+01:00"
+    actor: "Claude Code"
+    action: "Fullførte del 9: merget origin/main (7dc8714, del 11 og 12), verifiserte UI i hodeløs Edge via DevTools-protokollen (skript i scratchpad), rettet funn."
+    command: "node ui-del9.mjs (msedge --headless=new, egen profil); pnpm test; pnpm typecheck; pnpm --filter ./apps/web build"
+    result: "passed"
+    evidence: "31/31 UI-sjekker, 97/97 enhetstester. Rettet: rad-klikk på desktop velger (dobbeltklikk spiller), ⋯-meny forankret mot høyre på mobil og lukkes ved trykk utenfor, fargevelger via portal over minispiller/bunnmeny, melding under ark. Norton Safe Web-varsel dukker opp i Edge-profilen (fra Norton, ikke appen)."
   - at: "2026-11-13T22:30:00+01:00"
     actor: "Claude Code"
     action: "Del 9 pkt. 13 (versjonslås + versjonsvelger) og pkt. 14 (eget cover) bygget. «Ferdig når» kjørt mot ekte server."
