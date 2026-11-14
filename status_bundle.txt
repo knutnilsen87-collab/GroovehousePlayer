@@ -28,7 +28,7 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-13T23:30:00+01:00"
+last_updated: "2026-11-14T16:05:00+01:00"
 updated_by: "Claude Code (Claude Opus 5.5)"
 
 # ============================================================
@@ -43,7 +43,7 @@ project_description: >
   på 127.0.0.1:41733 med launcher, skrivebordssnarvei og LAN-modus med PIN.
 repo_root: "F:\\prosjekter_MAIN\\GroovehousePlayer"
 repo_url: "https://github.com/knutnilsen87-collab/GroovehousePlayer.git"
-branch: "setup/del-9 (fra setup/del-0 + origin/main 93db75d)"
+branch: "setup/del-0"
 commit_before: "481657c (merge av origin/main inn i setup/del-9)"
 commit_current: "del 9-commiten som inneholder denne fila (se git log)"
 base_branch: "main"
@@ -55,18 +55,21 @@ environment: "lokal (Windows, Knuts stasjonære PC)"
 current_state:
   status: "in_progress"
   state_summary: >
-    Alt arbeid samles nå på setup/del-0 (Knut 2026-11-14: kjør gjennom alle deler selv, push dit, ikke merge til main).
+    Alt arbeid samles på setup/del-0 (Knut 2026-11-14: kjør gjennom alle deler selv, push dit, ikke merge til main).
     Løpende plan og status per del står i docs/PROGRESS.md; spørsmål i docs/OPEN_QUESTIONS.md.
-    Ferdig: del 9 (spillelister, 31/31 UI-sjekker) og del 11 («⋯»-meny + kø, 29/29 UI-sjekker). 103/103 enhetstester.
-    UI verifiseres i hodeløs Edge via DevTools-protokollen (egen profil, --disable-extensions; skript i scratchpad).
-    Neste: del 12 (Android) → 10 → 1 pkt. 7–8 → 8 → 2 → 4 → 3. Del 5 hoppes over (ingen Supabase-nøkler).
-    Ikke verifisert: fysisk telefon (berøring er emulert), avspilling av eldre låst versjon.
+    Ferdig: del 9, 11, 12 (APK bygget, ikke kjørt på telefon), 10, 1 pkt. 7–8, 8 og 14 (nytt utseende
+    «High-End Studio»: coveret styrer fargene, gull bare i logoen; spektrum, favoritter, tekst, A·B, hastighet,
+    Hjem/DJ-verktøy/Analyse; native løkke/hastighet/gjenta i Android). 164 enhetstester grønne.
+    UI verifiseres i hodeløs Edge via DevTools-protokollen (skript i scratchpad).
+    Neste: del 2 (markør-editor) → 4 → 3. Del 5 hoppes over (ingen Supabase-nøkler). Del 13 er ikke i denne runden.
+    Ikke verifisert: fysisk telefon og bil, autostart etter ekte omstart.
   recommended_next_action: >
-    Fortsett med del 12 etter docs/PROGRESS.md.
+    Fortsett med del 2 etter docs/PROGRESS.md.
   active_blockers:
     - "Del 3 krever fasit (BPM/toneart) for 5–10 låter fra Knut."
     - "Del 5 krever at Knut oppretter Supabase-prosjekt og legger URL og anon-nøkkel i .env."
-  last_verified_at: "2026-11-13T19:45:00+01:00"
+    - "Google Drive ser ut til å synkronisere prosjektmappa inkl. media/ (OPEN_QUESTIONS 12) – Knut må avgjøre."
+  last_verified_at: "2026-11-14T16:00:00+01:00"
 
 # ============================================================
 # TASK AND SCOPE / OPPGAVE OG AVGRENSNING
