@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
+  isDraft,
+  planStats,
+  PLAN_NAMES,
+  type Flow,
   addTargets,
   BUILTIN_SMART,
   colorById,
@@ -29,6 +33,7 @@ import { lockOptions, lockValue, type VersionCtx } from '../lib/versions';
 import { useUi, type ExtraAction } from '../lib/ui';
 import { serverBase } from '../lib/connection';
 import { useFavorites } from '../lib/library';
+import { DraftBadge } from './Draft';
 import { CoverArt } from './CoverArt';
 import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
 
@@ -130,15 +135,17 @@ function favoriteAssets(tracks: Track[]): LoadedAsset[] {
 }
 
 export function buildListView(id: string, playlists: Playlist[], tracks: Track[], vctx?: VersionCtx): ListView | null {
+  // Del 16: smarte lister (også de innebygde) bruker bare release-klare låter
+  const releaseTracks = tracks.filter((t) => !isDraft(t.main.manifest));
   if (isBuiltin(id)) {
     const b = BUILTIN_SMART.find((x) => x.id === id)!;
-    const assets = 'favorites' in b ? favoriteAssets(tracks) : smartListAssets(tracks, 'days' in b ? { days: b.days } : { query: b.query });
+    const assets = 'favorites' in b ? favoriteAssets(releaseTracks) : smartListAssets(releaseTracks, 'days' in b ? { days: b.days } : { query: b.query });
     return { id, name: b.name, kind: 'builtin', color: colorById(BUILTIN_COLORS[id]), playlist: null, rows: [], assets, keys: assets.map((a) => a.manifest.slug) };
   }
   const p = playlists.find((x) => x.id === id);
   if (!p) return null;
   if (p.kind === 'smart') {
-    const assets = smartListAssets(tracks, { query: p.query });
+    const assets = smartListAssets(releaseTracks, { query: p.query });
     return { id, name: p.name, kind: 'smart', color: colorById(p.color), playlist: p, rows: [], assets, keys: assets.map((a) => a.manifest.slug) };
   }
   const rows = resolveEntries(p.entries, tracks, vctx?.find).map((r) =>
@@ -596,6 +603,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
   const [picking, setPicking] = useState(false);
   const [pickingIcon, setPickingIcon] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [missingOnly, setMissingOnly] = useState(false);
   const [resumeKey, setResumeKey] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const coverInput = useRef<HTMLInputElement>(null);
@@ -669,7 +677,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[2px]" style={{ color: c.primary }}>
             <ColorDot color={c} size={8} pulse={isNow && playing} />
-            {v.kind === 'manual' ? 'Spilleliste' : `Smart liste${v.playlist?.query ? ` · «${v.playlist.query}»` : ''}`}
+            {v.kind === 'manual' ? (v.playlist?.plan ? PLAN_NAMES[v.playlist.plan] : 'Spilleliste') : `Smart liste${v.playlist?.query ? ` · «${v.playlist.query}»` : ''}`}
           </span>
           {renaming && v.playlist ? (
             <RenameForm p={v.playlist} onDone={() => setRenaming(false)} />
@@ -679,6 +687,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
             </h1>
           )}
           <p className="m-0 text-[13px] text-muted">{[`${s.count} ${s.count === 1 ? 'låt' : 'låter'}`, formatListDuration(s.totalMs), bpm].filter(Boolean).join(' · ')}</p>
+          {v.playlist?.plan && <PlanSummary v={v} missingOnly={missingOnly} onMissingOnly={setMissingOnly} />}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -716,6 +725,11 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
                               [v.playlist?.cover ? 'Bytt cover …' : 'Eget cover …', () => coverInput.current?.click()],
                               ...(v.playlist?.cover ? [['Fjern eget cover', () => void usePlaylists.getState().removeCover(id).catch(toastError)]] : [])
                             ] as Array<[string, () => void]>)
+                          : []),
+                        ...(v.kind === 'manual'
+                          ? (([null, 'album', 'set'] as const)
+                              .filter((pl) => (v.playlist?.plan ?? null) !== pl)
+                              .map((pl) => [`Gjør til ${PLAN_NAMES[pl ?? 'none'].toLowerCase()}`, () => void usePlaylists.getState().setPlan(id, pl).catch(toastError)]) as Array<[string, () => void]>)
                           : []),
                         ['Dupliser', () => void usePlaylists.getState().duplicate(v.playlist!).then((p) => useToast.getState().show(`Lagde «${p.name}»`)).catch(toastError)],
                         ['Slett …', () => setConfirmDelete(true)]
@@ -792,7 +806,9 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
       )}
 
       <div className="relative mt-6">
-        {v.kind === 'manual' ? (
+        {v.kind === 'manual' && missingOnly ? (
+          <MissingMaster v={v} onPlay={play} />
+        ) : v.kind === 'manual' ? (
           <ManualRows v={v} playingId={isNow ? (nowKey ?? undefined) : undefined} onPlay={play} queueLen={queue.length} vctx={vctx} />
         ) : (
           <ol className="m-0 list-none p-0">
@@ -837,9 +853,11 @@ function EntryButton({ a, i, current, onPlay, children }: { a: LoadedAsset; i: n
     <div className={`flex min-h-[60px] items-center gap-3 rounded-xl px-1.5 ${current ? 'bg-white/[0.04]' : ''}`}>
       <button type="button" data-play onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Spill ${m.title}`}>
         <span className="tabular w-5 flex-none text-right text-xs text-muted">{current ? <span className="text-accent">▶</span> : i + 1}</span>
-        <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={6} />
+        <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={6} draft={isDraft(m)} />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className={`truncate text-[15px] font-semibold lg:text-sm ${current ? 'text-accent' : 'text-ink-strong'}`}>{m.title}</span>
+          <span className={`truncate text-[15px] font-semibold lg:text-sm ${current ? 'text-accent' : 'text-ink-strong'}`}>
+            {m.title}<DraftBadge m={m} className="ml-1.5" />
+          </span>
           <span className="truncate text-xs text-muted">{[m.variant ? variantName(a) : null, m.kind === 'set' ? 'Live-sett' : null, m.bpm ? `${m.bpm} BPM` : null, m.key?.camelot].filter(Boolean).join(' · ')}</span>
         </span>
         <span className="tabular text-xs text-muted">{formatTime(m.durationMs)}</span>
@@ -1117,3 +1135,65 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
 }
 
 export type { PlaylistEntry };
+
+// ---------------------------------------------------------------- Del 16: Album- og settplaner
+
+const FLOW_COLOR: Record<Flow, string> = { green: '#3DDC84', yellow: '#F5C84B', red: '#FF6B5A', unknown: 'rgba(255,255,255,0.25)' };
+const FLOW_TEXT: Record<Flow, string> = { green: 'harmonisk', yellow: '±1 på hjulet', red: 'brudd', unknown: 'ukjent' };
+
+/** «7 av 10 mastret», total tid og BPM-/Camelot-flyt mellom låtene, med filteret «Mangler master». */
+function PlanSummary({ v, missingOnly, onMissingOnly }: { v: ListView; missingOnly: boolean; onMissingOnly: (b: boolean) => void }) {
+  const rows = v.assets.map((a) => ({ status: isDraft(a.manifest) ? ('draft' as const) : ('release' as const), durationMs: a.manifest.durationMs, bpm: a.manifest.bpm, camelot: a.manifest.key?.camelot ?? null, title: a.manifest.title }));
+  const st = planStats(rows);
+  return (
+    <div className="mt-1 flex flex-col gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="font-mono text-sm text-ink-strong" data-testid="plan-status">
+          {st.mastered} av {st.total} mastret
+        </span>
+        <span className="h-1.5 w-32 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden="true">
+          <span className="block h-full rounded-full bg-accent" style={{ width: `${st.total ? (st.mastered / st.total) * 100 : 0}%` }} />
+        </span>
+        <span className="font-mono text-xs text-muted">{formatListDuration(st.durationMs)}</span>
+        <label className="ml-auto flex items-center gap-2 text-xs text-soft">
+          <input type="checkbox" checked={missingOnly} onChange={(e) => onMissingOnly(e.target.checked)} />
+          Mangler master ({st.total - st.mastered})
+        </label>
+      </div>
+      {st.flows.length > 0 && (
+        <ol aria-label="Flyt mellom låtene" className="m-0 flex list-none flex-wrap items-center gap-1 p-0">
+          {rows.map((r, i) => (
+            <li key={i} className="flex items-center gap-1">
+              <span className="font-mono text-[10px] text-soft" title={r.title}>
+                {r.camelot ?? '?'}
+                {r.bpm ? `·${Math.round(r.bpm)}` : ''}
+              </span>
+              {i < st.flows.length && <span aria-label={FLOW_TEXT[st.flows[i]!]} title={FLOW_TEXT[st.flows[i]!]} className="h-1.5 w-4 rounded-full" style={{ background: FLOW_COLOR[st.flows[i]!] }} />}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** Filteret «Mangler master»: bare utkastene i planen. */
+function MissingMaster({ v, onPlay }: { v: ListView; onPlay: (i: number) => void }) {
+  const items = v.assets.map((a, i) => ({ a, i })).filter(({ a }) => isDraft(a.manifest));
+  if (!items.length) return <p className="text-sm text-muted">Alle låtene i planen er mastret.</p>;
+  return (
+    <ol className="m-0 flex list-none flex-col gap-1 p-0">
+      {items.map(({ a, i }) => (
+        <li key={`${a.manifest.id}-${i}`}>
+          <button type="button" onClick={() => onPlay(i)} className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-white/[0.03]">
+            <span className="w-6 text-right font-mono text-xs text-muted">{i + 1}</span>
+            <CoverArt src={assetUrl(a, a.manifest.files.coverThumb)} palette={a.manifest.palette} title={a.manifest.title} size={40} rounded={6} draft />
+            <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-strong">
+              {a.manifest.title}<DraftBadge m={a.manifest} className="ml-1.5" />
+            </span>
+          </button>
+        </li>
+      ))}
+    </ol>
+  );
+}

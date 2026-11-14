@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { formatTimeMs, keyShort, sectionAt } from '@gv/shared/web';
+import { formatTimeMs, isDraft, keyShort, sectionAt } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { CoverArt } from './CoverArt';
+import { DraftBadge } from './Draft';
 import { BottomControls, Credits, DECK_TABS, HeartButton, LiveTime, LyricsView, Tabs, TrackInfoRows, Transport, type DeckTab } from './Deck';
 import { ChevronDownIcon, MoreIcon } from './Icons';
 import { BigWaveform, SpectrumView, ZoomWaveform } from './Visuals';
@@ -33,13 +34,15 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
 
       <div className="relative mt-3 flex justify-center">
         <div className="gv-panel overflow-hidden !rounded-2xl p-0" style={{ width: coverSize }}>
-          <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={coverSize} rounded={16} />
+          <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={coverSize} rounded={16} draft={isDraft(m)} />
         </div>
       </div>
 
       <div className="relative mt-5 flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className="m-0 truncate text-[24px] font-bold leading-tight text-ink-strong">{m.title}</h2>
+          <h2 className="m-0 truncate text-[24px] font-bold leading-tight text-ink-strong">
+            {m.title}<DraftBadge m={m} className="ml-1.5" />
+          </h2>
           <span className="truncate text-[14px] text-soft">
             {m.artist ?? 'Echo Groove'}
             {m.variant ? ` · ${variantName(cur)}` : ''}

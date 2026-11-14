@@ -11,3 +11,4 @@ export * from './share';
 export * from './studio';
 export * from './appupdate';
 export * from './markers';
+export * from './drafts';

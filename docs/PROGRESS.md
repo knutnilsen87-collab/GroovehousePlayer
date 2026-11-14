@@ -3,7 +3,7 @@
 Arbeidslogg for `setup/del-0` (alt pushes hit, ingenting merges til `main`). Les denne først hvis arbeidet blir avbrutt.
 Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut står i `docs/OPEN_QUESTIONS.md`.
 
-**Rekkefølge (Knut, 2026-11-14):** 9 → 11 → 12 → 10 → 1 pkt. 7–8 → 8 → **14 (nytt utseende)** → 2 → 4 → 3 → 13 (deling med lenker, ikke i denne runden).
+**Rekkefølge (Knut, 2026-11-14):** 9 → 11 → 12 → 10 → 1 pkt. 7–8 → 8 → 15 → 14 → **16 (utkast)** → 2 → 4 → 3 → **17 (settbygger)** → 13 (deling med lenker, ikke i denne runden). Del 16 kom inn på main etter at 2/4/3 var gjort; den tas nå, før 17 som bygger på den.
 
 **Designregel endret (Knut, 2026-11-14):** coveret styrer alle farger, gull bare i logoen. Erstatter «gullet er rammen». Del 5 (Supabase) hoppes over (ingen nøkler i `.env`).
 
@@ -21,6 +21,8 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 8 Innstillinger | ✅ ferdig | 11 nye enhetstester (validering, atomisk lagring + backup, regler, copyright-mal, forskyvning, manuell palett overlever ny ingest, offset flytter markører) + 1 i web (LUFS-mål); UI i hodeløs Edge 22/22 (alle seksjoner, lagre LUFS −12 → API → tilbake −14, ugyldig mappe avvises, kontrast rød under minimum, mobil uten sidescroll); API: ugyldig LUFS 400, Wi-Fi-endring via Tailscale 403 | «Ferdig når»: endre eksportmappe, LUFS-mål, standard artist/label og farge på én låt i Studio, start PC-en på nytt og bounce på nytt – alt skal stå seg |
 | 14 Nytt utseende | ✅ ferdig | 164 enhetstester (+26); desktop-dekket 26/26, mobil 13/13; regresjon del 8/9/10/11, sveip, ikoner grønne; APK bygget; sammenligning i `docs/design/compare/` | «Ferdig når»: blått cover på desktop, bytt til rødt, og spill med skjermen på i Android-appen (spektrum i takt). A·B og hastighet med skjermen av på S22 |
 | 15 App-oppdatering | ✅ bygget (ikke kjørt på telefon) | 15 nye tester (regler 5, bunt/zip/API/token 3, oppdaterer i appen 4, skysynk 3); APK 51 med oppdatereren publisert; ny release uten native endring lager ingen APK | «Ferdig når»: installer `distndroid\groovehouse-vault-0.1.0.apk` (kode 51) for hånd én siste gang; deretter endring i web → lukk/åpne appen; ny native kode → «Oppdater» |
+| 16 Utkast | ✅ ferdig (uten utkastmappe valgt) | 6 delte tester (status, versjoner, følg nyeste, filter, flyt, plan) + 5 ende-til-ende (mappe med undermapper, samme slug i begge, loudnorm bare på utkast, kildemappene uendret, deling, import, release-klar, plan-API); UI med ekte utkast via innboksen 15/15 (filter, brikke, stiplet, husket valg, Ctrl+K, advarsel, «2 av 3 mastret», Mangler master); regresjon grønn | Velg utkastmappa i Innstillinger og kjør `pnpm gh-ingest --backlog --drafts`; «Ferdig når»: Album-plan med 5 utkast + 2 mastrede → «2 av 7», eksporter master av ett → «3 av 7» |
+| 17 Settbygger | 🔨 neste | – | – |
 | 2 Markør-editor | ✅ ferdig | 6 enhetstester (sammenslåing, slettede forslag, overføring til ny versjon, validering, takt) + 4 ende-til-ende med ffmpeg (flytt Drop 1 → --force står seg, også på fixtures/blue-fire; _v2 får ubekreftede forslag; validering); UI på ekte låt 14/14 (tastatur, dra, navn, slett, dobbeltklikk, lagre, spilleren) | «Ferdig når»: flytt Drop 1 på en ekte låt i Studio, kjør `pnpm gh-ingest --force` på den, og se at flyttingen står seg |
 | 4 Raskere ingest | ✅ ferdig | Målt før/etter (`pnpm ingest:bench`): 10 min 10,6 → 6,4 s, blue-fire 8,5 → 4,8 s, live-sett-demo 5,5 → 3,7 s; 3 nye tester (vekting, 21-min sett med stigende prosent og fil som fjernes, korte låter uten fremdrift); Studio-kortet 3/3; alle ingest-tester grønne | Se fremdriften neste gang et langt sett bounces | – | – |
 | 3 Analyse (uten fasit) | ✅ ferdig så langt det går uten fasit | `pnpm eval:analysis` (mappe mot fasit, eller `--synthetic`); syntetisk 16 filer: toneart 16/16 → 16/16, BPM 12/16 → 16/16; 12 nye enhetstester; ny tempometode og tempo per kapittel i bruk; EDMA klar bak `analysis.keyMethod` | Fyll inn `fixtures/truth.json` (mal med 26 låter) og kjør `pnpm eval:analysis` mot REASONDONE: avgjør Krumhansl eller EDMA (uenige på 10 låter) |
@@ -68,6 +70,15 @@ Knuts svar gjelder: «Del…» vises deaktivert («kommer») til del 10 · «Kil
 
 **Ikonpakke for spillelister (2026-11-14):** de ti ikonene fra Knut kan velges per liste («⋯ → Ikon …»), lagres som `icon` på lista (validert mot kjente id-er). Rekkefølge: eget cover → ikon → mosaikk. UI-test 9/9.
 
+## Del 16 – Utkast (plan)
+
+1. Status fra mappa: `exportDir` = release, ny `draftDir` (lokal, i Innstillinger) og `data/drafts-inbox/` (Importer som utkast i Studio) = utkast. Kun lesing; utkastmappa skannes med undermapper. Watcher og `--backlog` for begge.
+2. Utkast får egne versjonsnumre (1000 + N, vist som «Utkast vN»), så de aldri kolliderer med release-versjoner av samme låt. `manifest.status`. Katalog og «følg nyeste» velger release hvis den finnes, ellers nyeste utkast.
+3. Segment Release-klar · Utkast · Alle (huskes per visning) i Bibliotek, Hjem, Ctrl+K og DJ-verktøy; UTKAST-brikke, stiplet cover, halv glød. Bland, autospill og smarte lister: bare release.
+4. Spillelister får type Vanlig / Album-plan / Sett-plan: «N av M mastret», brikker, total tid, BPM-/Camelot-flyt, filter «Mangler master». Advarsel når et utkast legges i en vanlig liste.
+5. Utkast-HLS normaliseres med `loudnorm` i to passeringer (−1 dBTP); master.flac uendret; Låtinfo viser begge nivåene.
+6. Deling: utkast krever «Del utkast likevel», filnavn « (Utkast)», album «Groovehouse Records – Demo».
+
 ## Del 14 – Nytt utseende «High-End Studio» (plan)
 
 Fem commits, hver med test, typecheck og sjekk i hodeløs Edge:
@@ -95,3 +106,4 @@ elease.jks.
 - 2026-11-14: Del 2 ferdig: markør-editor i Studio, markers.json som overlever --force, overføring til ny versjon.
 - 2026-11-14: Del 4 ferdig: parallell ingest og fremdrift for lange sett. Tallene står i README.
 - 2026-11-14: Del 3 ferdig uten fasit: evaluering, HPCP + tuning + EDMA (av til fasiten avgjør), tempo med kam og house-regel, tempo per kapittel i sett, fixtures/truth.json-mal.
+- 2026-11-14: Del 16 (fra main) ferdig. Rettet samtidig: advarselen om skysynkronisering lå i restartWatcher i stedet for ved oppstart.

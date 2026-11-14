@@ -95,7 +95,7 @@ export function createSettingsRoute(h: SettingsHooks) {
       try {
         const cfg = saveSettings(h.root, patch);
         let watcher = h.watcherStatus();
-        const exportChanged = patch.exportDir !== undefined && (before.exportDir ?? null) !== (cfg.exportDir ?? null);
+        const exportChanged = (patch.exportDir !== undefined && (before.exportDir ?? null) !== (cfg.exportDir ?? null)) || (patch.draftDir !== undefined && (before.draftDir ?? null) !== (cfg.draftDir ?? null));
         // Eksportmappe/regler/sett-grense: watcheren må lese config på nytt
         if (exportChanged || patch.ingest || patch.titleCleanup || patch.defaults || patch.audio || patch.colors) watcher = await h.restartWatcher();
         return json(res, 200, { settings: editableOf(cfg), watcher, restarted: exportChanged ? ['watcher'] : [] });
@@ -172,6 +172,7 @@ function pickPatch(body: Record<string, unknown>): SettingsPatch {
     if (v && typeof v === 'object' && !Array.isArray(v)) (patch as Record<string, unknown>)[k] = v;
   }
   if (body.exportDir === null || typeof body.exportDir === 'string') patch.exportDir = body.exportDir as string | null;
+  if (body.draftDir === null || typeof body.draftDir === 'string') patch.draftDir = body.draftDir as string | null;
   return patch;
 }
 

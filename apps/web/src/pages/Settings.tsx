@@ -64,7 +64,7 @@ export function SettingsView() {
         {notice && <p className="m-0 rounded-xl border border-accent/30 bg-accent/[0.08] px-4 py-3 text-sm text-soft">{notice}</p>}
       </div>
 
-      <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir')} onSave={() => save(['exportDir'], 'Eksportmappa er lagret.')} onReload={load} />
+      <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir') || dirty('draftDir')} onSave={() => save(['exportDir', 'draftDir'], 'Mappene er lagret.')} onReload={load} />
       <RulesSection draft={draft} set={set} busy={busy} dirty={dirty('ingest')} onSave={() => save(['ingest'], 'Reglene er lagret og gjelder neste ingest.')} />
       <Section title="Lyd" hint="Gjelder i spilleren med en gang (også låter som alt er ingestet).">
         <label className="flex flex-col gap-2 text-xs text-muted">
@@ -239,6 +239,13 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
         <input value={draft.exportDir ?? ''} onChange={(e) => set('exportDir', e.target.value || null)} placeholder="D:\Musikk\REASONDONE" className={field} spellCheck={false} />
       </label>
       {state.exportDirFromEnv && !state.settings.exportDir && <p className="m-0 text-xs text-muted">Bruker GH_EXPORT_DIR fra .env. Lagrer du en mappe her, vinner den.</p>}
+      <label className="flex flex-col gap-1 text-xs text-muted">
+        Utkastmappe (umastrede låter, undermapper tillatt)
+        <input value={draft.draftDir ?? ''} onChange={(e) => set('draftDir', e.target.value || null)} placeholder="D:\Musikk\Utkast" className={field} spellCheck={false} />
+        <span className="text-[11px] text-muted">
+          Låter herfra blir <b className="font-mono text-ink">UTKAST</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med «pnpm gh-ingest --backlog --drafts». Du kan også dra filer inn på ingest-kortet («Importer som utkast»).
+        </span>
+      </label>
       {check && !check.ok && (
         <p role="alert" className="m-0 text-xs text-[#F2A08F]">
           {check.error}

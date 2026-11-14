@@ -1,14 +1,15 @@
 import { randomUUID } from 'node:crypto';
-import { createReadStream, existsSync, readFileSync } from 'node:fs';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import sharp from 'sharp';
 import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
-import { retagSlug } from './ingest';
+import { retagSlug, updateCatalog } from './ingest';
 import { ensureShareFile, ShareError } from './share';
-import { manualPalette, validateMarkers, type AssetManifest, type ShareKind } from '@gv/shared';
+import { DRAFT_BASE, manualPalette, statusOf, validateMarkers, versionName, type AssetManifest, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
 import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
@@ -81,6 +82,45 @@ export function createApiHandler(opts: ApiOptions) {
       await handlePlaylists(playlists, url, req, res);
       return;
     }
+    // Del 16: «Importer som utkast» – fila legges i data/drafts-inbox/, og utkast-watcheren ingester den
+    if (url.pathname === '/api/drafts/import' && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      // Egen header tvinger nettlesere til en CORS-preflight (ingen opplasting fra fremmede sider)
+      if (req.headers['x-gv-import'] !== '1') return send(res, 400, { error: 'mangler X-GV-Import' });
+      const raw = (url.searchParams.get('name') ?? '').replace(/[\\/:*?"<>|\x00-\x1f]/g, '_').trim();
+      if (!/\.(wav|wave|aif|aiff|flac|png|jpe?g|webp)$/i.test(raw) || raw.length > 180 || raw.startsWith('.')) return send(res, 400, { error: 'bare lydfiler (WAV/AIFF/FLAC) og cover-bilder' });
+      const inbox = path.join(dataDir, 'drafts-inbox');
+      await mkdir(inbox, { recursive: true });
+      const target = path.join(inbox, raw);
+      const tmp = `${target}.${process.pid}.upload`;
+      try {
+        await pipeline(req, createWriteStream(tmp));
+        await rename(tmp, target);
+      } catch (err) {
+        await rm(tmp, { force: true }).catch(() => {});
+        return send(res, 500, { error: err instanceof Error ? err.message : String(err) });
+      }
+      return send(res, 201, { file: raw });
+    }
+
+    // Del 16: gjør et utkast om til release-klart – bare eksplisitt, med bekreftelse
+    const st = url.pathname.match(/^\/api\/assets\/([a-z0-9][a-z0-9-]{0,120})\/([a-z0-9][a-z0-9-]{0,120})\/v?(\d{1,4})\/status$/);
+    if (st && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      const body = (await readJson(req).catch(() => ({}))) as { status?: unknown; confirm?: unknown };
+      if (body.status !== 'release' || body.confirm !== true) return send(res, 400, { error: 'krever { status: "release", confirm: true }' });
+      const dir = path.join(opts.mediaDir, st[1]!, st[2]!, `v${Number(st[3])}`);
+      const mf = path.join(dir, 'manifest.json');
+      if (!existsSync(mf)) return send(res, 404, { error: 'ukjent låt eller versjon' });
+      const man = JSON.parse(await readFile(mf, 'utf8')) as AssetManifest;
+      if (statusOf(man) === 'release') return send(res, 200, { manifest: man });
+      const next: AssetManifest = { ...man, status: 'release', versionLabel: `${man.versionLabel ?? versionName(man)} (gjort release-klar)` };
+      await writeJsonAtomic(mf, next);
+      await updateCatalog(opts.mediaDir, next);
+      return send(res, 200, { manifest: next });
+    }
+
     // Del 2: strukturmarkører per versjon
     const mk = url.pathname.match(/^\/api\/assets\/([a-z0-9][a-z0-9-]{0,120})\/([a-z0-9][a-z0-9-]{0,120})\/v?(\d{1,4})\/markers$/);
     if (mk) {
@@ -151,6 +191,8 @@ export function createApiHandler(opts: ApiOptions) {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
       const kind = url.searchParams.get('kind') ?? 'full';
       if (kind !== 'full' && kind !== 'preview' && kind !== 'wav') return send(res, 400, { error: 'kind må være full, preview eller wav' });
+      // Del 16: utkast deles bare etter et eksplisitt valg («Del utkast likevel»)
+      if (Number(sh[3]) > DRAFT_BASE && url.searchParams.get('draft') !== '1') return send(res, 409, { error: 'Dette er et utkast. Velg «Del utkast likevel» for å dele det.', draft: true });
       try {
         const r = await shareFileFor(opts.mediaDir, root, sh[1]!, sh[2]!, Number(sh[3]), kind);
         if (!r) return send(res, 404, { error: 'ukjent låt eller versjon' });

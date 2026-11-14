@@ -3,13 +3,13 @@ import { existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
-import { findSuno, formatTime, type AssetManifest } from '@gv/shared';
+import { findSuno, formatTime, toDraftVersion, type AssetManifest } from '@gv/shared';
 import { findRoot, loadConfig, loadDotEnv } from './config';
 import { ingestFolder, ingestRelease, sha256File, type IngestResult, type StepStatus } from './ingest';
 import { backfillMasters } from './share';
 import { backfillAnalysis } from './spectrum';
 import { indexSources, readSources, sourcesFile } from './source-index';
-import { readOverrides, scanFlat, type ReleaseSource } from './sources';
+import { readOverrides, scanDrafts, scanFlat, type ReleaseSource } from './sources';
 
 const HELP = `
 gh-ingest <mappe|fil> [--media <dir>] [--force] [--offset <ms>]
@@ -21,6 +21,7 @@ gh-ingest --backlog [<eksportmappe>] [--skip <slug,slug>] [--yes] [--force]
   --backlog      Ingest alt som ligger i den flate eksportmappa (standard: GH_EXPORT_DIR).
   --index-sources Koble allerede ingestede låter til kildefila (hash, kun lesing) → data/sources.json
   --backfill-masters Lag Vaults egen master-kopi (FLAC) for låter ingestet før del 10 (kun lesing i eksportmappa)
+  --backlog --drafts Som --backlog, men for utkastmappa (GH_DRAFT_DIR / Innstillinger), med undermapper
   --backfill-analysis Fyll inn spektrum (48 bånd) og kildeformat for låter ingestet før del 14 (fra master.flac i media/)
                  Viser lista først. Eksportmappa leses bare – ingenting flyttes eller endres.
   --skip <slugs> Hopp over disse (kommaseparert), f.eks. --skip midnight-rendezvous
@@ -126,10 +127,16 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
   }
 
   if (args.includes('--backlog')) {
-    const dir = path.resolve(base, target ?? loadConfig().exportDir ?? '');
-    if (!target && !loadConfig().exportDir) throw new Error('Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
+    // Del 16: --drafts = utkastmappa (med undermapper), ingestes som utkast
+    const drafts = args.includes('--drafts');
+    const configured = drafts ? loadConfig().draftDir : loadConfig().exportDir;
+    const dir = path.resolve(base, target ?? configured ?? '');
+    if (!target && !configured)
+      throw new Error(drafts ? 'Mangler utkastmappe: velg den i Studio → Innstillinger, sett GH_DRAFT_DIR i .env eller oppgi mappa' : 'Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
     const skip = new Set((flag('--skip') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
-    const scan = await scanFlat(dir, cfg);
+    const scan = drafts ? await scanDrafts(dir, cfg) : await scanFlat(dir, cfg);
+    // Planen sjekker mot versjonene slik de lagres (utkast: 1000 + N)
+    if (drafts) for (const r of scan.releases) r.masters = r.masters.map((m) => ({ ...m, version: toDraftVersion(m.version) }));
     const plan = await planBacklog(scan.releases, mediaDir, skip, force);
     printPlan(dir, plan, scan.ignored, scan.orphanImages);
     const todo = plan.filter((p) => p.action === 'ingest').map((p) => p.release);
@@ -151,7 +158,7 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
     for (const r of unique) {
       console.log(`\n── ${r.masters[0]!.fileName}`);
       try {
-        results.push(...(await ingestRelease(r, { mediaDir, force, config: cfg, report })));
+        results.push(...(await ingestRelease(r, { mediaDir, force, config: cfg, report, status: drafts ? 'draft' : 'release' })));
       } catch (err) {
         console.error(`  ✗ ${err instanceof Error ? err.message.split('\n')[0] : err}`);
       }

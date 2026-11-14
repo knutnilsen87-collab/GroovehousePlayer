@@ -133,6 +133,25 @@ export interface FlatScan {
  * Flat eksportmappe (leses bare, endres aldri). Slug og tittel kommer fra filnavnet;
  * cover er et bilde med samme navn ved siden av («Eyes on you.png»).
  */
+/**
+ * Del 16: utkastmappa skannes med undermapper (f.eks. én mappe per prosjekt). Hver mappe tolkes som en
+ * flat eksportmappe; skjulte mapper hoppes over. Mappa leses bare.
+ */
+export async function scanDrafts(dir: string, cfg: VaultConfig, depth = 8): Promise<FlatScan> {
+  const out: FlatScan = { releases: [], ignored: [], orphanImages: [] };
+  const walk = async (d: string, left: number) => {
+    const s = await scanFlat(d, cfg);
+    out.releases.push(...s.releases);
+    out.ignored.push(...s.ignored.map((f) => path.relative(dir, path.join(d, f))));
+    out.orphanImages.push(...s.orphanImages.map((f) => path.relative(dir, path.join(d, f))));
+    if (left <= 0) return;
+    for (const e of await readdir(d, { withFileTypes: true })) if (e.isDirectory() && !e.name.startsWith('.')) await walk(path.join(d, e.name), left - 1);
+  };
+  await walk(path.resolve(dir), depth);
+  out.releases.sort((a, b) => a.slug.localeCompare(b.slug));
+  return out;
+}
+
 export async function scanFlat(dir: string, cfg: VaultConfig): Promise<FlatScan> {
   const abs = path.resolve(dir);
   const entries = (await readdir(abs, { withFileTypes: true })).filter((e) => e.isFile()).map((e) => e.name);

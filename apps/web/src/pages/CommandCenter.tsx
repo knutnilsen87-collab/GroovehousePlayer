@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { computeCoverage, formatTime, paletteToCssVars, type AccessTier, type AssetManifest } from '@gv/shared/web';
+import { computeCoverage, formatTime, paletteToCssVars, type AccessTier, type AssetManifest, isDraft, versionName } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
 import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, StudioIcon, UploadIcon } from '../components/Icons';
 import { AssetLook } from '../components/AssetLook';
 import { LyricsEditor } from '../components/LyricsEditor';
 import { MarkerEditor } from '../components/MarkerEditor';
+import { DraftBadge } from '../components/Draft';
 import { loadPlaybackSettings } from '../lib/settings';
 import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
@@ -222,17 +223,101 @@ function DropsView({ assets, log, onRefresh }: { assets: LoadedAsset[]; log: Ing
   );
 }
 
+/**
+ * Del 16: «Importer som utkast». Filene kopieres til data/drafts-inbox/ på PC-en, og utkast-watcheren
+ * ingester dem som UTKAST (holdes atskilt fra release-klare). Bare lyd (WAV/AIFF/FLAC) og cover-bilder.
+ */
+function DraftImport() {
+  const [over, setOver] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const upload = async (files: FileList | File[]) => {
+    const list = [...files].filter((f) => /\.(wav|wave|aif|aiff|flac|png|jpe?g|webp)$/i.test(f.name));
+    if (!list.length) return setMsg({ ok: false, text: 'Bare WAV, AIFF, FLAC og cover-bilder kan importeres.' });
+    setBusy(true);
+    setMsg(null);
+    try {
+      for (const f of list) {
+        const r = await fetch(`/api/drafts/import?name=${encodeURIComponent(f.name)}`, { method: 'POST', headers: { 'X-GV-Import': '1', 'Content-Type': f.type || 'application/octet-stream' }, body: f });
+        if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${r.status}`);
+      }
+      setMsg({ ok: true, text: `${list.length} fil${list.length > 1 ? 'er' : ''} importert som utkast – ingestes nå.` });
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        void upload(e.dataTransfer.files);
+      }}
+      className={`flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed p-4 text-center ${over ? 'border-accent bg-accent/[0.08]' : 'border-accent/35 bg-accent/[0.03]'}`}
+    >
+      <UploadIcon width={26} height={26} className="text-accent" strokeWidth={1.8} />
+      <span className="text-sm font-semibold">Importer som utkast</span>
+      <span className="text-xs text-muted">Dra umastrede låter hit (WAV/AIFF/FLAC + cover). De holdes atskilt fra de release-klare.</span>
+      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="mt-1 h-8 rounded-full border border-white/15 px-3 text-xs text-ink hover:border-accent/50 disabled:opacity-50">
+        {busy ? 'Laster opp …' : 'Velg filer …'}
+      </button>
+      <input ref={input} type="file" multiple accept=".wav,.wave,.aif,.aiff,.flac,image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Velg filer som skal importeres som utkast" onChange={(e) => e.target.files && void upload(e.target.files)} />
+      {msg && <span className={`text-xs ${msg.ok ? 'text-accent' : 'text-[#FF8A7A]'}`}>{msg.text}</span>}
+    </div>
+  );
+}
+
+/** Del 16: et utkast blir release-klart bare ved et eksplisitt valg (eller når master kommer i REASONDONE). */
+function MakeRelease({ a, onDone }: { a: LoadedAsset; onDone: () => void }) {
+  const [ask, setAsk] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const m = a.manifest;
+  if (!isDraft(m)) return null;
+  if (!ask)
+    return (
+      <button type="button" onClick={() => setAsk(true)} className="min-h-11 rounded-full border border-dashed border-white/30 px-4 text-xs font-semibold text-soft hover:border-accent/50 hover:text-ink">
+        Gjør release-klar …
+      </button>
+    );
+  return (
+    <span role="alertdialog" aria-label="Gjør release-klar" className="flex flex-wrap items-center gap-2 rounded-xl border border-white/15 px-3 py-1.5 text-xs text-soft">
+      Gjøre «{m.title}» ({versionName(m)}) release-klar uten master fra REASONDONE?
+      <button
+        type="button"
+        onClick={async () => {
+          const r = await fetch(`/api/assets/${encodeURIComponent(m.slug)}/${encodeURIComponent(m.variant ?? 'main')}/v${m.version}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'release', confirm: true }) });
+          if (r.ok) {
+            setAsk(false);
+            onDone();
+          } else setErr(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${r.status}`);
+        }}
+        className="h-8 rounded-full bg-accent px-3 font-semibold text-on-accent"
+      >
+        Ja, gjør release-klar
+      </button>
+      <button type="button" onClick={() => setAsk(false)} className="h-8 rounded-full px-2 text-muted">
+        Avbryt
+      </button>
+      {err && <span className="text-[#FF8A7A]">{err}</span>}
+    </span>
+  );
+}
+
 function IngestStrip({ assets, log, onDone }: { assets: LoadedAsset[]; log: IngestLogEntry[]; onDone?: () => void }) {
   // Del 4: lange sett viser prosent mens de ingestes
   const progress = useIngestProgress(onDone);
   const recent = [...assets].sort((a, b) => b.manifest.createdAt.localeCompare(a.manifest.createdAt)).slice(0, 2);
   return (
     <section aria-label="Ingest" className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
-      <div className="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-accent/35 bg-accent/[0.03] p-4 text-center">
-        <UploadIcon width={26} height={26} className="text-accent" strokeWidth={1.8} />
-        <span className="text-sm font-semibold">{t.dropzone}</span>
-        <span className="text-xs text-muted">{t.dropzoneHint}</span>
-      </div>
+      <DraftImport />
       {progress && (
         <div role="status" aria-label={`Ingester ${progress.title}`} className="flex min-h-32 flex-col justify-center gap-2 rounded-2xl border border-accent/40 bg-accent/[0.05] p-4">
           <span className="gv-label">Ingester nå</span>
@@ -633,7 +718,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="font-semibold text-ink-strong">
             {m.title}
-            {m.variantLabel ? <span className="font-normal text-muted"> · {m.variantLabel}</span> : null}
+            {m.variantLabel ? <span className="font-normal text-muted"> · {m.variantLabel}</span> : null}<DraftBadge m={m} className="ml-1.5" />
           </span>
           <span className="text-xs text-[#C9C4B6]">{[m.artist, m.album && m.album !== m.title ? m.album : null, m.copyright].filter(Boolean).join(' · ')}</span>
           {m.titleNeedsReview && <span className="text-[11px] text-accent">{t.titleNeedsReview}</span>}
@@ -650,14 +735,14 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
                 <select value={picked} onChange={(e) => setPicked(Number(e.target.value))} className="rounded border border-white/15 bg-sunken px-1 text-xs text-soft focus:outline-none">
                   {versions.map((v) => (
                     <option key={v.version} value={v.version}>
-                      v{v.version}
-                      {v.version === latest.manifest.version ? ' (nyeste)' : ''}
+                      {versionName({ version: v.version, status: v.status })}
+                      {v.version === latest.manifest.version ? ' (vises)' : ''}
                     </option>
                   ))}
                 </select>
               </label>
             ) : (
-              `v${m.version}`
+              versionName(m)
             )}{' '}
             · {formatTime(m.durationMs)} · {m.loudness.integratedLufs} LUFS · {m.markers.length} markører
             {m.venue ? ` · ${m.venue}` : ''}
@@ -684,6 +769,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
         >
           {editing ? t.close : t.edit}
         </button>
+        <MakeRelease a={a} onDone={onSaved} />
         <button type="button" onClick={() => onPlay(a)} aria-label={`Spill ${m.title} v${m.version}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-on-accent">
           <PlayIcon width={18} height={18} className="ml-0.5" />
         </button>

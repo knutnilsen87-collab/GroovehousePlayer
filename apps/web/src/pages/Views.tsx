@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { BUILTIN_SMART, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
+import { BUILTIN_SMART, isDraft, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
 import { assetUrl, type LoadedAsset, type Track } from '../lib/catalog';
 import { fetchListens, type ListenLog } from '../lib/library';
 import { savedPosition, usePlayer } from '../lib/player';
 import { usePlaylists } from '../lib/playlists';
 import { CoverArt } from '../components/CoverArt';
+import { DraftBadge, trackVars } from '../components/Draft';
 import { HeartButton, Panel } from '../components/Deck';
 import { PlayIcon } from '../components/Icons';
 import { buildListView, ColorDot, ListCover } from '../components/Playlists';
@@ -37,11 +38,13 @@ function Row({ t, onPlay, sub }: { t: Track; onPlay: PlayFn; sub?: string }) {
   const m = t.main.manifest;
   const cur = usePlayer((s) => s.queue[s.index]?.manifest.slug === t.slug);
   return (
-    <li className="flex items-center gap-1" style={paletteToCssVars(m.palette) as CSSProperties}>
+    <li className="flex items-center gap-1" style={trackVars(m)}>
       <button type="button" onClick={() => onPlay(t)} className={`flex min-h-[60px] min-w-0 flex-1 items-center gap-3 rounded-xl px-1.5 text-left hover:bg-white/[0.03] ${cur ? 'bg-accent/[0.1]' : ''}`}>
-        <CoverArt src={assetUrl(t.main, m.files.coverThumb)} palette={m.palette} title={m.title} size={46} rounded={8} />
+        <CoverArt src={assetUrl(t.main, m.files.coverThumb)} palette={m.palette} title={m.title} size={46} rounded={8} draft={isDraft(m)} />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className={`truncate text-[15px] font-semibold ${cur ? 'text-accent' : 'text-ink-strong'}`}>{m.title}</span>
+          <span className={`truncate text-[15px] font-semibold ${cur ? 'text-accent' : 'text-ink-strong'}`}>
+            {m.title}<DraftBadge m={m} className="ml-1.5" />
+          </span>
           <span className="truncate font-mono text-[11px] text-muted">{sub ?? [m.bpm ? `${Math.round(m.bpm)} BPM` : null, m.key ? `${keyShort(m.key.name)} ${m.key.camelot}` : null, formatTime(m.durationMs)].filter(Boolean).join(' · ')}</span>
         </span>
       </button>

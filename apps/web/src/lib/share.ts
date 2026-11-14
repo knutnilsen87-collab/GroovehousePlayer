@@ -1,6 +1,6 @@
 import { Directory, Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import { shareFileName, shareText, type ShareKind } from '@gv/shared/web';
+import { shareFileName, shareText, type ShareKind, isDraft } from '@gv/shared/web';
 import type { LoadedAsset } from './catalog';
 import { isApp } from './platform';
 
@@ -18,7 +18,9 @@ export interface Fetched {
   text: string;
 }
 
-const shareUrl = (a: LoadedAsset, kind: ShareKind) => `/api/share/${encodeURIComponent(a.manifest.slug)}/${encodeURIComponent(a.manifest.variant ?? 'main')}/${a.manifest.version}?kind=${kind}`;
+/** Del 16: utkast hentes bare etter «Del utkast likevel» i arket (draft=1). */
+const shareUrl = (a: LoadedAsset, kind: ShareKind) =>
+  `/api/share/${encodeURIComponent(a.manifest.slug)}/${encodeURIComponent(a.manifest.variant ?? 'main')}/${a.manifest.version}?kind=${kind}${isDraft(a.manifest) ? '&draft=1' : ''}`;
 
 export async function fetchShareFile(a: LoadedAsset, kind: ShareKind, onProgress: (loaded: number, total: number | null) => void, signal?: AbortSignal): Promise<Fetched> {
   const r = await fetch(shareUrl(a, kind), { signal, cache: 'no-store' });

@@ -76,6 +76,23 @@ async function main() {
     });
   };
 
+  // Del 16: utkast – utkastmappa (hvis valgt) og innboksen for «Importer som utkast» i Studio
+  let draftWatchers: Array<ReturnType<typeof startWatcher>> = [];
+  const startDraftWatch = () => {
+    const dirs: string[] = [];
+    const d = loadConfig(root).draftDir;
+    const draftDir = d ? path.resolve(root, d) : null;
+    if (draftDir && existsSync(draftDir)) dirs.push(draftDir);
+    else if (draftDir) log(`! Utkastmappa finnes ikke: ${draftDir}`);
+    const inbox = path.join(root, 'data', 'drafts-inbox');
+    mkdirSync(inbox, { recursive: true });
+    dirs.push(inbox);
+    return dirs.map((dir) => {
+      log(`Utkast-watcher: ${dir} (leser bare)`);
+      return startWatcher({ exportDir: dir, mediaDir, config: loadConfig(root), log, status: 'draft' });
+    });
+  };
+
   let restarting = false;
   const settings: SettingsHooks = {
     root,
@@ -84,14 +101,9 @@ async function main() {
     watcherStatus: () => watcher?.status() ?? null,
     restartWatcher: async () => {
       await watcher?.close().catch(() => {});
-      // Synkronisert skymappe? Da havner musikken og hemmelighetene i skyen – si fra tydelig.
-  const sync = detectCloudSync(root);
-  if (sync) {
-    for (const line of cloudSyncWarning(sync, root).split('\n')) log(line);
-    notify('Groovehouse Vault', `Prosjektmappa synkroniseres av ${sync.provider}. Ta media, data, .env og node_modules ut av synkroniseringen.`, log);
-  }
-
-  watcher = startWatch();
+      for (const w of draftWatchers) await w.close().catch(() => {});
+      watcher = startWatch();
+      draftWatchers = startDraftWatch();
       return watcher?.status() ?? null;
     },
     firewallRule: firewallRuleExists,
@@ -103,6 +115,7 @@ async function main() {
         server.close();
         server.closeAllConnections();
         await watcher?.close().catch(() => {});
+        for (const w of draftWatchers) await w.close().catch(() => {});
         rmSync(portFile(), { force: true });
         spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], { cwd: process.cwd(), detached: true, stdio: 'ignore', windowsHide: true }).unref();
         process.exit(0);
@@ -133,7 +146,15 @@ async function main() {
   if (config.allowedHosts.length) log(`Fjerntilgang (Tailscale Serve, uten PIN): ${config.allowedHosts.map((h) => `https://${h}/`).join(' ')}`);
   if (lan) log(`LAN-modus PÅ (PIN kreves): ${lanAddresses().map((ip) => `http://${ip}:${result.port}/`).join(' ') || 'fant ingen privat IP-adresse'}`);
 
+  // Synkronisert skymappe? Da havner musikken og hemmelighetene i skyen – si fra tydelig.
+  const sync = detectCloudSync(root);
+  if (sync) {
+    for (const line of cloudSyncWarning(sync, root).split('\n')) log(line);
+    notify('Groovehouse Vault', `Prosjektmappa synkroniseres av ${sync.provider}. Ta media, data, .env og node_modules ut av synkroniseringen.`, log);
+  }
+
   watcher = startWatch();
+  draftWatchers = startDraftWatch();
 
   const stop = async (sig: string) => {
     log(`Stopper (${sig})`);

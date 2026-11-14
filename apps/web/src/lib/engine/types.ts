@@ -59,6 +59,8 @@ export const setTargetLufs = (v: number | null) => {
 export const gainOf = (a: LoadedAsset | undefined) => {
   if (!a) return 1;
   const l = a.manifest.loudness;
-  const db = targetLufs !== null && Number.isFinite(l.integratedLufs) ? targetLufs - l.integratedLufs : l.playbackGainDb;
+  // Del 16: utkast er normalisert i HLS-strømmen – regn fra det nivået, ikke det målte originalnivået
+  const level = l.normalizedLufs ?? l.integratedLufs;
+  const db = targetLufs !== null && Number.isFinite(level) ? targetLufs - level : l.playbackGainDb;
   return Math.min(1, Math.pow(10, db / 20));
 };

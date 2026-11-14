@@ -5,6 +5,9 @@ import path from 'node:path';
 import {
   ANALYSIS_VERSION,
   carryMarkers,
+  DRAFT_BASE,
+  toDraftVersion,
+  type AssetStatus,
   findSuno,
   isKept,
   mergeMarkers,
@@ -21,7 +24,7 @@ import {
 import { analyze, ONSET_HOP, ONSET_TRACK_SAMPLES, RATE } from './analyze';
 import { formatCopyright, loadConfig, matchRule, type VaultConfig } from './config';
 import { paletteFrom, processCover } from './cover';
-import { encodeHls, encodePreview, measureLoudness, retagPreview, type EmbedTags } from './encode';
+import { encodeHls, encodePreview, loudnormFilter, measureLoudness, measureLoudnorm, retagPreview, type EmbedTags } from './encode';
 import { probe, probeTags } from './ffmpeg';
 import { liveLogToMarkers } from './livelog';
 import { estimateKey, estimateKeyEdma, estimateTempoHouse, segmentStructure, tempoPerChapter } from './music';
@@ -44,6 +47,8 @@ export interface IngestOptions {
   offsetMs?: number;
   report?: StepReporter;
   config?: VaultConfig;
+  /** Del 16: «draft» for filer fra utkastmappa (egne versjonsnumre, loudnorm-HLS). Standard: release. */
+  status?: AssetStatus;
 }
 
 export interface IngestResult {
@@ -70,8 +75,11 @@ export async function ingestRelease(release: ReleaseSource, opts: IngestOptions)
 
   const overrides = await readOverrides(opts.mediaDir, release.slug);
   const results: IngestResult[] = [];
-  for (const master of release.masters) {
-    if (release.masters.length > 1) report('variant', 'ok', master.variant ?? 'hovedversjon');
+  // Del 16: utkast får egne versjonsnumre (1000 + N), så de aldri kolliderer med release-versjoner
+  const masters = opts.status === 'draft' ? release.masters.map((m) => ({ ...m, version: toDraftVersion(m.version) })) : release.masters;
+  if (opts.status === 'draft') report('status', 'ok', 'utkast (fra utkastmappa) – holdes atskilt fra release-klare');
+  for (const master of masters) {
+    if (masters.length > 1) report('variant', 'ok', master.variant ?? 'hovedversjon');
     const warnings: string[] = [];
     const rep: StepReporter = (step, status, detail) => {
       if (status === 'warn' && detail) warnings.push(`${step}: ${detail}`);
@@ -241,6 +249,7 @@ async function ingestOne(
     const info = await probe(master.path);
     report('probe', 'ok', `${(info.durationMs / 1000).toFixed(1)} s · ${info.sampleRate} Hz · ${info.channels} kanaler`);
 
+    const draft = opts.status === 'draft';
     // Del 4: alt som bare leser masteren, kjører samtidig: analyse (+ spektrum og format), LUFS,
     // HLS, cover og Vaults master-kopi. Tempo, toneart, struktur og preview venter bare på analysen.
     const long = info.durationMs >= PROGRESS_MIN_MS;
@@ -274,7 +283,15 @@ async function ingestOne(
       'analyse'
     );
     const loudnessP = timed('lufs', () => measureLoudness(master.path, cfg.audio.targetLufs), (l) => `${l.integratedLufs} LUFS · gain ${l.playbackGainDb >= 0 ? '+' : ''}${l.playbackGainDb} dB`, 'lufs');
-    const hlsP = timed('hls', () => encodeHls(master.path, work, (ms) => (prog.hls = Math.min(1, ms / info.durationMs))), () => 'AAC 256k · 6 s segmenter · kildetags fjernet', 'hls');
+    // Del 16: utkast er ofte mye svakere enn masterne – HLS normaliseres (loudnorm, 2 passeringer, −1 dBTP).
+    // master.flac lagres uendret. Release-låter røres ikke.
+    const normP = draft ? measureLoudnorm(master.path, cfg.audio.targetLufs) : null;
+    const hlsP = timed(
+      'hls',
+      async () => encodeHls(master.path, work, (ms) => (prog.hls = Math.min(1, ms / info.durationMs)), normP ? loudnormFilter(cfg.audio.targetLufs, await normP) : undefined),
+      () => (draft ? `AAC 256k · normalisert til ${cfg.audio.targetLufs} LUFS (utkast) · kildetags fjernet` : 'AAC 256k · 6 s segmenter · kildetags fjernet'),
+      'hls'
+    );
     // Del 10: Vaults egen tapsfrie kopi av masteren (FLAC), så deling ikke avhenger av at fila
     // fortsatt ligger i eksportmappa, og aldri lages fra HLS. Kilden leses bare.
     const masterP = timed('master', () => makeMasterCopy(master.path, work), (f) => path.basename(f), 'master');
@@ -346,6 +363,7 @@ async function ingestOne(
     } finally {
       await stopProgress();
     }
+    if (draft) loudness = { ...loudness, playbackGainDb: 0, normalizedLufs: cfg.audio.targetLufs };
 
     let palette: Palette = { ...FALLBACK_PALETTE };
     let cover: string | null = null;
@@ -373,8 +391,9 @@ async function ingestOne(
       variant: master.variant,
       variantLabel: resolved.variantLabel,
       version: master.version,
-      versionLabel: meta.versionLabel ?? (master.version > 1 ? `v${master.version}` : null),
+      versionLabel: meta.versionLabel ?? (draft ? `Utkast v${master.version - DRAFT_BASE}` : master.version > 1 ? `v${master.version}` : null),
       kind,
+      status: draft ? 'draft' : 'release',
       title: resolved.title,
       artist: resolved.artist,
       album: resolved.album,
@@ -547,7 +566,8 @@ export async function updateCatalog(mediaDir: string, m: AssetManifest): Promise
     version: m.version,
     manifest: `${m.slug}/${m.variant ?? 'main'}/v${m.version}/manifest.json`,
     title: m.title,
-    kind: m.kind
+    kind: m.kind,
+    ...(m.status === 'draft' ? { status: 'draft' as const } : {})
   });
   idx.assets.sort((a, b) => a.slug.localeCompare(b.slug) || (a.variant ?? '').localeCompare(b.variant ?? '') || b.version - a.version);
   idx.updatedAt = new Date().toISOString();

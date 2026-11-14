@@ -40,6 +40,8 @@ export interface Loudness {
   lra: number | null;
   /** Gain som legges på ved avspilling (via audio.volume). Masteren endres aldri. */
   playbackGainDb: number;
+  /** Del 16: utkast – HLS er normalisert (loudnorm) til dette nivået. integratedLufs er fortsatt det målte originalnivået. */
+  normalizedLufs?: number;
 }
 
 export interface MusicalKey {
@@ -85,6 +87,8 @@ export interface AssetManifest {
   version: number;
   versionLabel: string | null;
   kind: AssetKind;
+  /** Del 16: «draft» = umastret utkast (fra utkastmappa), «release» = fra REASONDONE. Mangler = release. */
+  status?: 'release' | 'draft';
   title: string;
   artist: string | null;
   /** Album. Uten meta.json: låttittelen (singel). Aldri labelnavnet. */
@@ -155,7 +159,7 @@ export interface Analysis {
 export interface CatalogIndex {
   schema: 1;
   updatedAt: string;
-  assets: Array<{ slug: string; variant: string | null; version: number; manifest: string; title: string; kind: AssetKind }>;
+  assets: Array<{ slug: string; variant: string | null; version: number; manifest: string; title: string; kind: AssetKind; status?: 'release' | 'draft' }>;
 }
 
 export interface ListenEvent {

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatTime, matchesQuery } from '@gv/shared/web';
+import { formatTime, isDraft, matchesQuery, matchesStatus } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset } from '../lib/catalog';
 import { CoverArt } from './CoverArt';
+import { DraftBadge, StatusSegment, useStatusFilter } from './Draft';
 import { BoltIcon } from './Icons';
 
 /**
@@ -28,7 +29,10 @@ export function CommandPalette({
   const [sel, setSel] = useState(0);
   const [saving, setSaving] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
-  const results = useMemo(() => (q.trim() ? assets.filter((a) => matches(a, q)) : assets).slice(0, 30), [assets, q]);
+  // Del 16: bare release-klare som standard; valget huskes
+  const [status, setStatus] = useStatusFilter('search');
+  const pool = useMemo(() => assets.filter((a) => matchesStatus(a.manifest, status)), [assets, status]);
+  const results = useMemo(() => (q.trim() ? pool.filter((a) => matches(a, q)) : pool).slice(0, 30), [pool, q]);
 
   useEffect(() => {
     if (open) {
@@ -74,6 +78,10 @@ export function CommandPalette({
           aria-activedescendant={results[sel] ? `gv-r-${sel}` : undefined}
           className="h-14 w-full border-b border-white/[0.08] bg-transparent px-5 text-[15px] text-ink-strong placeholder:text-muted focus:outline-none"
         />
+        <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-2">
+          <StatusSegment value={status} onChange={setStatus} />
+          <span className="font-mono text-[10px] text-muted">{pool.length} treff mulig</span>
+        </div>
         <ul id="gv-search-results" role="listbox" className="m-0 max-h-[50vh] list-none overflow-y-auto p-2">
           {results.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted">Ingen treff</li>}
           {results.map((a, i) => {
@@ -88,10 +96,10 @@ export function CommandPalette({
                 onClick={() => pick(i)}
                 className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 ${i === sel ? 'bg-white/[0.07]' : ''}`}
               >
-                <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} />
+                <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} draft={isDraft(m)} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-semibold text-ink-strong">
-                    {m.title}
+                    {m.title}<DraftBadge m={m} className="ml-1.5" />
                     {m.variant && <span className="font-normal text-muted"> · {variantName(a)}</span>}
                   </span>
                   <span className="text-[11px] text-muted">{m.kind === 'set' ? 'Live-sett' : 'Låt'}</span>

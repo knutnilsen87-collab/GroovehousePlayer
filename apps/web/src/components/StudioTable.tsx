@@ -1,10 +1,10 @@
-import type { CSSProperties } from 'react';
-import { formatTime, keyShort, paletteToCssVars } from '@gv/shared/web';
+import { formatTime, isDraft, keyShort } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { DRAG_ITEMS } from './Playlists';
 import type { AddItem } from '../lib/playlists';
 import { CoverArt } from './CoverArt';
+import { DraftBadge, trackVars } from './Draft';
 import { HeartButton } from './Deck';
 import { ChevronDownIcon, EqIcon, MoreIcon } from './Icons';
 
@@ -179,12 +179,12 @@ export function StudioTable({
                 className={`group border-t border-white/[0.05] first:border-t-0 ${
                   isCur ? 'gv-neon-soft bg-accent/[0.16] [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg' : sel ? 'bg-white/[0.07]' : 'hover:bg-white/[0.025]'
                 }`}
-                style={isCur ? undefined : (paletteToCssVars(m.palette) as CSSProperties)}
+                style={isCur ? undefined : trackVars(m)}
               >
                 <td className="py-1.5 pl-2 font-mono text-[13px] text-muted">{isCur ? <EqIcon playing={playing} width={18} height={18} className="text-accent" /> : i + 1}</td>
                 <td className="py-1.5">
                   <button type="button" onClick={() => onPlay(t)} aria-label={`Spill ${m.title}`} className="block">
-                    <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} />
+                    <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} draft={isDraft(m)} />
                   </button>
                 </td>
                 <td className="py-1.5 pr-4">
@@ -192,6 +192,7 @@ export function StudioTable({
                     <button type="button" onClick={() => onPlay(t)} className={`truncate text-left font-semibold ${isCur ? 'text-ink-strong' : 'text-ink'} hover:underline`}>
                       {m.title}
                       {m.kind === 'set' && <span className="ml-2 rounded border border-white/15 px-1 align-middle font-mono text-[9px] tracking-[1px] text-soft">LIVE</span>}
+                      <DraftBadge m={m} className="ml-2" />
                     </button>
                     <VariantSelect t={t} value={a} onChange={(v) => onPlay(t, v)} />
                   </div>

@@ -24,6 +24,8 @@ export interface VaultConfig {
   analysis: { keyMethod: 'krumhansl' | 'edma' };
   /** Eksportmappa (Reason-bounces). Lagres lokalt (groovehouse.local.json); ellers GH_EXPORT_DIR i .env. */
   exportDir: string | null;
+  /** Del 16: utkastmappa (umastrede låter, undermapper tillatt). Lokal; ellers GH_DRAFT_DIR. Kun lesing. */
+  draftDir: string | null;
 }
 
 /** «* (Live *)» → set. Mønster med * som jokertegn, uten hensyn til store/små bokstaver. */
@@ -57,7 +59,8 @@ const FALLBACK: VaultConfig = {
   colors: { minContrast: 4.5, colorFallback: true },
   drops: { tier: 'partner', ttlDays: 30, maxDevices: 2, watermark: true },
   analysis: { keyMethod: 'krumhansl' },
-  exportDir: null
+  exportDir: null,
+  draftDir: null
 };
 export const DEFAULTS: Readonly<VaultConfig> = FALLBACK;
 
@@ -116,7 +119,8 @@ export function loadConfig(root = findRoot()): VaultConfig {
     drops: { ...FALLBACK.drops, ...(j.drops ?? {}), ...(l.drops ?? {}) },
     analysis: { keyMethod: (l.analysis?.keyMethod ?? j.analysis?.keyMethod) === 'edma' ? 'edma' : 'krumhansl' },
     // Eksportmappa er maskinspesifikk: bare fra den lokale fila (eller .env)
-    exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null
+    exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null,
+    draftDir: typeof l.draftDir === 'string' && l.draftDir ? l.draftDir : process.env.GH_DRAFT_DIR ?? null
   };
 }
 

@@ -23,6 +23,11 @@ export interface WatcherOptions {
   log?: (line: string) => void;
   /** Kalles for hver variant som faktisk ble ingestet eller fikk nye tags. */
   onIngested?: (res: IngestResult) => void;
+  /**
+   * Del 16: «draft» = utkastmappa (eller data/drafts-inbox). Alle lydfiler, også i undermapper (prosjekter),
+   * behandles som flate filer i sin egen mappe og ingestes som utkast.
+   */
+  status?: 'release' | 'draft';
 }
 
 const SUBFOLDER_TRIGGER = /\.(wav|wave|aif|aiff|flac)$|^cover\.(png|jpe?g|webp)$|^live_log\.json$/i;
@@ -39,6 +44,7 @@ export interface WatcherStatus {
 
 export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void>; status: () => WatcherStatus } {
   const exportDir = path.resolve(opts.exportDir);
+  const drafts = opts.status === 'draft';
   const log = opts.log ?? ((l: string) => console.log(l));
   const queue: Job[] = [];
   let busy: Promise<void> | null = null;
@@ -59,8 +65,9 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
   };
 
   async function runJob(job: Job): Promise<IngestResult[]> {
-    if (job.kind === 'folder') return ingestFolder(job.folder, { mediaDir: opts.mediaDir, config: opts.config, report: say });
-    const scan = await scanFlat(exportDir, opts.config);
+    if (job.kind === 'folder') return ingestFolder(job.folder, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status });
+    // Utkast: fila tolkes i sin egen mappe (prosjektmapper); release: rett i eksportmappa som før
+    const scan = await scanFlat(drafts ? path.dirname(job.file) : exportDir, opts.config);
     const isImage = IMAGE_RE.test(job.file);
     const release = scan.releases.find((r) => (isImage ? r.coverPath === job.file : r.masters.some((m) => m.path === job.file)));
     if (!release) {
@@ -68,7 +75,7 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
       return [];
     }
     for (const m of release.masters) await probe(m.path); // kaster hvis fila er halvskrevet
-    return ingestRelease(release, { mediaDir: opts.mediaDir, config: opts.config, report: say });
+    return ingestRelease(release, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status });
   }
 
   async function drainLoop() {
@@ -104,7 +111,7 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
     const name = path.basename(file);
     const folder = path.dirname(file);
     let job: Job | null = null;
-    if (path.resolve(folder) === exportDir) {
+    if (drafts || path.resolve(folder) === exportDir) {
       if (AUDIO_RE.test(name) || IMAGE_RE.test(name)) job = { kind: 'flat', file: path.resolve(file) };
     } else if (SUBFOLDER_TRIGGER.test(name)) {
       job = { kind: 'folder', folder };
@@ -115,7 +122,7 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
   }
 
   const w: FSWatcher = watch(exportDir, {
-    depth: 1,
+    depth: drafts ? 8 : 1,
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 4000, pollInterval: 500 }
   })

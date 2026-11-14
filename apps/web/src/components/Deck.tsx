@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { formatTime, formatTimeMs, keyShort, lyricIndexAt, RATE_MAX, RATE_MIN } from '@gv/shared/web';
+import { formatTime, formatTimeMs, isDraft, keyShort, lyricIndexAt, RATE_MAX, RATE_MIN, versionName } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset } from '../lib/catalog';
 import { useFavorites, useIsFavorite, useLyrics } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
 import { isApp } from '../lib/platform';
 import { useToast } from '../lib/playlists';
 import { CoverArt } from './CoverArt';
+import { DraftBadge } from './Draft';
 import { HeartIcon, MoreIcon, NextIcon, OutputIcon, PauseIcon, PlayIcon, PrevIcon, RepeatIcon, ScreenIcon, ShuffleIcon, SlidersIcon, SpeedIcon, VolumeIcon } from './Icons';
 import { BigWaveform, SpectrumView, ZoomWaveform } from './Visuals';
 
@@ -94,11 +95,13 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
   return (
     <section aria-label="Låta som spilles" className="gv-panel flex min-w-0 flex-col gap-3 p-3">
       <div className="relative overflow-hidden rounded-xl">
-        <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={600} rounded={12} fluid />
+        <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={600} rounded={12} fluid draft={isDraft(m)} />
       </div>
       <div className="flex items-start gap-2 px-1 pb-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-lg font-bold leading-tight text-ink-strong">{m.title}</span>
+          <span className="truncate text-lg font-bold leading-tight text-ink-strong">
+            {m.title}<DraftBadge m={m} className="ml-1.5" />
+          </span>
           <span className="truncate text-[13px] text-soft">
             {m.artist ?? 'Echo Groove'}
             {m.variant ? ` · ${variantName(cur)}` : ''}
@@ -327,6 +330,8 @@ export function TrackInfoRows({ cur }: { cur: LoadedAsset }) {
     ['BPM', m.bpm != null ? m.bpm.toFixed(1) : '–'],
     ['Toneart', m.key ? `${keyShort(m.key.name)} · ${m.key.camelot}` : '–'],
     ['LUFS', m.loudness.integratedLufs.toFixed(1)],
+    // Del 16: utkast spilles normalisert (loudnorm); originalnivået står over
+    ...(m.loudness.normalizedLufs != null ? ([['Avspilling', `${m.loudness.normalizedLufs.toFixed(1)} (normalisert)`]] as Array<[string, ReactNode]>) : []),
     ['Tid', formatTime(m.durationMs)],
     ['Format', m.sourceFormat?.label ?? '–']
   ];
@@ -354,7 +359,8 @@ export function Credits({ cur }: { cur: LoadedAsset }) {
     ['℗', m.copyright ?? '–'],
     ['Album', m.album ?? '–'],
     ['Variant', m.variant ? variantName(cur) : 'Original'],
-    ['Versjon', `v${m.version}${m.versionLabel ? ` · ${m.versionLabel}` : ''}`],
+    ['Versjon', `${versionName(m)}${m.versionLabel && m.versionLabel !== versionName(m) ? ` · ${m.versionLabel}` : ''}`],
+    ['Status', isDraft(m) ? 'Utkast (umastret)' : 'Release-klar'],
     ['Ingestet', new Date(m.createdAt).toLocaleDateString('nb-NO', { dateStyle: 'medium' })],
     ['BPM-sikkerhet', pct(m.bpmConfidence)],
     ['Toneart-sikkerhet', pct(m.key?.confidence)],

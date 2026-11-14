@@ -22,15 +22,17 @@ export interface SettingsPatch {
   titleCleanup?: VaultConfig['titleCleanup'];
   /** Lagres i groovehouse.local.json (maskinspesifikk sti). null = fjern, bruk .env. */
   exportDir?: string | null;
+  /** Del 16: utkastmappa (lokal, kun lesing). */
+  draftDir?: string | null;
 }
 
-export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir'>;
+export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir' | 'draftDir'>;
 
 export const BACKUP_FILE = 'groovehouse.config.backup.json';
 const TIERS = ['partner', 'inner_circle', 'supporter', 'teaser'] as const;
 
 export function editableOf(cfg: VaultConfig): Editable {
-  return { audio: cfg.audio, ingest: cfg.ingest, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir };
+  return { audio: cfg.audio, ingest: cfg.ingest, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir, draftDir: cfg.draftDir };
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
@@ -73,6 +75,13 @@ export function validateSettings(patch: SettingsPatch, base: VaultConfig): strin
     if (!path.isAbsolute(d)) e.push('Eksportmappa må være en full sti (f.eks. D:\\Musikk\\REASONDONE)');
     else if (!existsSync(d) || !statSync(d).isDirectory()) e.push('Eksportmappa finnes ikke');
   }
+  if (patch.draftDir !== undefined && patch.draftDir !== null && patch.draftDir.trim()) {
+    const d = patch.draftDir.trim();
+    const ex = (patch.exportDir ?? base.exportDir ?? '').trim();
+    if (!path.isAbsolute(d)) e.push('Utkastmappa må være en full sti (f.eks. D:\\Musikk\\Utkast)');
+    else if (!existsSync(d) || !statSync(d).isDirectory()) e.push('Utkastmappa finnes ikke');
+    else if (ex && path.resolve(d).toLowerCase() === path.resolve(ex).toLowerCase()) e.push('Utkastmappa kan ikke være den samme som eksportmappa (release-klare)');
+  }
   return e;
 }
 
@@ -85,7 +94,8 @@ function applyPatch(base: VaultConfig, p: SettingsPatch): VaultConfig {
     drops: { ...base.drops, ...(p.drops ?? {}) },
     defaults: { ...base.defaults, ...(p.defaults ?? {}) },
     titleCleanup: p.titleCleanup ? { remove: p.titleCleanup.remove.map((w) => (typeof w === 'string' ? w.trim() : w)) } : base.titleCleanup,
-    exportDir: p.exportDir === undefined ? base.exportDir : p.exportDir?.trim() || null
+    exportDir: p.exportDir === undefined ? base.exportDir : p.exportDir?.trim() || null,
+    draftDir: p.draftDir === undefined ? base.draftDir : p.draftDir?.trim() || null
   };
 }
 
@@ -108,11 +118,17 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
   for (const k of ['audio', 'ingest', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) if (patch[k]) j[k] = next[k];
   writeAtomic(shared, j);
 
-  if (patch.exportDir !== undefined) {
+  if (patch.exportDir !== undefined || patch.draftDir !== undefined) {
     const local = path.join(root, LOCAL_CONFIG_FILE);
     const l = existsSync(local) ? (JSON.parse(readFileSync(local, 'utf8')) as Record<string, unknown>) : {};
-    if (next.exportDir) l.exportDir = next.exportDir;
-    else delete l.exportDir;
+    if (patch.exportDir !== undefined) {
+      if (next.exportDir) l.exportDir = next.exportDir;
+      else delete l.exportDir;
+    }
+    if (patch.draftDir !== undefined) {
+      if (next.draftDir) l.draftDir = next.draftDir;
+      else delete l.draftDir;
+    }
     writeAtomic(local, l);
   }
   return loadConfig(root);

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { Analysis, AssetManifest, CatalogIndex } from '@gv/shared/web';
+import { preferredVersion, type Analysis, type AssetManifest, type CatalogIndex } from '@gv/shared/web';
 import { serverBase } from './connection';
 
 /** Media-mappa serveres under dette prefikset (Vite-dev og apps/server). */
@@ -64,13 +64,15 @@ export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: Ind
     const msg = err instanceof Error ? err.message : String(err);
     return { assets: [], index: [], error: /^404 /.test(msg) ? null : msg };
   }
-  // Katalogen viser nyeste versjon per slug + variant. Eldre versjoner hentes ved behov (låst versjon i spilleliste, versjonsvelger i Studio).
-  const latest = new Map<string, IndexEntry>();
+  // Katalogen viser én versjon per slug + variant: release hvis den finnes, ellers nyeste utkast (del 16).
+  // Eldre versjoner hentes ved behov (låst versjon i spilleliste, versjonsvelger i Studio).
+  const groups = new Map<string, IndexEntry[]>();
   for (const a of idx.assets) {
     const k = `${a.slug}::${a.variant ?? ''}`;
-    const cur = latest.get(k);
-    if (!cur || a.version > cur.version) latest.set(k, a);
+    groups.set(k, [...(groups.get(k) ?? []), a]);
   }
+  const latest = new Map<string, IndexEntry>();
+  for (const [k, list] of groups) latest.set(k, preferredVersion(list)!);
   return { assets: await Promise.all([...latest.values()].map((e) => loadVersion(e, true))), index: idx.assets, error: null };
 }
 

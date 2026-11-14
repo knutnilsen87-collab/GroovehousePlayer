@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { estimateShareBytes, formatBytes, shareFileName, type ShareKind } from '@gv/shared/web';
+import { estimateShareBytes, formatBytes, shareFileName, type ShareKind, DRAFT_ALBUM, draftTitle, isDraft, versionName } from '@gv/shared/web';
 import { assetUrl, variantName } from '../lib/catalog';
 import { toastError, useToast } from '../lib/playlists';
 import { canReveal, canShareFiles, fetchShareFile, logShare, revealInExplorer, shareFetched, type Fetched } from '../lib/share';
@@ -35,7 +35,11 @@ function ShareSheet() {
   const abort = useRef<AbortController | null>(null);
   const shareable = isApp || canShareFiles();
   const desktop = isDesktop();
-  const fileName = shareFileName({ artist: m.artist, title: m.title, variantLabel: m.variantLabel, kind });
+  // Del 16: utkast deles bare etter et eksplisitt valg, og merkes « (Utkast)» i fila
+  const draft = isDraft(m);
+  const [draftOk, setDraftOk] = useState(false);
+  const fileName = shareFileName({ artist: m.artist, title: draft ? draftTitle(m.title) : m.title, variantLabel: m.variantLabel, kind });
+  const blocked = draft && !draftOk;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
@@ -98,7 +102,7 @@ function ShareSheet() {
           <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={48} rounded={8} />
           <div className="flex min-w-0 flex-col">
             <h2 className="m-0 truncate text-[15px] font-semibold text-ink-strong">Del «{m.title}»</h2>
-            <span className="truncate text-xs text-muted">{[m.variant ? variantName(a) : null, `v${m.version}`].filter(Boolean).join(' · ')}</span>
+            <span className="truncate text-xs text-muted">{[m.variant ? variantName(a) : null, versionName(m)].filter(Boolean).join(' · ')}</span>
           </div>
         </div>
 
@@ -125,6 +129,14 @@ function ShareSheet() {
         <p className="m-0 mt-3 break-words text-xs text-muted">
           Fila heter: <span className="text-ink">{fileName}</span>
         </p>
+        {draft && (
+          <label className="mt-3 flex items-start gap-2 rounded-lg border border-dashed border-white/30 bg-white/[0.03] px-3 py-2 text-xs text-soft">
+            <input type="checkbox" checked={draftOk} onChange={(e) => setDraftOk(e.target.checked)} className="mt-0.5" />
+            <span>
+              <b className="text-ink">Del utkast likevel</b> – dette er en umastret låt. Fila får « (Utkast)» i navnet og tittelen, og albumet blir «{DRAFT_ALBUM}».
+            </span>
+          </label>
+        )}
         {!shareable && (
           <p className="m-0 mt-2 rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-[#E7D9AE]">
             Deling krever HTTPS – bruk Tailscale-adressen, eller send den nedlastede fila.
@@ -149,11 +161,11 @@ function ShareSheet() {
               {shareable ? 'Del nå' : 'Last ned'}
             </button>
           ) : (
-            <button type="button" onClick={() => void fetchIt()} className="h-12 rounded-full bg-accent text-sm font-semibold text-on-accent">
+            <button type="button" disabled={blocked} onClick={() => void fetchIt()} className="h-12 rounded-full bg-accent text-sm font-semibold text-on-accent disabled:opacity-40">
               {shareable ? 'Gjør klar til deling' : 'Gjør klar til nedlasting'}
             </button>
           )}
-          {desktop && canReveal() && (
+          {desktop && canReveal() && !blocked && (
             <button
               type="button"
               onClick={() =>

@@ -1,8 +1,8 @@
 import type { Palette } from '@gv/shared/web';
 
 /** Viser coveret, eller et rolig vinyl-motiv i palettens farger når asset mangler cover. */
-export function CoverArt({ src, palette, title, size, rounded = 14, fluid = false }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; /** Fyll bredden (kvadratisk), del 14-kortet. */ fluid?: boolean }) {
-  const dims = fluid ? { width: '100%', height: 'auto', aspectRatio: '1 / 1' } : { width: size, height: size };
+export function CoverArt({ src, palette, title, size, rounded = 14, fluid = false, draft = false }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; /** Fyll bredden (kvadratisk), del 14-kortet. */ fluid?: boolean; /** Del 16: utkast får stiplet kant. */ draft?: boolean }) {
+  const dims = { ...(fluid ? { width: '100%', height: 'auto', aspectRatio: '1 / 1' } : { width: size, height: size }), ...(draft ? { outline: '1.5px dashed rgba(255,255,255,0.55)', outlineOffset: size > 80 ? 3 : 1 } : {}) };
   if (src) {
     return (
       <img

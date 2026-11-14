@@ -33,7 +33,25 @@ function tagArgs(t: EmbedTags): string[] {
 /** Målnivå ved avspilling. Masteren endres aldri; vi lagrer bare en gain. */
 export const TARGET_LUFS = -14;
 
-export async function encodeHls(input: string, outDir: string, onProgress?: (ms: number) => void): Promise<string> {
+/** Del 16: første passering av loudnorm (måling). Brukes bare for utkast. */
+export interface LoudnormMeasure {
+  input_i: string;
+  input_tp: string;
+  input_lra: string;
+  input_thresh: string;
+  target_offset: string;
+}
+export async function measureLoudnorm(input: string, targetLufs: number): Promise<LoudnormMeasure> {
+  const { stderr } = await run(FFMPEG, ['-hide_banner', '-nostats', '-i', input, '-af', `loudnorm=I=${targetLufs}:TP=-1:LRA=11:print_format=json`, '-f', 'null', '-']);
+  const m = stderr.slice(stderr.lastIndexOf('{')).match(/\{[\s\S]*\}/);
+  if (!m) throw new Error('Klarte ikke å lese loudnorm-målingen');
+  return JSON.parse(m[0]) as LoudnormMeasure;
+}
+/** Filteret for andre passering: lineær normalisering til målet, true peak −1 dBTP. */
+export const loudnormFilter = (targetLufs: number, m: LoudnormMeasure) =>
+  `loudnorm=I=${targetLufs}:TP=-1:LRA=11:measured_I=${m.input_i}:measured_TP=${m.input_tp}:measured_LRA=${m.input_lra}:measured_thresh=${m.input_thresh}:offset=${m.target_offset}:linear=true`;
+
+export async function encodeHls(input: string, outDir: string, onProgress?: (ms: number) => void, filter?: string): Promise<string> {
   const hlsDir = path.join(outDir, 'hls');
   await mkdir(hlsDir, { recursive: true });
   await run(FFMPEG, [
@@ -43,6 +61,7 @@ export async function encodeHls(input: string, outDir: string, onProgress?: (ms:
     ...STRIP,
     '-metadata', `service_provider=${ENCODER_NAME}`,
     '-metadata', `service_name=${ENCODER_NAME}`,
+    ...(filter ? ['-af', filter] : []),
     '-c:a', 'aac', '-b:a', '256k', '-ar', '48000', '-ac', '2',
     '-f', 'hls',
     '-hls_time', '6',

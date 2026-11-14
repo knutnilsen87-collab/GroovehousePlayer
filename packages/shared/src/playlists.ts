@@ -35,6 +35,8 @@ export interface Playlist {
   cover: string | null;
   /** Ferdig ikon fra Groovehouse-ikonpakka (id i PLAYLIST_ICONS). Eget cover vinner over ikonet. */
   icon?: string | null;
+  /** Del 16: Album-plan eller Sett-plan (kan blande utkast og release-klare). Mangler/null = vanlig liste. */
+  plan?: 'album' | 'set' | null;
   /** Palett fra eget cover, med samme kontrastlås som låtcoverne (brukes av drop-siden i delingsfasen). */
   coverPalette?: Palette | null;
   createdAt: string;

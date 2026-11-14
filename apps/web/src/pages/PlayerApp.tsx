@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { formatTime, keyShort, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf } from '@gv/shared/web';
+import { formatTime, isDraft, keyShort, matchesStatus, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverCard, NowPanel, SideTabs, SpectrumPanel, TrackInfoPanel, ZoomPanel } from '../components/Deck';
 import { FullPlayer } from '../components/MobilePlayer';
+import { DraftBadge, DraftConfirmHost, StatusSegment, trackVars, useStatusFilter } from '../components/Draft';
 import { BottomNav, Sidebar, type View } from '../components/Nav';
 import { sortTracks, StudioTable, VariantSelect, type Sort } from '../components/StudioTable';
 import { startListenReporting, useFavorites } from '../lib/library';
@@ -138,7 +139,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   }, []);
 
   // Del 14: coveret styrer fargene – låta i spilleren (også pauset), ellers den nyeste låta, ellers nøytral sølv.
-  const vars = paletteToCssVars(cur?.manifest.palette ?? tracks[0]?.main.manifest.palette ?? NEUTRAL_PALETTE) as CSSProperties;
+  const vars = cur ? trackVars(cur.manifest) : (paletteToCssVars(tracks.find((t) => !isDraft(t.main.manifest))?.main.manifest.palette ?? NEUTRAL_PALETTE) as CSSProperties);
 
   // Tastatur: Ctrl/Cmd+K søk, mellomrom spill/pause, Shift+←/→ forrige/neste del, Esc lukker fullskjerm
   useEffect(() => {
@@ -176,12 +177,19 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     return () => window.removeEventListener('keydown', onKey);
   }, [toggle, nextSection, prevSection]);
 
+  // Del 16: Release-klar · Utkast · Alle – bare release-klare som standard, valget huskes per visning
+  const [libStatus, setLibStatus] = useStatusFilter('library');
+  const [homeStatus, setHomeStatus] = useStatusFilter('home');
+  const [djStatus, setDjStatus] = useStatusFilter('dj');
+  const byStatus = (f: StatusFilter) => tracks.filter((t) => matchesStatus(t.main.manifest, f));
+  const statusCounts = { release: tracks.filter((t) => !isDraft(t.main.manifest)).length, draft: tracks.filter((t) => isDraft(t.main.manifest)).length };
+  const homeTracks = useMemo(() => byStatus(homeStatus), [tracks, homeStatus]); // eslint-disable-line react-hooks/exhaustive-deps
   const visible = sortTracks(
-    tracks.filter((t) => (view === 'sets' ? t.main.manifest.kind === 'set' : view === 'home' || filter === 'all' || t.main.manifest.kind === filter)),
+    (view === 'sets' ? tracks : view === 'home' ? homeTracks : byStatus(libStatus)).filter((t) => (view === 'sets' ? t.main.manifest.kind === 'set' : view === 'home' || filter === 'all' || t.main.manifest.kind === filter)),
     view === 'library' ? sort : { key: 'none', dir: 1 }
   );
   /** Hjem: nyeste først (tabellen «Nylig lagt til» under dekket). */
-  const newest = useMemo(() => [...tracks].sort((a, b) => b.main.manifest.createdAt.localeCompare(a.main.manifest.createdAt)), [tracks]);
+  const newest = useMemo(() => [...homeTracks].sort((a, b) => b.main.manifest.createdAt.localeCompare(a.main.manifest.createdAt)), [homeTracks]);
 
   /** Spill en låt (valgfri variant og posisjon). Køen blir listen du ser. */
   const play = (t: Track, variant?: LoadedAsset, atMs?: number) => {
@@ -275,8 +283,13 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
               )}
 
               {view === 'home' && (
+                <div className="flex justify-end">
+                  <StatusSegment value={homeStatus} onChange={setHomeStatus} counts={statusCounts} />
+                </div>
+              )}
+              {view === 'home' && (
                 <HomeView
-                  tracks={tracks}
+                  tracks={homeTracks}
                   onPlay={play}
                   onOpenList={openList}
                   table={<StudioTable {...tableProps} tracks={newest} limit={8} label="Nylig lagt til" />}
@@ -286,7 +299,10 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="m-0 text-[28px] font-bold tracking-tight text-ink-strong lg:hidden">Bibliotek</h1>
-                    <Pills value={filter} onChange={setFilter} />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusSegment value={libStatus} onChange={setLibStatus} counts={statusCounts} />
+                      <Pills value={filter} onChange={setFilter} />
+                    </div>
                     <span className="hidden font-mono text-[11px] text-muted lg:inline">
                       {visible.length} låter · klikk = velg · dobbeltklikk = spill
                     </span>
@@ -333,7 +349,14 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                   <PlaylistsOverview tracks={tracks} onOpen={openList} vctx={vctx} />
                 ))}
               {view === 'sets' && <SetsView sets={visible} tracks={tracks} onPlay={play} />}
-              {view === 'dj' && <DjView tracks={tracks} onPlay={play} />}
+              {view === 'dj' && (
+                <>
+                  <div className="flex justify-end">
+                    <StatusSegment value={djStatus} onChange={setDjStatus} counts={statusCounts} />
+                  </div>
+                  <DjView tracks={byStatus(djStatus)} onPlay={play} />
+                </>
+              )}
               {view === 'stats' && <StatsView tracks={tracks} onPlay={play} />}
             </div>
 
@@ -384,6 +407,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
         />
       )}
       <TrackActionsHost tracks={tracks} index={catalogIndex} onPlay={play} />
+      <DraftConfirmHost />
       <QueuePanel />
       <ShareSheetHost />
       <Toast />
@@ -552,7 +576,7 @@ function TrackList({
               onContextMenu={(e) => e.preventDefault()}
               aria-pressed={selectMode ? isSel : undefined}
               className={`relative flex min-h-[64px] min-w-0 flex-1 select-none items-center gap-3 rounded-xl px-1.5 text-left [-webkit-touch-callout:none] active:bg-white/[0.05] ${isSel ? 'bg-white/[0.07]' : ''}`}
-              style={{ ...(paletteToCssVars(m.palette) as CSSProperties), ...(swipe?.slug === t.slug ? { transform: `translateX(${swipe.dx}px)`, background: '#15181F' } : {}) }}
+              style={{ ...trackVars(m), ...(swipe?.slug === t.slug ? { transform: `translateX(${swipe.dx}px)`, background: '#15181F' } : {}) }}
             >
               {swipe?.slug === t.slug && swipe.dx > 0 && (
                 <span aria-hidden="true" className="absolute inset-y-0 right-full flex items-center whitespace-nowrap pr-3 text-xs font-semibold text-accent" style={{ opacity: Math.min(1, swipe.dx / 90) }}>
@@ -569,11 +593,11 @@ function TrackList({
                   {isSel ? '✓' : ''}
                 </span>
               )}
-              <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={48} rounded={8} />
+              <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={48} rounded={8} draft={isDraft(m)} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className={`truncate text-[15px] font-semibold ${isCur ? 'text-accent' : 'text-ink-strong'}`}>
                   {isCur && playing ? '▶ ' : ''}
-                  {m.title}
+                  {m.title}<DraftBadge m={m} className="ml-1.5" />
                 </span>
                 <span className="truncate font-mono text-[11px] text-muted">{meta}</span>
               </span>

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
-import { addTargets, type Playlist, type PlaylistEntry } from '@gv/shared/web';
+import { addTargets, isDraft, type Playlist, type PlaylistEntry } from '@gv/shared/web';
+import { useDraftConfirm } from '../components/Draft';
 import type { LoadedAsset } from './catalog';
 import { usePlayer } from './player';
 
@@ -15,9 +16,11 @@ export interface AddItem {
   variant: string | null;
   /** null = følg nyeste versjon. */
   version?: number | null;
+  /** Del 16: bare i klienten – låta er et utkast (sendes ikke til serveren). */
+  draft?: boolean;
 }
 
-type PatchBody = { name?: string; entries?: PlaylistEntry[]; add?: AddItem[]; query?: string; color?: string; icon?: string | null };
+type PatchBody = { name?: string; entries?: PlaylistEntry[]; add?: AddItem[]; query?: string; color?: string; icon?: string | null; plan?: 'album' | 'set' | null };
 
 class ApiError extends Error {
   constructor(
@@ -65,6 +68,8 @@ interface State {
   setColor: (id: string, color: string) => Promise<Playlist>;
   /** Ikon fra ikonpakka (null = ingen, da vises eget cover eller mosaikken). */
   setIcon: (id: string, icon: string | null) => Promise<Playlist>;
+  /** Del 16: Vanlig (null), Album-plan eller Sett-plan. */
+  setPlan: (id: string, plan: 'album' | 'set' | null) => Promise<Playlist>;
   /** Eget cover (pkt. 14). Ved 409 prøves det på nytt med den ferske lista. */
   setCover: (id: string, file: Blob) => Promise<Playlist>;
   removeCover: (id: string) => Promise<Playlist>;
@@ -146,18 +151,23 @@ export const usePlaylists = create<State>((set, get) => {
       return playlist;
     },
     duplicate: async (p) => {
-      const body = p.kind === 'smart' ? { name: `${p.name} (kopi)`, kind: 'smart', query: p.query } : { name: `${p.name} (kopi)`, entries: p.entries.map(({ slug, variant, version }) => ({ slug, variant, version })) };
+      const body = p.kind === 'smart' ? { name: `${p.name} (kopi)`, kind: 'smart', query: p.query } : { name: `${p.name} (kopi)`, entries: p.entries.map(({ slug, variant, version }) => ({ slug, variant, version })), ...(p.plan ? { plan: p.plan } : {}) };
       const { playlist } = await api<{ playlist: Playlist }>('POST', '/api/playlists', body);
       replace(playlist);
       return playlist;
     },
     restore: async (p) => {
-      const body = p.kind === 'smart' ? { name: p.name, kind: 'smart', query: p.query, color: p.color, icon: p.icon ?? null } : { name: p.name, entries: p.entries, color: p.color, icon: p.icon ?? null };
+      const body = p.kind === 'smart' ? { name: p.name, kind: 'smart', query: p.query, color: p.color, icon: p.icon ?? null } : { name: p.name, entries: p.entries, color: p.color, icon: p.icon ?? null, ...(p.plan ? { plan: p.plan } : {}) };
       const { playlist } = await api<{ playlist: Playlist }>('POST', '/api/playlists', body);
       replace(playlist);
       return playlist;
     },
-    add: (id, items) => mutate(id, () => ({ add: items })),
+    add: async (id, items) => {
+      // Del 16: utkast i en vanlig liste (ikke Album-/Sett-plan) – spør først
+      const p = get().playlists.find((x) => x.id === id);
+      if (p && !p.plan && items.some((i) => i.draft) && !(await useDraftConfirm.getState().confirm(id, p.name))) throw new CancelledError();
+      return mutate(id, () => ({ add: items.map(({ draft: _d, ...x }) => x) }));
+    },
     rename: (id, name) => mutate(id, (p) => (p.name === name ? null : { name }), (p) => ({ ...p, name })),
     move: (id, entryId, beforeId) => {
       const reorder = (p: Playlist) => {
@@ -195,6 +205,7 @@ export const usePlaylists = create<State>((set, get) => {
     },
     setColor: (id, color) => mutate(id, (p) => (p.color === color ? null : { color }), (p) => ({ ...p, color })),
     setIcon: (id, icon) => mutate(id, (p) => ((p.icon ?? null) === icon ? null : { icon }), (p) => ({ ...p, icon })),
+    setPlan: (id, plan) => mutate(id, (p) => ((p.plan ?? null) === plan ? null : { plan }), (p) => ({ ...p, plan })),
     setCover: (id, file) => coverRequest(id, (p) => fetch(`/api/playlists/${encodeURIComponent(id)}/cover?updatedAt=${encodeURIComponent(p.updatedAt)}`, { method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file })),
     removeCover: (id) => coverRequest(id, (p) => fetch(`/api/playlists/${encodeURIComponent(id)}/cover`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updatedAt: p.updatedAt }) })),
     remove: async (id) => {
@@ -241,7 +252,14 @@ export function usePlaylistSync() {
 export const mostRecentTarget = (playlists: Playlist[]): Playlist | undefined => addTargets(playlists).recent[0];
 
 /** «Legg til det du ser»: en variant som er valgt/spilles låses, ellers følger oppføringen hovedvarianten. */
-export const itemFor = (a: LoadedAsset): AddItem => ({ slug: a.manifest.slug, variant: a.manifest.variant, version: null });
+export const itemFor = (a: LoadedAsset): AddItem => ({ slug: a.manifest.slug, variant: a.manifest.variant, version: null, ...(isDraft(a.manifest) ? { draft: true } : {}) });
+
+/** Brukeren avbrøt (f.eks. «legg til utkast likevel?» → Avbryt). Vises ikke som feil. */
+export class CancelledError extends Error {
+  constructor() {
+    super('avbrutt');
+  }
+}
 
 // ---------------------------------------------------------------- Meldinger nederst (med angre)
 
@@ -265,8 +283,10 @@ export const useToast = create<ToastState>((set, get) => ({
   },
   hide: () => set({ message: null, action: null })
 }));
-
-export const toastError = (err: unknown) => useToast.getState().show(err instanceof Error ? err.message : String(err));
+export const toastError = (err: unknown) => {
+  if (err instanceof CancelledError) return; // brukeren avbrøt selv
+  useToast.getState().show(err instanceof Error ? err.message : String(err));
+};
 
 // ---------------------------------------------------------------- «Fortsett» i en liste
 

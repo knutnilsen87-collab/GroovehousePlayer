@@ -32,6 +32,7 @@ export interface CreateInput {
   entries?: EntryInput[];
   color?: string;
   icon?: string | null;
+  plan?: 'album' | 'set' | null;
 }
 
 export interface PatchInput {
@@ -46,6 +47,7 @@ export interface PatchInput {
   color?: string;
   /** Ikon fra ikonpakka, null = ingen. */
   icon?: string | null;
+  plan?: 'album' | 'set' | null;
 }
 
 /** Coverfilene til en liste: «<navn>.jpg» og thumb «<navn>_300.jpg» i data/playlist-covers/. */
@@ -131,6 +133,11 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
     if (!isPlaylistIcon(v)) throw new PlaylistError(400, 'ukjent ikon');
     return v;
   };
+  const plan = (v: unknown) => {
+    if (v === null || v === 'none') return null;
+    if (v !== 'album' && v !== 'set') throw new PlaylistError(400, 'ukjent type (album eller set)');
+    return v;
+  };
   const checkSize = (n: number) => {
     if (n > PLAYLIST_LIMITS.entries) throw new PlaylistError(400, 'for mange låter i lista');
   };
@@ -157,6 +164,7 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
           color: input.color !== undefined ? color(input.color) : pickColor(data.playlists.map((x) => x.color)),
           cover: null,
           ...(input.icon !== undefined && input.icon !== null ? { icon: icon(input.icon) } : {}),
+          ...(input.plan !== undefined && input.plan !== null && kind === 'manual' ? { plan: plan(input.plan) } : {}),
           createdAt: at,
           updatedAt: at,
           usedAt: entries.length ? at : null
@@ -181,6 +189,12 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
           const ic = icon(input.icon);
           if (ic) next.icon = ic;
           else delete next.icon;
+        }
+        if (input.plan !== undefined) {
+          if (cur.kind === 'smart') throw new PlaylistError(400, 'smarte lister kan ikke være planer');
+          const pl = plan(input.plan);
+          if (pl) next.plan = pl;
+          else delete next.plan;
         }
         if (cur.kind === 'smart') {
           if (input.entries !== undefined || input.add !== undefined) throw new PlaylistError(400, 'smarte lister kan ikke sorteres eller fylles manuelt');

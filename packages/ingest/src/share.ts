@@ -3,7 +3,7 @@ import { copyFile, mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/pr
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
-import { shareFileName, type AssetManifest, type ShareKind } from '@gv/shared';
+import { isDraft, draftTitle, DRAFT_ALBUM, shareFileName, type AssetManifest, type ShareKind } from '@gv/shared';
 import { FFMPEG, FFPROBE, run } from './ffmpeg';
 
 /**
@@ -84,15 +84,18 @@ const inflight = new Map<string, Promise<ShareFile>>();
 export async function ensureShareFile(o: { versionDir: string; manifest: AssetManifest; kind: ShareKind; logo?: string | null }): Promise<ShareFile> {
   const m = o.manifest;
   const dir = path.join(o.versionDir, 'share');
-  const title = m.variantLabel ? `${m.title} (${m.variantLabel})` : m.title;
+  // Del 16: utkast merkes i fila (tittel og filnavn « (Utkast)», album «Groovehouse Records – Demo»)
+  const draft = isDraft(m);
+  const baseTitle = draft ? draftTitle(m.title) : m.title;
+  const title = m.variantLabel ? `${baseTitle} (${m.variantLabel})` : baseTitle;
   const artist = m.artist ?? 'Echo Groove';
-  const album = m.album ?? m.title;
+  const album = draft ? DRAFT_ALBUM : (m.album ?? m.title);
   const year = yearOf(m);
   const meta = { v: 1, kind: o.kind, master: m.masterSha256, cover: m.coverSha256 ?? null, title, artist, album, copyright: m.copyright ?? null, year };
   const key = createHash('sha256').update(JSON.stringify(meta)).digest('hex').slice(0, 12);
   const ext = o.kind === 'wav' ? 'wav' : 'm4a';
   const out = path.join(dir, `${o.kind}-${key}.${ext}`);
-  const fileName = shareFileName({ artist, title: m.title, variantLabel: m.variantLabel, kind: o.kind });
+  const fileName = shareFileName({ artist, title: baseTitle, variantLabel: m.variantLabel, kind: o.kind });
   const contentType = o.kind === 'wav' ? 'audio/wav' : 'audio/mp4';
   if (existsSync(out)) return { file: out, fileName, contentType, size: (await stat(out)).size };
   const running = inflight.get(out);

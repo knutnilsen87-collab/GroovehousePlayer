@@ -16,6 +16,8 @@ export interface Editable {
   defaults: { artist: string | null; label: string | null; copyright: string | null };
   titleCleanup: { remove: string[] };
   exportDir: string | null;
+  /** Del 16: utkastmappa (umastrede låter). */
+  draftDir: string | null;
 }
 export interface WatcherStatus {
   exportDir: string;
