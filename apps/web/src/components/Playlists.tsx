@@ -27,6 +27,7 @@ import { playList, savedEntry, toastError, useNowList, usePlaylists, useToast, t
 import { useTouchReorder } from '../lib/useTouchReorder';
 import { lockOptions, lockValue, type VersionCtx } from '../lib/versions';
 import { useUi, type ExtraAction } from '../lib/ui';
+import { serverBase } from '../lib/connection';
 import { CoverArt } from './CoverArt';
 import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
 
@@ -78,7 +79,7 @@ export function ListCover({ v, size, rounded = 10 }: { v: ListView; size: number
   const file = size <= 300 ? cover.replace(/\.jpg$/, '_300.jpg') : cover;
   return (
     <img
-      src={`/api/playlist-covers/${encodeURIComponent(file)}`}
+      src={`${serverBase()}/api/playlist-covers/${encodeURIComponent(file)}`}
       alt={`Cover: ${v.name}`}
       width={size}
       height={size}

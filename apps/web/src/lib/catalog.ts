@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Analysis, AssetManifest, CatalogIndex } from '@gv/shared/web';
+import { serverBase } from './connection';
 
 /** Media-mappa serveres under dette prefikset (Vite-dev og apps/server). */
 export const MEDIA = '/media';
@@ -35,7 +36,8 @@ export function loadVersion(entry: IndexEntry, fresh = false): Promise<LoadedAss
   let p = fresh ? undefined : versionCache.get(entry.manifest);
   if (!p) {
     p = (async () => {
-      const base = `${MEDIA}/${entry.manifest.replace(/manifest\.json$/, '')}`;
+      // I Android-appen ligger media på Vault (Tailscale): URL-ene må være absolutte (også for <img> og Media3).
+      const base = `${serverBase()}${MEDIA}/${entry.manifest.replace(/manifest\.json$/, '')}`;
       const manifest = await getJson<AssetManifest>(`${MEDIA}/${entry.manifest}`);
       const analysis = await getJson<Analysis>(`${base}${manifest.files.analysis}`).catch(() => null);
       return { manifest, analysis, base };
@@ -53,12 +55,14 @@ export function versionsOf(index: IndexEntry[], slug: string, variant: string | 
   return index.filter((e) => e.slug === slug && (e.variant ?? null) === variant).sort((a, b) => b.version - a.version);
 }
 
-export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: IndexEntry[] }> {
+export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null }> {
   let idx: CatalogIndex;
   try {
     idx = await getJson<CatalogIndex>(`${MEDIA}/index.json`);
-  } catch {
-    return { assets: [], index: [] };
+  } catch (err) {
+    // 404 = tomt hvelv (ingen index.json ennå). Nettverksfeil/401 = ingen kontakt (vises i appen).
+    const msg = err instanceof Error ? err.message : String(err);
+    return { assets: [], index: [], error: /^404 /.test(msg) ? null : msg };
   }
   // Katalogen viser nyeste versjon per slug + variant. Eldre versjoner hentes ved behov (låst versjon i spilleliste, versjonsvelger i Studio).
   const latest = new Map<string, IndexEntry>();
@@ -67,14 +71,15 @@ export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: Ind
     const cur = latest.get(k);
     if (!cur || a.version > cur.version) latest.set(k, a);
   }
-  return { assets: await Promise.all([...latest.values()].map((e) => loadVersion(e, true))), index: idx.assets };
+  return { assets: await Promise.all([...latest.values()].map((e) => loadVersion(e, true))), index: idx.assets, error: null };
 }
 
 export function useCatalog() {
-  const [state, setState] = useState<{ assets: LoadedAsset[]; index: IndexEntry[]; loading: boolean }>({ assets: [], index: [], loading: true });
+  const [state, setState] = useState<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null; loading: boolean }>({ assets: [], index: [], error: null, loading: true });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     let alive = true;
+    setState((s) => ({ ...s, loading: true }));
     loadCatalog().then((c) => alive && setState({ ...c, loading: false }));
     return () => {
       alive = false;

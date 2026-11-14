@@ -1,30 +1,36 @@
-import type Hls from 'hls.js';
 import { create } from 'zustand';
 import { enqueue as qEnqueue, insertNext as qInsertNext, mapPositionBetweenVariants, moveAt as qMove, nextSectionStart, prevSectionStart, removeAt as qRemove, toStored, type ListenEventType, type StoredQueue } from '@gv/shared/web';
-import { assetUrl, type LoadedAsset } from './catalog';
+import type { LoadedAsset } from './catalog';
+import type { PlayerEngine } from './engine/types';
 
 /**
- * Én <audio>-instans for hele appen. INGEN Web Audio API på mobil:
- * iOS stopper/demper Web Audio i bakgrunnen og AnalyserNode gir stillhet på HLS.
- * Safari spiller HLS native; andre nettlesere laster hls.js ved behov.
- * Volumnormalisering via audio.volume ut fra manifestets playbackGainDb (kun demping).
- * NB: iOS ignorerer audio.volume – der styres volumet bare med telefonens knapper.
+ * Spiller-storen. Selve avspillingen gjøres av en motor (del 12): <audio> på web/desktop,
+ * Media3-tjenesten i Android-appen. Storen vet ikke hvilken, se engine/types.ts.
  */
 const isBrowser = typeof window !== 'undefined';
-const audio = isBrowser ? new Audio() : (null as unknown as HTMLAudioElement);
-if (isBrowser) {
-  audio.preload = 'metadata';
-  audio.crossOrigin = 'anonymous';
-}
-export const getAudio = () => audio;
 
-let hls: Hls | null = null;
-let loadSeq = 0;
-let ready = false;
-let wantPlay = false;
-let pendingSeekMs: number | null = null;
-const nativeHls = isBrowser && !!audio.canPlayType('application/vnd.apple.mpegurl');
-const hlsModule = !nativeHls && isBrowser ? import('hls.js') : null;
+let engine: PlayerEngine | null = null;
+let engineFactory: (() => PlayerEngine) | null = null;
+/** Settes av platform.ts ved oppstart (native i appen); ellers HTML-motoren. */
+export function setEngineFactory(f: () => PlayerEngine) {
+  engineFactory = f;
+}
+/** For tester: bytt motor direkte. */
+export function setEngine(e: PlayerEngine) {
+  engine = e;
+  wire(e);
+}
+function getEngine(): PlayerEngine {
+  if (!engine) {
+    if (!engineFactory) throw new Error('Ingen avspillingsmotor er satt opp');
+    engine = engineFactory();
+    wire(engine);
+  }
+  return engine;
+}
+/** Posisjon nå (sub-bass-pulsen leser denne i hver frame). */
+export const getPositionMs = () => (engine ? engine.positionMs() : 0);
+export const engineKind = () => engine?.kind ?? null;
 
 export type ListenLogger = (e: { event: ListenEventType; assetId: string; positionMs: number; toMs?: number }) => void;
 /** Fase 1: logger til konsollen. Fase 2: POST til Edge Function `log-event`. */
@@ -52,59 +58,14 @@ function savePosition(a: LoadedAsset, ms: number) {
     /* privat modus o.l. */
   }
 }
-
-/** Spill når kilden er klar. hls.js lastes asynkront, så et tidlig trykk huskes. */
-function requestPlay() {
-  if (ready) void audio.play().catch(() => {});
-  else wantPlay = true;
-}
-
-function load(a: LoadedAsset, startMs: number | null) {
-  const src = assetUrl(a, a.manifest.files.hls)!;
-  const seq = ++loadSeq;
-  ready = false;
-  pendingSeekMs = startMs;
-  hls?.destroy();
-  hls = null;
-  const onReady = () => {
-    ready = true;
-    if (wantPlay) {
-      wantPlay = false;
-      requestPlay();
-    }
-  };
-  if (nativeHls || !hlsModule) {
-    audio.src = src;
-    onReady();
-  } else {
-    void hlsModule.then(({ default: HlsCtor }) => {
-      if (seq !== loadSeq) return;
-      if (HlsCtor.isSupported()) {
-        hls = new HlsCtor({ maxBufferLength: 30, startPosition: startMs != null ? startMs / 1000 : -1 });
-        hls.loadSource(src);
-        hls.attachMedia(audio);
-      } else audio.src = src;
-      onReady();
-    });
+/** Posisjoner native-tjenesten lagret mens JavaScript sov (appen i bakgrunnen). */
+export function mergeSavedPositions(positions: Record<string, number> | undefined) {
+  if (!positions) return;
+  try {
+    for (const [k, v] of Object.entries(positions)) if (k.startsWith('gv:pos:') && Number.isFinite(v)) localStorage.setItem(k, String(Math.round(v)));
+  } catch {
+    /* privat modus */
   }
-  applyVolume(a);
-  setMediaSession(a);
-}
-
-function applyVolume(a: LoadedAsset | undefined) {
-  const norm = a ? Math.min(1, Math.pow(10, a.manifest.loudness.playbackGainDb / 20)) : 1;
-  audio.volume = Math.max(0, Math.min(1, norm * usePlayer.getState().volume));
-}
-
-function setMediaSession(a: LoadedAsset) {
-  if (!('mediaSession' in navigator)) return;
-  const cover = assetUrl(a, a.manifest.files.cover);
-  navigator.mediaSession.metadata = new MediaMetadata({
-    title: a.manifest.variantLabel ? `${a.manifest.title} (${a.manifest.variantLabel})` : a.manifest.title,
-    artist: a.manifest.artist ?? 'Groovehouse Records',
-    album: 'Groovehouse Vault',
-    artwork: cover ? [{ src: new URL(cover, location.href).href, sizes: '1200x1200', type: 'image/jpeg' }] : []
-  });
 }
 
 interface PlayerState {
@@ -154,38 +115,38 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   setQueue: (queue, startIndex = 0) => {
     if (sameQueue(queue, get().queue)) return;
     set({ queue, index: startIndex, positionMs: 0, playing: false, queueId: get().queueId + 1 });
-    if (queue[startIndex]) load(queue[startIndex]!, null);
+    if (queue[startIndex]) getEngine().load(queue, startIndex, null);
   },
   playFrom: (list, i, atMs) => {
     const a = list[i];
     if (!a) return;
+    const e = getEngine();
     const cur = get().queue[get().index];
     const resume = atMs ?? (a.manifest.kind === 'set' ? savedPosition(a) : null);
-    if (sameQueue(list, get().queue) && cur?.manifest.id === a.manifest.id && audio.src) {
+    if (sameQueue(list, get().queue) && cur?.manifest.id === a.manifest.id && e.hasSource()) {
       if (atMs != null) get().seek(atMs);
-      requestPlay();
+      e.play();
       return;
     }
     set({ queue: list, index: i, positionMs: resume ?? 0, started: true, queueId: get().queueId + 1 });
-    load(a, resume);
-    requestPlay();
+    e.load(list, i, resume);
+    e.play();
   },
   playIndex: (i) => {
     const a = get().queue[i];
     if (!a) return;
-    if (i !== get().index || !audio.src) {
+    const e = getEngine();
+    if (i !== get().index || !e.hasSource()) {
       const resume = a.manifest.kind === 'set' ? savedPosition(a) : null;
-      load(a, resume);
+      e.load(get().queue, i, resume);
       set({ index: i, positionMs: resume ?? 0 });
     }
-    requestPlay();
+    e.play();
   },
   toggle: () => {
-    if (audio.paused) requestPlay();
-    else {
-      wantPlay = false;
-      audio.pause();
-    }
+    const e = getEngine();
+    if (e.isPaused()) e.play();
+    else e.pause();
   },
   next: () => {
     const { index, queue } = get();
@@ -193,7 +154,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
   prev: () => {
     const { index, queue } = get();
-    if (audio.currentTime > 3 || queue.length < 2) {
+    if (getEngine().positionMs() > 3000 || queue.length < 2) {
       get().seek(0);
       return;
     }
@@ -201,9 +162,8 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   },
   seek: (ms) => {
     const cur = get().queue[get().index];
-    if (cur) logListen({ event: 'seek', assetId: cur.manifest.id, positionMs: Math.round(audio.currentTime * 1000), toMs: Math.round(ms) });
-    if (ready && audio.readyState > 0) audio.currentTime = ms / 1000;
-    else pendingSeekMs = ms;
+    if (cur) logListen({ event: 'seek', assetId: cur.manifest.id, positionMs: getEngine().positionMs(), toMs: Math.round(ms) });
+    getEngine().seek(ms);
     set({ positionMs: ms, started: true });
   },
   nextSection: () => {
@@ -224,32 +184,41 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const q = [...queue];
     q[index] = to;
     set({ queue: q, positionMs: at });
-    load(to, at);
-    if (playing) requestPlay();
+    const e = getEngine();
+    e.load(q, index, at);
+    if (playing) e.play();
   },
   setVolume: (v) => {
     set({ volume: v });
-    applyVolume(get().queue[get().index]);
+    getEngine().setUserVolume(v);
   },
   insertNext: (items) => {
     if (!items.length) return;
     const wasEmpty = !get().queue.length;
     set(qInsertNext(get(), items));
-    if (wasEmpty) load(get().queue[0]!, null);
+    if (wasEmpty) getEngine().load(get().queue, 0, null);
+    else getEngine().syncQueue(get().queue, get().index);
   },
   enqueue: (items) => {
     if (!items.length) return;
     const wasEmpty = !get().queue.length;
     set(qEnqueue(get(), items));
-    if (wasEmpty) load(get().queue[0]!, null);
+    if (wasEmpty) getEngine().load(get().queue, 0, null);
+    else getEngine().syncQueue(get().queue, get().index);
   },
-  removeFromQueue: (i) => set(qRemove(get(), i)),
-  moveInQueue: (from, to) => set(qMove(get(), from, to)),
+  removeFromQueue: (i) => {
+    set(qRemove(get(), i));
+    getEngine().syncQueue(get().queue, get().index);
+  },
+  moveInQueue: (from, to) => {
+    set(qMove(get(), from, to));
+    getEngine().syncQueue(get().queue, get().index);
+  },
   restoreQueue: (queue, index, positionMs) => {
     const a = queue[index];
     if (!a || get().queue.length) return; // spiller allerede noe – ikke overstyr
     set({ queue, index, positionMs, playing: false, queueId: get().queueId + 1 });
-    load(a, positionMs > 0 ? positionMs : null);
+    getEngine().load(queue, index, positionMs > 0 ? positionMs : null);
   }
 }));
 
@@ -271,9 +240,64 @@ function saveQueue() {
   }
 }
 
-// ---------------------------------------------------------------- <audio>-hendelser → butikk og logg
+// ---------------------------------------------------------------- Motorhendelser → store og logg
+let lastBeat = 0;
+let lastSave = 0;
+const current = () => usePlayer.getState().queue[usePlayer.getState().index];
+
+function wire(e: PlayerEngine) {
+  e.setUserVolume(usePlayer.getState().volume);
+  e.setHandlers({
+    onPlay: () => {
+      usePlayer.setState({ playing: true, started: true });
+      const a = current();
+      if (a) logListen({ event: 'play', assetId: a.manifest.id, positionMs: e.positionMs() });
+    },
+    onPause: () => {
+      usePlayer.setState({ playing: false });
+      const a = current();
+      if (a) {
+        logListen({ event: 'pause', assetId: a.manifest.id, positionMs: e.positionMs() });
+        savePosition(a, e.positionMs());
+      }
+      saveQueue();
+    },
+    onTime: (ms) => {
+      usePlayer.setState({ positionMs: ms });
+      const now = Date.now();
+      const a = current();
+      if (!a || e.isPaused()) return;
+      if (now - lastBeat > 15000) {
+        lastBeat = now;
+        logListen({ event: 'heartbeat', assetId: a.manifest.id, positionMs: ms });
+      }
+      if (now - lastSave > 5000) {
+        lastSave = now;
+        savePosition(a, ms);
+      }
+    },
+    onEnded: () => {
+      const a = current();
+      if (a) {
+        logListen({ event: 'ended', assetId: a.manifest.id, positionMs: a.manifest.durationMs });
+        savePosition(a, a.manifest.durationMs);
+      }
+      const { index, queue } = usePlayer.getState();
+      if (index < queue.length - 1) usePlayer.getState().playIndex(index + 1);
+      else usePlayer.setState({ playing: false });
+    },
+    onIndex: (i) => {
+      // Motoren har gått videre selv (native): bare oppdater storen, ikke last på nytt.
+      const prev = current();
+      if (prev) logListen({ event: 'ended', assetId: prev.manifest.id, positionMs: prev.manifest.durationMs });
+      if (i >= 0 && i < usePlayer.getState().queue.length) usePlayer.setState({ index: i, positionMs: 0 });
+    },
+    onError: (msg) => console.warn('[spiller]', msg)
+  });
+}
+
 if (isBrowser) {
-  // Lagre ved endring av køen/plassen med en gang, posisjonen høyst hvert 5. sekund.
+  // Lagre køen ved endring av køen/plassen med en gang, posisjonen høyst hvert 5. sekund.
   let lastQueueSave = 0;
   usePlayer.subscribe((s, prev) => {
     if (s.queue !== prev.queue || s.index !== prev.index) saveQueue();
@@ -282,73 +306,22 @@ if (isBrowser) {
       saveQueue();
     }
   });
-  window.addEventListener('pagehide', saveQueue);
-  audio.addEventListener('pause', saveQueue);
-  const current = () => usePlayer.getState().queue[usePlayer.getState().index];
-  const pos = () => Math.round(audio.currentTime * 1000);
-  let lastBeat = 0;
-  let lastSave = 0;
-
-  const applyPendingSeek = () => {
-    if (pendingSeekMs != null && audio.readyState > 0) {
-      audio.currentTime = pendingSeekMs / 1000;
-      pendingSeekMs = null;
-    }
-  };
-  audio.addEventListener('loadedmetadata', applyPendingSeek);
-  audio.addEventListener('canplay', applyPendingSeek);
-
-  audio.addEventListener('play', () => {
-    usePlayer.setState({ playing: true, started: true });
-    const a = current();
-    if (a) logListen({ event: 'play', assetId: a.manifest.id, positionMs: pos() });
-  });
-  audio.addEventListener('pause', () => {
-    usePlayer.setState({ playing: false });
-    const a = current();
-    if (a && !audio.ended) {
-      logListen({ event: 'pause', assetId: a.manifest.id, positionMs: pos() });
-      savePosition(a, pos());
-    }
-  });
-  audio.addEventListener('timeupdate', () => {
-    if (pendingSeekMs != null) return; // ikke overskriv posisjonen før gjenoppta-hoppet er gjort
-    usePlayer.setState({ positionMs: pos() });
-    const now = Date.now();
-    const a = current();
-    if (!a || audio.paused) return;
-    if (now - lastBeat > 15000) {
-      lastBeat = now;
-      logListen({ event: 'heartbeat', assetId: a.manifest.id, positionMs: pos() });
-    }
-    if (now - lastSave > 5000) {
-      lastSave = now;
-      savePosition(a, pos());
-    }
-  });
-  audio.addEventListener('ended', () => {
-    const a = current();
-    if (a) {
-      logListen({ event: 'ended', assetId: a.manifest.id, positionMs: a.manifest.durationMs });
-      savePosition(a, a.manifest.durationMs);
-    }
-    const { index, queue } = usePlayer.getState();
-    if (index < queue.length - 1) usePlayer.getState().playIndex(index + 1);
-    else usePlayer.setState({ playing: false });
-  });
   window.addEventListener('pagehide', () => {
+    saveQueue();
     const a = current();
-    if (a && !audio.paused) savePosition(a, pos());
+    if (a && engine && !engine.isPaused()) savePosition(a, engine.positionMs());
   });
 
+  // Web: låseskjermkontroller via Media Session. I appen gjør Media3-tjenesten dette selv.
   if ('mediaSession' in navigator) {
-    navigator.mediaSession.setActionHandler('play', () => requestPlay());
-    navigator.mediaSession.setActionHandler('pause', () => audio.pause());
-    navigator.mediaSession.setActionHandler('nexttrack', () => usePlayer.getState().next());
-    navigator.mediaSession.setActionHandler('previoustrack', () => usePlayer.getState().prev());
-    navigator.mediaSession.setActionHandler('seekto', (d) => d.seekTime != null && usePlayer.getState().seek(d.seekTime * 1000));
+    const p = () => usePlayer.getState();
+    navigator.mediaSession.setActionHandler('play', () => getEngine().play());
+    navigator.mediaSession.setActionHandler('pause', () => getEngine().pause());
+    navigator.mediaSession.setActionHandler('nexttrack', () => p().next());
+    navigator.mediaSession.setActionHandler('previoustrack', () => p().prev());
+    navigator.mediaSession.setActionHandler('seekto', (d) => d.seekTime != null && p().seek(d.seekTime * 1000));
     // Låseskjermens ±-knapper hopper mellom deler (Drop, Break …) i stedet for 10 s
-    navigator.mediaSession.setActionHandler('seekforward', () => usePlayer.getState().nextSection());
-    navigator.mediaSession.setActionHandler('seekbackward', () => usePlayer.getState().prevSection());
+    navigator.mediaSession.setActionHandler('seekforward', () => p().nextSection());
+    navigator.mediaSession.setActionHandler('seekbackward', () => p().prevSection());
   }
 }

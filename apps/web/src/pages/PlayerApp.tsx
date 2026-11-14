@@ -29,6 +29,9 @@ import { useVersionCtx } from '../lib/versions';
 import { QueuePanel, TrackActionsHost } from '../components/TrackActions';
 import { useUi } from '../lib/ui';
 import { fromStored } from '@gv/shared/web';
+import { App as CapApp } from '@capacitor/app';
+import { isApp } from '../lib/platform';
+import { UnreachableScreen } from './Connect';
 
 type View = 'catalog' | 'sets' | 'playlists';
 
@@ -38,8 +41,8 @@ type Filter = 'all' | 'track' | 'set';
  * Din egen spiller. Mobil: én tommel – bunnmeny, flytende mini-spiller, fullskjerm ved trykk.
  * Desktop: sidebar, presisjonstabell og transport-dock. Gull er rammen; det som spilles farger rommet.
  */
-export function PlayerApp() {
-  const { assets, index: catalogIndex, loading } = useCatalog();
+export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = {}) {
+  const { assets, index: catalogIndex, loading, error: catalogError, reload } = useCatalog();
   const tracks = useMemo(() => groupTracks(assets), [assets]);
   const [view, setView] = useState<View>('catalog');
   const [filter, setFilter] = useState<Filter>('all');
@@ -107,6 +110,26 @@ export function PlayerApp() {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, [selectMode]);
+
+  // Android: tilbake-knappen lukker ark, menyer og fullskjerm først. Ut av appen = musikken fortsetter.
+  const back = useRef<() => void>(() => {});
+  back.current = () => {
+    const ui = useUi.getState();
+    if (ui.actions) ui.closeActions();
+    else if (ui.addSheet) ui.closeAddSheet();
+    else if (ui.queueOpen) ui.setQueueOpen(false);
+    else if (paletteOpen) setPaletteOpen(false);
+    else if (full) setFull(false);
+    else if (selectMode) history.back();
+    else if (listId) setListId(null);
+    else if (view !== 'catalog') setView('catalog');
+    else void CapApp.minimizeApp();
+  };
+  useEffect(() => {
+    if (!isApp) return;
+    const h = CapApp.addListener('backButton', () => back.current());
+    return () => void h.then((x) => x.remove());
+  }, []);
 
   const vars = paletteToCssVars(started && cur ? cur.manifest.palette : GOLD_FALLBACK) as CSSProperties;
 
@@ -179,6 +202,8 @@ export function PlayerApp() {
     return visible.filter((t) => slugs.includes(t.slug)).map(shownAsset);
   };
   const toggleMobileSelect = (slug: string) => setSelected((s) => (s.includes(slug) ? s.filter((x) => x !== slug) : [...s, slug]));
+
+  if (isApp && catalogError) return <UnreachableScreen error={catalogError} onRetry={reload} onReconnect={() => onDisconnected?.()} />;
 
   return (
     <div ref={root} className="relative min-h-[100svh] bg-obsidian text-ink lg:grid lg:grid-cols-[240px_minmax(0,1fr)]" style={vars}>

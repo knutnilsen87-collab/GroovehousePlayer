@@ -5,6 +5,7 @@ import { APP_ID, createApiHandler } from '@gv/ingest/api';
 import { createMediaHandler } from '@gv/ingest/media-static';
 import { COOKIE_NAME, issueToken, LoginLimiter, readCookie, verifyPin, verifyToken, type PinRecord } from './lan-auth';
 import { isLoopback, isPrivateIPv4, lanAddresses, loginPage, networkCategories, qrSvg, remoteIPv4, safeNext } from './lan';
+import { APP_ORIGIN, bearerOf, type DeviceStore } from './devices';
 
 /**
  * Én HTTP-server: bygget web-app (SPA-fallback), /media/... og /api/...
@@ -21,7 +22,11 @@ export interface ServerOptions {
   /**
    * Eksakte vertsnavn som godtas fra loopback i tillegg til 127.0.0.1/localhost (Tailscale Serve).
    * Krever Tailscale-User-Login-headeren, og gir tilgang uten PIN. Ingen jokertegn.
-   */
+  allowedHosts?: string[];
+  /** Tilkoblede enheter (Android-appen): enhetstoken som alternativ til Tailscale-identitet/LAN-cookie. */
+  devices?: DeviceStore;
+  /** PIN-hashen paring sjekkes mot (samme som Wi-Fi-modus), også når Wi-Fi-modus er av. */
+  pairPin?: () => PinRecord | null;
   allowedHosts?: string[];
   /** Testkrok: er klienten PC-en selv? Standard: loopback-adresse på socketen. */
   isLocal?: (remoteAddress: string | undefined) => boolean;
@@ -70,6 +75,27 @@ export function createHandler(opts: ServerOptions) {
       res.setHeader('Referrer-Policy', 'no-referrer');
       res.setHeader('X-Frame-Options', 'DENY');
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+      const apiOrMedia = url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/');
+
+      // Android-appen (del 12) kjører på https://localhost og henter fra Vault over Tailscale.
+      // CORS gis bare til den opprinnelsen, og bare for API og media.
+      const cors = req.headers.origin === APP_ORIGIN && apiOrMedia;
+      if (cors) {
+        res.setHeader('Access-Control-Allow-Origin', APP_ORIGIN);
+        res.setHeader('Vary', 'Origin');
+        res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, PATCH, PUT, DELETE');
+        res.setHeader('Access-Control-Max-Age', '600');
+      }
+      // Enhetstoken (appen): et gyldig token gir tilgang. Er det med, men ugyldig/trukket tilbake → 401,
+      // så appen vet at den må kobles til på nytt.
+      const hasAuth = req.headers.authorization !== undefined;
+      const device = hasAuth && opts.devices ? await opts.devices.verify(bearerOf(req.headers.authorization)) : null;
+      if (hasAuth && !device && apiOrMedia && req.method !== 'OPTIONS') {
+        res.statusCode = 401;
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        return res.end(JSON.stringify({ error: 'Enheten er ikke godkjent (lenger). Koble til Vault på nytt.' }));
+      }
 
       if (local) {
         // Bare forespørsler til vår egen adresse. Hindrer DNS-rebinding: en nettside som peker
@@ -83,7 +109,7 @@ export function createHandler(opts: ServerOptions) {
           }
           // Serve setter Tailscale-User-Login for innloggede tailnet-enheter (og fjerner den fra
           // klienten). Funnel-trafikk fra internett har den ikke, så den slipper aldri inn uten PIN.
-          if (!req.headers['tailscale-user-login']) {
+          if (!req.headers['tailscale-user-login'] && !device) {
             res.statusCode = 403;
             return res.end('Forbidden');
           }
@@ -111,7 +137,7 @@ export function createHandler(opts: ServerOptions) {
         // Ikoner og manifest er åpne: nettleseren henter manifestet uten cookies (credentials: omit),
         // så bak PIN-en ville «Opprett snarvei»/installering fått en grå standardikon.
         const open = url.pathname.startsWith('/icons/') || url.pathname === '/manifest.webmanifest';
-        if (!open && !verifyToken(opts.lan.secret, readCookie(req.headers.cookie, COOKIE_NAME))) {
+        if (!open && !device && !verifyToken(opts.lan.secret, readCookie(req.headers.cookie, COOKIE_NAME))) {
           if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/media/')) {
             res.statusCode = 401;
             res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -128,6 +154,11 @@ export function createHandler(opts: ServerOptions) {
         res.setHeader('Cache-Control', 'no-store');
         return res.end(JSON.stringify({ app: APP_ID, version: opts.version, pid: process.pid, port, dist: existsSync(path.join(dist, 'index.html')) }));
       }
+      if (cors && req.method === 'OPTIONS') {
+        res.statusCode = 204;
+        return res.end();
+      }
+      if (url.pathname === '/api/devices' || url.pathname.startsWith('/api/devices/')) return await devicesRoute(req, res, url);
       if (url.pathname === '/api/lan/status') return await lanStatus(res, port, !!opts.lan, lanHosts);
       if (url.pathname.startsWith('/api/')) return await api(req, res);
       if (url.pathname.startsWith('/media/')) return await media(req, res);
@@ -142,6 +173,50 @@ export function createHandler(opts: ServerOptions) {
       res.end();
     }
   };
+  /**
+   * Enheter (del 12):
+   *   POST   /api/devices/pair { pin, name } → { device, token }  (PIN som for Wi-Fi-modus; begrenset gjetting)
+   *   GET    /api/devices                      → { devices }        (uten tokens)
+   *   DELETE /api/devices/:id                  → trekker tilbake
+   * Selve ruta krever samme tilgang som resten (PC-en, Tailscale eller LAN med PIN).
+   */
+  async function devicesRoute(req: IncomingMessage, res: ServerResponse, url: URL) {
+    const json = (status: number, body: unknown) => {
+      res.statusCode = status;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.end(JSON.stringify(body));
+    };
+    if (!opts.devices) return json(503, { error: 'enheter er ikke satt opp' });
+    if (req.method !== 'GET' && !String(req.headers['content-type'] ?? '').startsWith('application/json')) return json(415, { error: 'krever application/json' });
+    if (url.pathname === '/api/devices' && req.method === 'GET') return json(200, { devices: await opts.devices.list() });
+    if (url.pathname === '/api/devices/pair' && req.method === 'POST') {
+      const who = String(req.headers['tailscale-user-login'] ?? remoteIPv4(req.socket.remoteAddress));
+      const blocked = limiter.blockedFor(who);
+      if (blocked) return json(429, { error: `For mange forsøk. Prøv igjen om ${Math.ceil(blocked / 60)} min.` });
+      let body: { pin?: unknown; name?: unknown } = {};
+      try {
+        body = JSON.parse(await readBody(req, 2048)) as typeof body;
+      } catch {
+        return json(400, { error: 'ugyldig JSON' });
+      }
+      const pin = opts.pairPin?.() ?? null;
+      if (!pin) return json(409, { error: 'Ingen PIN er satt på PC-en. Kjør «pnpm vault:lan pin» først.' });
+      if (typeof body.pin !== 'string' || !verifyPin(body.pin, pin)) {
+        limiter.fail(who);
+        opts.log?.(`! feil PIN ved paring av enhet (${who})`);
+        return json(401, { error: 'Feil PIN-kode.' });
+      }
+      limiter.success(who);
+      const r = await opts.devices.pair(typeof body.name === 'string' ? body.name : 'Android');
+      opts.log?.(`✓ ny enhet paret: ${r.device.name} (${r.device.id.slice(0, 8)})`);
+      return json(201, r);
+    }
+    const m = url.pathname.match(/^\/api\/devices\/([\w-]{36})$/);
+    if (m && req.method === 'DELETE') return (await opts.devices.revoke(m[1]!)) ? json(200, { ok: true }) : json(404, { error: 'ukjent enhet' });
+    return json(404, { error: 'not found' });
+  }
+
   async function lanLogin(req: IncomingMessage, res: ServerResponse, url: URL, remote: string, lan: LanOptions) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     if (req.method === 'GET') return res.end(loginPage({ next: safeNext(url.searchParams.get('next')), blockedSec: limiter.blockedFor(remote) }));

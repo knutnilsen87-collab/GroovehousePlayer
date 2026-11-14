@@ -7,6 +7,7 @@ import { startWatcher } from '@gv/ingest/watcher';
 import { credRead } from './credstore';
 import type { PinRecord } from './lan-auth';
 import { lanAddresses } from './lan';
+import { createDeviceStore } from './devices';
 import { createLogger } from './logger';
 import { appDataDir, logsDir, portFile } from './paths';
 import { candidatePorts, createHandler, listenWithFallback, readVersion, type LanOptions } from './server';
@@ -34,7 +35,16 @@ process.on('unhandledRejection', (err) => log(`✗ uventet feil: ${err instanceo
 async function main() {
   log(`Groovehouse Vault ${version} starter (pid ${process.pid})`);
   const lan = loadLan();
-  const handler = createHandler({ distDir, mediaDir, version, log, lan, allowedHosts: config.allowedHosts });
+  const devices = createDeviceStore(path.join(root, 'data', 'devices.json'));
+  const pairPin = (): PinRecord | null => {
+    try {
+      const p = credRead('lan-pin');
+      return p ? (JSON.parse(p) as PinRecord) : null;
+    } catch {
+      return null;
+    }
+  };
+  const handler = createHandler({ distDir, mediaDir, version, log, lan, allowedHosts: config.allowedHosts, devices, pairPin });
   const server = http.createServer(handler);
   // LAN av: kun 127.0.0.1. LAN på: alle adaptere, men bare private klienter med PIN slipper inn
   // (og brannmurregelen gjelder bare private nettverk).

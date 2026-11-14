@@ -1,10 +1,10 @@
 import { useEffect, type RefObject } from 'react';
 import { subEnvelope, type LoadedAsset } from './catalog';
-import { getAudio } from './player';
+import { getPositionMs } from './player';
 
 /**
  * Setter CSS-variabelen --sub (0..1) på elementet i takt med sub-bassen (< 80 Hz).
- * Leser den forhåndsberegnede 50 ms-konvolutten mot audio.currentTime – ingen Web Audio,
+ * Leser den forhåndsberegnede 50 ms-konvolutten mot avspillingsposisjonen – ingen Web Audio,
  * så det virker likt på iPhone, Android og desktop. Rask attack, langsom release.
  */
 export function useSubBass(ref: RefObject<HTMLElement>, asset: LoadedAsset | undefined, playing: boolean) {
@@ -17,11 +17,10 @@ export function useSubBass(ref: RefObject<HTMLElement>, asset: LoadedAsset | und
       el.style.setProperty('--sub', '0');
       return;
     }
-    const audio = getAudio();
     let raf = 0;
     let level = 0;
     const tick = () => {
-      const idx = Math.floor((audio.currentTime * 1000) / env.frameMs);
+      const idx = Math.floor(getPositionMs() / env.frameMs);
       const target = (env.values[idx] ?? 0) / 255;
       level = target > level ? level + (target - level) * 0.6 : level + (target - level) * 0.12;
       el.style.setProperty('--sub', level.toFixed(3));
