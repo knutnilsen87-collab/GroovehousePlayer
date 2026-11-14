@@ -1,0 +1,2 @@
+# Shell-skript må ha LF også på Windows
+apps/android/android/gradlew text eol=lf

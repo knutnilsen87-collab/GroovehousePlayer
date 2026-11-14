@@ -14,8 +14,8 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 9 Spillelister | ✅ ferdig | 97 enhetstester, «Ferdig når» mot ekte server, 31/31 UI-sjekker i hodeløs Edge (desktop + mobil) | Fysisk telefon; avspilling av eldre låst versjon (ingen låt har >1 versjon ennå) |
 | 11 «⋯»-meny | ✅ ferdig | 103 enhetstester (ny: kø), 29/29 UI-sjekker i hodeløs Edge (mobil + desktop), del 9-UI 31/31 på nytt | «Del…» slås på i del 10. Fysisk telefon: hold inne på minispilleren, sveip høyre/venstre |
 | 12 Android-app | ✅ bygget (ikke kjørt på telefon) | 114 enhetstester (motor-kontrakt 7, paring/token/CORS 4), signert APK bygget, CORS/paring/401 verifisert live over Tailscale | Hele «Ferdig når» på S22: installer, koble til, skjerm av 15 min, låseskjerm, Bluetooth i bil. Ingen emulator på PC-en |
-| 10 Del låt som fil | 🔨 neste | – | – |
-| 1 pkt. 7–8 Autostart + varsel | ⏳ | – | – |
+| 10 Del låt som fil | ✅ ferdig (web), app bygget | 5 ffmpeg-tester (FLAC bit-for-bit, AAC 256k, tags, cover, cache, WAV-lyd identisk, /drop/ 403), 4 tekst/filnavn-tester, ekte server via Tailscale (ffprobe), UI 13/13; del 9 og 11 på nytt 31/29 | «Ferdig når»: del til deg selv på WhatsApp fra mobilen (Tailscale) og på e-post fra desktop-appen. Del i Android-appen (ikke kjørt). Om navigator.share med filer virker i Edge --app-vinduet |
+| 1 pkt. 7–8 Autostart + varsel | 🔨 neste | – | – |
 | 8 Innstillinger | ⏳ | – | – |
 | 2 Markør-editor | ⏳ | – | – |
 | 4 Raskere ingest | ⏳ | – | – |
@@ -47,9 +47,12 @@ Knuts svar gjelder: «Del…» vises deaktivert («kommer») til del 10 · «Kil
 
 **Del 12 bygget:** Capacitor 8.6.2 i `apps/android`, Kotlin + Media3 1.11.1 (`PlaybackService`, `NativePlayerPlugin`, `VaultAuthPlugin`), `PlayerEngine` med HTML- og native motor, enhetstoken + paring med PIN + CORS bare for `https://localhost`, «Koble til Vault», «Får ikke kontakt», tilbake-knapp, ikoner fra ikonpakken, mørk oppstart, signert APK via `pnpm android:build` (keystore i `%APPDATA%`, passord i Credential Manager). JDK 21 og SDK var allerede installert – ingenting nytt installert. **Ikke testet på enhet** (ingen telefon tilkoblet, ingen emulator).
 
+**Del 10 ferdig:** Vaults egen master (`master.flac`) lages ved ingest; 25 eksisterende låter fylt inn fra REASONDONE (kun lesing, hash sjekket) og 3 fixtures via ny ingest. `media/` gikk fra 214 MB til ca. 0,75 GB. Delte filer i `share/` (aldri via /media). «Del…» i menyen, to-stegs ark, Vis i Utforsker bare fra PC-en, logg i `data/shares.json`, «Delt N ganger» i Studio. Appen deler via Filesystem + Share, og FileProvider er begrenset til appens cache.
+
 ## Logg
 
 - 2026-11-14: Del 9 ferdig (bcdb20b). Del 11 påbegynt: kildefil (5e7c426). Main (7862d80) merget inn.
 - 2026-11-14 02:56: `Out of Control.wav` ble skrevet av Reason under kildefil-skanningen (EBUSY, hoppet over). Ny bounce, ikke endret av Vault.
 - 2026-11-14: Del 11 ferdig (UI 29/29, del 9 31/31 på nytt). «Out of Control» (ny bounce) ingestet av watcheren og koblet til kildefil.
 - 2026-11-14: Del 12 bygget (APK 7,3 MB, signert). Keystore laget i %APPDATA%GroovehouseVaultandroidelease.jks.
+- 2026-11-14: Del 10 ferdig. Master-kopier for 28 versjoner. APK bygget på nytt (7,4 MB) med Filesystem/Share.

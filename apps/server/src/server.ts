@@ -1,7 +1,8 @@
 import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
-import { APP_ID, createApiHandler } from '@gv/ingest/api';
+import { spawn } from 'node:child_process';
+import { APP_ID, createApiHandler, shareFileFor } from '@gv/ingest/api';
 import { createMediaHandler } from '@gv/ingest/media-static';
 import { COOKIE_NAME, issueToken, LoginLimiter, readCookie, verifyPin, verifyToken, type PinRecord } from './lan-auth';
 import { isLoopback, isPrivateIPv4, lanAddresses, loginPage, networkCategories, qrSvg, remoteIPv4, safeNext } from './lan';
@@ -159,6 +160,34 @@ export function createHandler(opts: ServerOptions) {
         return res.end();
       }
       if (url.pathname === '/api/devices' || url.pathname.startsWith('/api/devices/')) return await devicesRoute(req, res, url);
+      if (url.pathname === '/api/share/reveal') {
+        // «Vis i Utforsker» (del 10): bare fra PC-en selv (ikke Tailscale, ikke Wi-Fi), bare filer i share-cachen.
+        const origin = req.headers.origin;
+        const fromPc = local && /^(127\.0\.0\.1|localhost|\[::1\])$/.test(hostName) && !req.headers['tailscale-user-login'] && (!origin || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin));
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        if (!fromPc || req.method !== 'POST') {
+          res.statusCode = 403;
+          return res.end(JSON.stringify({ error: 'bare fra PC-en' }));
+        }
+        let b: { slug?: string; variant?: string; version?: number; kind?: string } = {};
+        try {
+          b = JSON.parse(await readBody(req, 1024)) as typeof b;
+        } catch {
+          /* tom */
+        }
+        const slugOk = (s: unknown) => typeof s === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/.test(s);
+        if (!slugOk(b.slug) || !slugOk(b.variant) || !Number.isInteger(b.version) || !['full', 'preview', 'wav'].includes(String(b.kind))) {
+          res.statusCode = 400;
+          return res.end(JSON.stringify({ error: 'ugyldig' }));
+        }
+        const r = await shareFileFor(opts.mediaDir, path.resolve(opts.mediaDir, '..'), b.slug!, b.variant!, b.version!, b.kind as 'full' | 'preview' | 'wav');
+        if (!r) {
+          res.statusCode = 404;
+          return res.end(JSON.stringify({ error: 'ukjent låt' }));
+        }
+        spawn('explorer.exe', [`/select,"${r.file}"`], { detached: true, stdio: 'ignore', windowsVerbatimArguments: true }).unref();
+        return res.end(JSON.stringify({ ok: true }));
+      }
       if (url.pathname === '/api/lan/status') return await lanStatus(res, port, !!opts.lan, lanHosts);
       if (url.pathname.startsWith('/api/')) return await api(req, res);
       if (url.pathname.startsWith('/media/')) return await media(req, res);

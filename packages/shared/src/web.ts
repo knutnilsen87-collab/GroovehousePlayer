@@ -7,3 +7,4 @@ export * from './sections';
 export * from './titles';
 export * from './playlists';
 export * from './queue';
+export * from './share';

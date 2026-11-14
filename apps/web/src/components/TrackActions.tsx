@@ -83,7 +83,7 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
       ]
     : [
         { label: 'Legg til i spilleliste', hint: 'Ctrl+Shift+P', run: () => useUi.getState().openAddSheet({ assets: [a], anchor: req.anchor }) },
-        { label: 'Del…', hint: 'kommer', disabled: true },
+        { label: 'Del…', run: () => useUi.getState().openShare(a) },
         ...(now
           ? [{ label: 'Vis køen', run: () => useUi.getState().setQueueOpen(true) }]
           : [

@@ -27,6 +27,7 @@ import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, u
 import { useSubBass } from '../lib/useSubBass';
 import { useVersionCtx } from '../lib/versions';
 import { QueuePanel, TrackActionsHost } from '../components/TrackActions';
+import { ShareSheetHost } from '../components/ShareSheet';
 import { useUi } from '../lib/ui';
 import { fromStored } from '@gv/shared/web';
 import { App as CapApp } from '@capacitor/app';
@@ -115,7 +116,8 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   const back = useRef<() => void>(() => {});
   back.current = () => {
     const ui = useUi.getState();
-    if (ui.actions) ui.closeActions();
+    if (ui.share) ui.closeShare();
+    else if (ui.actions) ui.closeActions();
     else if (ui.addSheet) ui.closeAddSheet();
     else if (ui.queueOpen) ui.setQueueOpen(false);
     else if (paletteOpen) setPaletteOpen(false);
@@ -330,6 +332,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
       )}
       <TrackActionsHost tracks={tracks} index={catalogIndex} onPlay={play} />
       <QueuePanel />
+      <ShareSheetHost />
       <Toast />
       <CommandPalette
         open={paletteOpen}

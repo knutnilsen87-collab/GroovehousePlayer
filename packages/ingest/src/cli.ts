@@ -6,7 +6,8 @@ import { createInterface } from 'node:readline/promises';
 import { findSuno, formatTime, type AssetManifest } from '@gv/shared';
 import { findRoot, loadConfig, loadDotEnv } from './config';
 import { ingestFolder, ingestRelease, sha256File, type IngestResult, type StepStatus } from './ingest';
-import { indexSources } from './source-index';
+import { backfillMasters } from './share';
+import { indexSources, readSources, sourcesFile } from './source-index';
 import { readOverrides, scanFlat, type ReleaseSource } from './sources';
 
 const HELP = `
@@ -18,6 +19,7 @@ gh-ingest --backlog [<eksportmappe>] [--skip <slug,slug>] [--yes] [--force]
   <fil>          Én lydfil i en flat eksportmappe (cover = samme navn .png/.jpg)
   --backlog      Ingest alt som ligger i den flate eksportmappa (standard: GH_EXPORT_DIR).
   --index-sources Koble allerede ingestede låter til kildefila (hash, kun lesing) → data/sources.json
+  --backfill-masters Lag Vaults egen master-kopi (FLAC) for låter ingestet før del 10 (kun lesing i eksportmappa)
                  Viser lista først. Eksportmappa leses bare – ingenting flyttes eller endres.
   --skip <slugs> Hopp over disse (kommaseparert), f.eks. --skip midnight-rendezvous
   --yes          Start uten å spørre (backlog)
@@ -68,6 +70,27 @@ async function main() {
     for (const k of r.missing) console.log(`  ! ${k}: fant ingen fil med samme hash (endret eller flyttet etter ingest?)`);
     for (const s of r.skipped) console.log(`  ↷ ${s.fileName}: kunne ikke leses (${s.reason}) – hoppet over`);
     console.log(`\n${r.matched.length} koblet, ${r.missing.length} uten treff, ${r.scanned} filer lest. Lagret i data/sources.json (gitignored).`);
+    return;
+  }
+
+  if (args.includes('--backfill-masters')) {
+    // Del 10: Vaults egen tapsfrie kopi (master.flac) for låter ingestet før dette fantes.
+    // Leser eksportmappa (kun lesing) via data/sources.json, og bare hvis hashen fortsatt stemmer.
+    const dir = path.resolve(base, target ?? process.env.GH_EXPORT_DIR ?? '');
+    if (!target && !process.env.GH_EXPORT_DIR) throw new Error('Mangler eksportmappe: sett GH_EXPORT_DIR i .env eller oppgi mappa');
+    const sources = (await readSources(sourcesFile(mediaDir))).entries;
+    const r = await backfillMasters({
+      mediaDir,
+      exportDir: dir,
+      sources,
+      sha256: sha256File,
+      onItem: (key, status, detail) => {
+        if (status === 'made') console.log(`  ✓ ${key}  ←  ${detail}`);
+        else if (status === 'nosource') console.log(`  ! ${key}: ingen kjent kildefil (kjør «--index-sources» først, eller ingest på nytt)`);
+        else if (status === 'changed') console.log(`  ! ${key}: «${detail}» er endret siden ingest – ingest den på nytt for å få riktig master`);
+      }
+    });
+    console.log(`\n${r.made} master-kopier laget, ${r.missing} mangler kilde. Eksportmappa er ikke endret.`);
     return;
   }
 

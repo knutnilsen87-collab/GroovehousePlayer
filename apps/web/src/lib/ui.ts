@@ -33,6 +33,10 @@ interface UiState {
   closeAddSheet: () => void;
   queueOpen: boolean;
   setQueueOpen: (open: boolean) => void;
+  /** Del 10: «Del…» for denne låta (nøyaktig versjonen/varianten som vises). */
+  share: LoadedAsset | null;
+  openShare: (a: LoadedAsset) => void;
+  closeShare: () => void;
 }
 
 export const useUi = create<UiState>((set) => ({
@@ -43,5 +47,8 @@ export const useUi = create<UiState>((set) => ({
   openAddSheet: (addSheet) => set({ addSheet, actions: null }),
   closeAddSheet: () => set({ addSheet: null }),
   queueOpen: false,
-  setQueueOpen: (queueOpen) => set({ queueOpen, actions: null })
+  setQueueOpen: (queueOpen) => set({ queueOpen, actions: null }),
+  share: null,
+  openShare: (share) => set({ share, actions: null }),
+  closeShare: () => set({ share: null })
 }));

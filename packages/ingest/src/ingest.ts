@@ -20,6 +20,7 @@ import { encodeHls, encodePreview, measureLoudness, retagPreview, type EmbedTags
 import { probe, probeTags } from './ffmpeg';
 import { liveLogToMarkers } from './livelog';
 import { estimateKey, estimateTempo, segmentStructure } from './music';
+import { findMaster, makeMasterCopy } from './share';
 import { recordSources, relativeToExport, sourceKey, sourcesFile } from './source-index';
 import { readOverrides, releaseFromFolder, type MasterSource, type MetaFile, type ReleaseSource } from './sources';
 
@@ -217,6 +218,10 @@ async function ingestOne(
       report('alt', 'skip', 'samme master og cover er allerede prosessert (bruk --force for å kjøre på nytt)');
       await updateCatalog(opts.mediaDir, existing);
       await noteSource();
+      if (!findMaster(outDir)) {
+        await makeMasterCopy(master.path, outDir);
+        report('master', 'ok', 'kopi av masteren lagt til (del 10)');
+      }
       return { status: 'unchanged', manifest: existing, outDir, suno, warnings: [] };
     }
   }
@@ -317,6 +322,12 @@ async function ingestOne(
       createdAt: new Date().toISOString()
     };
     await writeFile(path.join(work, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+    // Del 10: Vaults egen tapsfrie kopi av masteren (FLAC), så deling ikke avhenger av at fila
+    // fortsatt ligger i eksportmappa, og aldri lages fra HLS. Kilden leses bare.
+    report('master', 'start');
+    const masterCopy = await makeMasterCopy(master.path, work);
+    report('master', 'ok', path.basename(masterCopy));
 
     await swapDir(work, outDir);
     await updateCatalog(opts.mediaDir, manifest);

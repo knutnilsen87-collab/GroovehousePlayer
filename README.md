@@ -101,6 +101,19 @@ Lagres av serveren på PC-en i `data/playlists.json` (gitignored, atomisk skrivi
 - **Info → Kildefil:** originalfilnavnet fra eksportmappa. Det lagres privat i `data/sources.json` (gitignored) og vises bare i Info og i Studio, aldri i delte filer, tags eller noe lyttersiden ser. Låter som ble ingestet før dette, kobles med `pnpm gh-ingest --index-sources` (leser bare eksportmappa, matcher på hash).
 - **Køen:** «Spill neste» setter låta rett etter den som spilles, «Legg til i køen» legger den bakerst. I køvisningen: hold inne og dra for å flytte (dra og slipp på desktop), sveip for å fjerne. Låta som spilles står fast. Køen lagres i nettleseren og legges tilbake pauset etter omstart. En ny liste eller låt fra katalogen erstatter køen som før.
 
+## Del en låt som fil
+
+**⋯ → Del…** på en låt (i lister, fullskjerm, dokken eller via høyreklikk) sender selve lydfila via delingsmenyen, til WhatsApp, e-post osv. Det trengs ingen sky, og ingen lenke peker tilbake til PC-en.
+
+- **Tre valg:** **Hele låten** (AAC 256 kbps fra masteren, uten loudness-endring), **Smakebit 30 s** og **Original WAV** (tapsfri, for samarbeid). Arket viser omtrentlig størrelse og filnavnet: `Echo Groove - Tittel (Variant).m4a`.
+- **To steg:** først hentes fila (med framdrift), så trykker du **Del nå**. Nettleseren krever at deling skjer direkte i et trykk.
+- **Med fila følger:** tittel, artist «Echo Groove», album, `℗ <år> Groovehouse Records`, år og cover. Har låta ikke cover, lages et reservecover med merket og tittelen. Teksten er `Echo Groove – Tittel · Groovehouse Records`, uten URL, vertsnavn eller IP.
+- **Vaults egen master:** `media/<slug>/<variant>/v<N>/master.flac` (tapsfri). Den lages ved ingest, så deling ikke avhenger av at fila fortsatt ligger i eksportmappa, og ingenting deles fra HLS. Eldre låter fylles inn med `pnpm gh-ingest --backfill-masters`. Den leser bare eksportmappa, og bare hvis fila har samme hash som da den ble ingestet. «Original WAV» lages fra FLAC-en (samme lyd sample for sample).
+- **Uten HTTPS** (Wi-Fi-modus over `http://10.0.0.47`) finnes ikke delingsmenyen. Da lastes fila ned i stedet. På PC-en finnes også **Vis i Utforsker**, som bare virker fra PC-en selv.
+- **Cache:** delte filer caches i `.../v<N>/share/` og lages på nytt når master, cover eller metadata endres. De serveres bare via `/api/share`, aldri via `/media`, og aldri til lyttersiden.
+- **Logg:** delinger logges lokalt i `data/shares.json` (låt, versjon og type, aldri mottaker), og Studio → Arkiv viser «Delt N ganger».
+- **I appen:** fila skrives til appens cache og deles med Androids delingsmeny.
+
 ## Android-app (APK)
 
 Samme spiller som på web, pakket med Capacitor (`apps/android`), men avspillingen eies av en Android-tjeneste med **Media3/ExoPlayer**. Musikken fortsetter med skjermen av og i andre apper, og styres fra varselet, låseskjermen, Bluetooth og bilen. Varselet har også **Neste seksjon**. Neste låt i køen starter selv om appen sover.

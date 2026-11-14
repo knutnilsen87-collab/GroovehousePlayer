@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { createReadStream, existsSync, readFileSync } from 'node:fs';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import sharp from 'sharp';
 import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
 import { retagSlug } from './ingest';
+import { ensureShareFile, ShareError } from './share';
+import type { AssetManifest, ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { readSources, sourceKey, sourcesFile } from './source-index';
 import { overridePath, readOverrides, type MetaFile } from './sources';
@@ -27,6 +29,8 @@ import { overridePath, readOverrides, type MetaFile } from './sources';
  *   PUT    /api/playlists/:id/cover?updatedAt=…  (bilde som body) → { playlist } | 409
  *   DELETE /api/playlists/:id/cover  { updatedAt } → { playlist } (tilbake til mosaikk)
  *   GET    /api/playlist-covers/:fil.jpg → coveret (uten EXIF)
+ *   GET    /api/share/:slug/:variant|main/:versjon?kind=full|preview|wav → fila (del 10, aldri fra /drop/)
+ *   GET    /api/shares → { counts }   POST /api/shares { slug, variant, version, kind } (lokal logg)
  *   GET    /api/sources/:slug/:variant|main/:versjon → { fileName } – «Kildefil» (privat, aldri fra /drop/)
  */
 export interface ApiOptions {
@@ -56,6 +60,33 @@ export function createApiHandler(opts: ApiOptions) {
     if (url.pathname === '/api/playlists' || url.pathname.startsWith('/api/playlists/')) {
       await handlePlaylists(playlists, url, req, res);
       return;
+    }
+    // Del 10: del en låt som fil. Aldri fra lyttersiden.
+    const sh = url.pathname.match(/^\/api\/share\/([a-z0-9][a-z0-9-]{0,120})\/([a-z0-9][a-z0-9-]{0,120})\/v?(\d{1,4})$/);
+    if (sh && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const kind = url.searchParams.get('kind') ?? 'full';
+      if (kind !== 'full' && kind !== 'preview' && kind !== 'wav') return send(res, 400, { error: 'kind må være full, preview eller wav' });
+      try {
+        const r = await shareFileFor(opts.mediaDir, root, sh[1]!, sh[2]!, Number(sh[3]), kind);
+        if (!r) return send(res, 404, { error: 'ukjent låt eller versjon' });
+        res.statusCode = 200;
+        res.setHeader('Content-Type', r.contentType);
+        res.setHeader('Content-Length', String(r.size));
+        res.setHeader('Content-Disposition', contentDisposition(r.fileName));
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.setHeader('X-Share-Filename', encodeURIComponent(r.fileName));
+        if (req.method === 'HEAD') return void res.end();
+        createReadStream(r.file).pipe(res);
+        return;
+      } catch (err) {
+        if (err instanceof ShareError) return send(res, err.status, { error: err.message });
+        return send(res, 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err) });
+      }
+    }
+    if (url.pathname === '/api/shares') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return await sharesLog(req, res, path.join(opts.dataDir ?? path.join(root, 'data'), 'shares.json'));
     }
     const src = url.pathname.match(/^\/api\/sources\/([a-z0-9][a-z0-9-]{0,120})\/([a-z0-9][a-z0-9-]{0,120})\/v?(\d{1,4})$/);
     if (src && req.method === 'GET') {
@@ -114,6 +145,52 @@ export function createApiHandler(opts: ApiOptions) {
       return send(res, 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err) });
     }
   };
+}
+
+/** Finn versjonen og lag/gjenbruk delingsfila. null = ukjent låt/versjon. */
+export async function shareFileFor(mediaDir: string, root: string, slug: string, variant: string, version: number, kind: ShareKind) {
+  const versionDir = path.join(mediaDir, slug, variant, `v${version}`);
+  const manifestFile = path.join(versionDir, 'manifest.json');
+  if (!existsSync(manifestFile)) return null;
+  const manifest = JSON.parse(await readFile(manifestFile, 'utf8')) as AssetManifest;
+  return ensureShareFile({ versionDir, manifest, kind, logo: path.join(root, 'apps', 'web', 'public', 'icons', 'icon-512.png') });
+}
+
+/** RFC 6266: ASCII-reserve + UTF-8-navn (æøå og apostrofer beholdes). */
+function contentDisposition(name: string) {
+  const ascii = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]/g, '_').replace(/["\\]/g, '_');
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name).replace(/['()]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())}`;
+}
+
+/**
+ * Lokal logg over delinger (data/shares.json): { slug, variant, version, kind, at }. Ingen mottaker
+ * (den vet vi ikke). GET gir antall per versjon («Delt 3 ganger» i Studio).
+ */
+async function sharesLog(req: IncomingMessage, res: ServerResponse, file: string) {
+  type Entry = { slug: string; variant: string; version: number; kind: string; at: string };
+  const read = async (): Promise<Entry[]> => {
+    try {
+      return ((JSON.parse(await readFile(file, 'utf8')) as { shares?: Entry[] }).shares ?? []);
+    } catch {
+      return [];
+    }
+  };
+  if (req.method === 'GET') {
+    const counts: Record<string, number> = {};
+    for (const e of await read()) counts[`${e.slug}::${e.variant}::v${e.version}`] = (counts[`${e.slug}::${e.variant}::v${e.version}`] ?? 0) + 1;
+    return send(res, 200, { counts });
+  }
+  if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' });
+  if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+  const b = (await readJson(req)) as Partial<Entry>;
+  if (!b.slug || !SLUG_RE.test(b.slug) || !b.variant || !SLUG_RE.test(b.variant) || !Number.isInteger(b.version) || !['full', 'preview', 'wav'].includes(String(b.kind)))
+    return send(res, 400, { error: 'ugyldig deling' });
+  const all = await read();
+  all.push({ slug: b.slug, variant: b.variant, version: b.version!, kind: String(b.kind), at: new Date().toISOString() });
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(`${file}.tmp`, JSON.stringify({ schema: 1, shares: all.slice(-10_000) }, null, 2));
+  await rename(`${file}.tmp`, file);
+  return send(res, 201, { ok: true });
 }
 
 /** Kommer forespørselen fra lyttersiden (/drop/...)? Da skal private ting (kildefil, deling) aldri svare. */

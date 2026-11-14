@@ -39,7 +39,8 @@ export function createMediaHandler(mediaDir: string) {
     const file = path.resolve(root, rel);
     const type = TYPES[path.extname(file).toLowerCase()];
     // Ingen traversering ut av media/, ingen skjulte filer eller arbeidsmapper, bare kjente filtyper.
-    if (!type || (file !== root && !file.startsWith(root + path.sep)) || /[\\/](\.|[^\\/]*\.(partial|old)[\\/])/.test(file.slice(root.length)) || !existsSync(file)) {
+    // share/ (delte filer, del 10) serveres bare via /api/share – aldri som vanlig media.
+    if (!type || (file !== root && !file.startsWith(root + path.sep)) || /[\\/](\.|[^\\/]*\.(partial|old)[\\/])/.test(file.slice(root.length)) || /[\\/]share[\\/]/.test(file.slice(root.length)) || !existsSync(file)) {
       return notFound(res);
     }
     const st = await stat(file);

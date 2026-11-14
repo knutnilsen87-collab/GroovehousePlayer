@@ -13,3 +13,5 @@ _(ingen ennå)_
 3. **Tillatelser i APK-en (del 12):** spesifikasjonen sier bare INTERNET, FOREGROUND_SERVICE(_MEDIA_PLAYBACK) og POST_NOTIFICATIONS. Media3/AndroidX legger selv til `ACCESS_NETWORK_STATE`, `WAKE_LOCK` og en intern AndroidX-tillatelse (ingen av dem gir dialog). Jeg har latt dem stå, fordi fjerning kan få Media3 til å krasje og ikke kan testes uten telefon. `WAKE_LOCK` hjelper dessuten avspilling med skjermen av. Si fra om de skal fjernes.
 4. **QR-paring (del 12, valgfritt):** ikke bygget. Paring skjer med adresse + PIN.
 5. **Fixtures uten kildefil:** `blue-fire` og `live-sett-demo` kommer fra `fixtures/`, ikke REASONDONE, og har derfor ingen «Kildefil».
+6. **Reservecover ved deling (del 10):** låter uten eget cover får et generert cover i den delte fila (merket, gullring, tittel). Det brukes bare i delte filer, ikke i spilleren. Vil du heller dele uten cover, er det én linje.
+7. **«Original WAV» fra FLAC (del 10):** lyden er identisk sample for sample (testet med MD5 av dekodet lyd), men fila er ikke byte-identisk med originalen (header skrives på nytt, ingen BWF/markør-chunks fra Reason).

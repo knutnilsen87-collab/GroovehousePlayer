@@ -522,6 +522,14 @@ function describeEvents(events: SeedRecipient['events'][string], m: AssetManifes
 
 function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAsset[]; title: string; log: IngestLogEntry[]; onSaved: () => void; index: IndexEntry[] }) {
   const { setQueue, playIndex } = usePlayer();
+  // Del 10: hvor mange ganger hver versjon er delt (lokal logg, data/shares.json)
+  const [shareCounts, setShareCounts] = useState<Record<string, number>>({});
+  useEffect(() => {
+    fetch('/api/shares')
+      .then((r) => (r.ok ? (r.json() as Promise<{ counts: Record<string, number> }>) : { counts: {} }))
+      .then((j) => setShareCounts(j.counts))
+      .catch(() => {});
+  }, []);
   return (
     <div className="flex flex-col gap-5">
       <h1 className="m-0 font-display text-[34px] font-semibold uppercase tracking-[1.5px] text-ink-strong">{title}</h1>
@@ -534,6 +542,7 @@ function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAss
             entry={lastLogFor(log, a)}
             onSaved={onSaved}
             versions={versionsOf(index, a.manifest.slug, a.manifest.variant)}
+            shareCounts={shareCounts}
             onPlay={(shown) => {
               // Eldre versjon: spill bare den. Nyeste: hele arkivet som kø, som før.
               const latest = shown === a;
@@ -547,7 +556,7 @@ function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAss
   );
 }
 
-function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions }: { a: LoadedAsset; entry?: IngestLogEntry; onPlay: (shown: LoadedAsset) => void; onSaved: () => void; versions: IndexEntry[] }) {
+function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }: { a: LoadedAsset; entry?: IngestLogEntry; onPlay: (shown: LoadedAsset) => void; onSaved: () => void; versions: IndexEntry[]; shareCounts: Record<string, number> }) {
   // Versjonsvelger (del 9 pkt. 13): eldre versjoner blir liggende i media/ og kan åpnes og spilles her.
   const [picked, setPicked] = useState<number>(latest.manifest.version);
   const [older, setOlder] = useState<LoadedAsset | null>(null);
@@ -590,6 +599,10 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions }: { a: Loaded
           <span className="text-xs text-[#C9C4B6]">{[m.artist, m.album && m.album !== m.title ? m.album : null, m.copyright].filter(Boolean).join(' · ')}</span>
           {m.titleNeedsReview && <span className="text-[11px] text-gold">{t.titleNeedsReview}</span>}
           {source && <span className="text-[11px] text-muted">Kildefil: <span className="text-[#C9C4B6]">{source}</span></span>}
+          {(() => {
+            const n = shareCounts[`${m.slug}::${m.variant ?? 'main'}::v${m.version}`] ?? 0;
+            return n > 0 ? <span className="text-[11px] text-muted">Delt {n} {n === 1 ? 'gang' : 'ganger'}</span> : null;
+          })()}
           <span className="text-xs text-muted">
             {m.kind} ·{' '}
             {versions.length > 1 ? (
