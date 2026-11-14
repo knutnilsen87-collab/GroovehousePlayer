@@ -17,7 +17,7 @@ Design-filene er HTML-mockups med inline-stiler og litt logikk. Bruk dem som vis
 1. **Én kodebase.** Web-app (Vite + React + TypeScript + Tailwind + Zustand + Framer Motion). Desktop via Tauri og iPhone via Capacitor kommer i senere faser – ikke nå.
 2. **Lytteren åpner en lenke i nettleseren.** Ingen konto, ingen app. iOS-PWA på hjemskjermen har upålitelig bakgrunnslyd, så drop-siden er en vanlig nettside, ikke en installerbar PWA.
 3. **Bruk aldri Web Audio API / AnalyserNode** til visualisering eller avspilling. Avspilling skjer via `<audio>` (native HLS i Safari, hls.js ellers) + Media Session API. All visualisering (bølgeform, energi) drives av forhåndsberegnet analyse-JSON synkronisert mot `currentTime`.
-4. **Gullet er rammen, coveret er innholdet.** Logo, navigasjon og kontroller bruker gull. Glød, spilt del av bølgeform og aksenter på drop-siden tar fargene fra coveret. Alle aksentfarger går via CSS-variabler (`--accent`, `--accent-2`, `--glow`) satt fra `assets.palette`. **Ingen hardkodede aksent-hex i komponentene.**
+4. **Coveret styrer fargene, gull bare i logoen** (endret 2026-11-14; erstatter «gullet er rammen», se del 14 i CLAUDE_CODE_SETUP.md). Navigasjon og kontroller bruker aksentfargen fra coveret. Glød, spilt del av bølgeform og aksenter på drop-siden tar fargene fra coveret. Alle aksentfarger går via CSS-variabler (`--accent`, `--accent-2`, `--glow`) satt fra `assets.palette`. **Ingen hardkodede aksent-hex i komponentene.**
    - Bakgrunn `#07080B`, flater `#0E1015` / `#0A0B0F`.
    - Gull (målt fra logoen): `linear-gradient(135deg, #F0DC6A 0%, #F0C030 45%, #B06000 100%)`. Ikke bruk `#FFD700`.
    - Tekst `#EDEAE2`, dempet `#A39E91`, champagne `#C9B98E`.

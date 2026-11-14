@@ -26,7 +26,7 @@ Du jobber på Knuts stasjonære Windows-PC. Prosjektets rotmappe er `F:\prosjekt
 - **Spør før** du installerer programmer (winget, npm -g), lager planlagte oppgaver, snarveier eller brannmurregler, eller skriver utenfor `F:\prosjekter_MAIN\GroovehousePlayer`.
 - Kjør det du bygger. Etter hver del: `pnpm test`, `pnpm typecheck`, og en faktisk sjekk av det delen skulle levere. Si tydelig fra hvis noe ikke virker, i stedet for å anta at det gjør det.
 - Hemmeligheter (Supabase-nøkler, PIN) skal aldri i git eller i chatten. Bruk `.env` (gitignored) eller Windows Credential Manager.
-- Ikke endre de låste beslutningene uten å spørre: ingen Web Audio på mobil, aksentfarger kun fra `assets.palette` via CSS-variabler, gull som ramme, HLS AAC 256 kbps, ingest som CLI med watcher som trigger.
+- Ikke endre de låste beslutningene uten å spørre: ingen Web Audio på mobil, aksentfarger kun fra `assets.palette` via CSS-variabler (coveret styrer alle aksenter; gull bare i logoen, se del 14), HLS AAC 256 kbps, ingest som CLI med watcher som trigger.
 - **Porter:** server **41733**, dev **41734** (ikke 5173/4747). Portene ligger i `groovehouse.config.json`, binder kun til `127.0.0.1` (unntak: LAN-modus i del 6), og velges etter sjekk mot `Get-NetTCPConnection` og `netsh interface ipv4 show excludedportrange protocol=tcp`. `GET /api/health` svarer `{ "app": "groovehouse-vault", "version": … }`. Launcheren sjekker dette før vinduet åpnes, og sier tydelig fra hvis et annet program bruker porten. Er porten tatt ved oppstart: prøv de neste 10, skriv valgt port til `%LOCALAPPDATA%\GroovehouseVault\port`, og la snarveien lese den.
 - **Media-URL:** media serveres under `/media/...` (dev og server). `apps/web/public/` er vanlig public-mappe for ikoner og manifest.
 - Kode og identifikatorer på engelsk. UI-tekst: spiller og admin på norsk, lytterside (`/drop/...`) på engelsk.
@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 14 (nytt utseende)** → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -230,12 +230,12 @@ Mål: Knut lager og endrer spillelister med ett eller to trykk, både på mobile
 12. Gi nytt navn, dupliser og slett (med bekreftelse) fra «⋯»-menyen.
 13. **Låse en bestemt versjon:** per oppføring kan Knut velge «følg nyeste» (standard), en bestemt variant, eller en bestemt **versjon** (f.eks. v3 Demo). Det krever at eldre versjoner fortsatt kan spilles. Katalogen viser i dag bare nyeste versjon per variant, så legg til en versjonsvelger på asset-siden og la eldre versjoner ligge i `media/` (de slettes ikke ved ny ingest). Står en låst versjon ikke lenger i media, vises raden som utilgjengelig med en forklaring i stedet for å forsvinne.
 14. **Eget cover for lista:** last opp et bilde (lagres i `data/playlist-covers/`, renset for EXIF som andre cover). Paletten hentes fra det med samme kontrastlås. Uten eget cover brukes mosaikken.
-15. **Fargekoding:** hver liste har en farge, valgt fra paletten i `docs/design/playlist-colors.json`: **40 farger i to grupper**, **Neon** (22) og **Candy** (18). Alle har `primary`, `secondary` og `onPrimary`, er testet til ≥ 4.5:1 kontrast mot `#07080B`, og farger som ligger for nær gullet i rammen er tatt ut. Forhåndsvisning: `docs/design/playlist-colors.png`.
+15. **Fargekoding:** hver liste har en farge, valgt fra paletten i `docs/design/playlist-colors.json`: **40 farger i to grupper**, **Neon** (22) og **Candy** (18). Alle har `primary`, `secondary` og `onPrimary`, er testet til ≥ 4.5:1 kontrast mot `#07080B`, og farger som ligger for nær gullet i logoen er tatt ut. Forhåndsvisning: `docs/design/playlist-colors.png`.
     - **Neon-glød:** prikken, «Spill»-knappen og lista som er aktiv i sidemenyen får glød i listefargen: `box-shadow: 0 0 6px {primary}, 0 0 18px {primary}99, 0 0 36px {primary}55` (oppskriften ligger også i JSON-fila under `neonGlow`). Prikken får en lys kjerne (primary blandet 60 % mot hvitt) for neonrør-effekt. Mens lista spilles, kan gløden puste svakt med sub-bassen (samme `--sub` som spilleren). Ingen pulsering ved «redusert bevegelse».
     - Fargevelger som et rutenett av glødende prikker, delt i fanene Neon og Candy, med navn ved hover/langt trykk. Ny liste får en tilfeldig farge som ikke allerede er brukt av en annen liste, om mulig.
     - Fargen brukes på prikken i sidemenyen/lista, bakgrunnsgløden i listevisningen, «Spill»-knappen i lista og en tynn kant på mosaikken.
     - **Mens musikken spilles, styrer fortsatt coveret til låta rommet** (fargetyveriet). Listefargen er listens identitet, ikke spillerens.
-    - Ikke legg gull (`#F0C030`-familien) i paletten. Gull er rammen for hele appen.
+    - Ikke legg gull (`#F0C030`-familien) i paletten. Gull er forbeholdt logoen.
 
 **Smarte lister (enkelt, gjenbruker søket)**
 12. I Ctrl+K-søket: **Lagre som smart liste** lagrer selve søket (f.eks. `124 8A`, `sett`, `extended`) som en liste som oppdaterer seg selv. Den vises med eget ikon og kan ikke sorteres manuelt.
@@ -338,6 +338,108 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 
 **Ferdig når:** Knut installerer APK-en på S22, kobler til via Tailscale, starter en spilleliste, låser skjermen og bytter til en annen app. Musikken fortsetter i 15 minutter med flere låtskifter, kan pauses og hoppes fra låseskjermen og fra Bluetooth i bilen, og «⋯ → Del…» sender fila til WhatsApp.
 
+## Del 14 – Nytt utseende: «High-End Studio»
+
+Mål: spilleren skal se ut og føles som referansebildet. Det er et produsentverktøy med glasspaneler, neon-glød, tydelig hierarki og tekniske data i monospace. Referanse: `docs/design/reference/high-end-studio.png` og forklaringen `docs/design/reference/high-end-studio-breakdown.png`. Studer begge før du starter.
+
+**Låste valg fra Knut (2026-11-14)**
+- **Coveret styrer fargene.** Cyan i bildet kommer av at coveret er blått. Med rødt cover blir hele uttrykket rød neon. Alle aksenter, glød, aktiv fane, play-ringen, slider, aktiv rad og spilt del av bølgeformen går via `--accent`, `--accent-2`, `--glow` fra `assets.palette`, som før. Ingen hardkodet cyan i komponentene. Kontrastlåsen (≥ 4.5:1) gjelder fortsatt.
+- **Gull bare i logoen.** Dette erstatter «gullet er rammen». Oppdater `README.md` og `docs/CLAUDE_CODE_PROMPT.md` tilsvarende. Rammer og paneler er nøytrale (glass) med en tynn kant i aksentfargen.
+- **Menyen er tilpasset Knuts innhold**, ikke kopiert fra bildet (se under).
+- **Ikke bygg** stripen nederst i referansebildet (Font pairing / Key traits / Design vibe). Den er en presentasjon, ikke en del av appen.
+
+**Designsystem**
+1. **Skrift:**
+   - **Satoshi** (Fontshare, ITF Free Font License; legg lisensfila ved) til overskrifter og UI.
+   - **JetBrains Mono** (OFL) til alle data: BPM, toneart, LUFS, tider, format og tallkolonner.
+   - Selvhost begge som woff2 i `apps/web/public/fonts/`, ingen CDN. Tabulære tall.
+2. **Flater:**
+   - Bakgrunn `#07080B` med en svak radial toning av aksentfargen bak hovedpanelet.
+   - Paneler som glass: `rgba(255,255,255,0.03)`, 1 px kant i aksent på 20–30 % alfa, avrundede hjørner 14–16 px og ytre glød i aksent på lav styrke.
+   - Aktive elementer får full neon-glød, med samme oppskrift som `neonGlow` i del 9.
+   - Unngå tunge `backdrop-filter` på mobil og i Android-appen.
+3. **Etiketter:** små versaler med sperring (`TRACK INFO`-stil) for paneltitler. Tekstinnhold på norsk.
+4. **Ikoner:** linjeikoner med 1,5 px strek, samme sett overalt.
+5. **Redusert bevegelse** respekteres: ingen pulsering og ingen animert glød.
+
+**Desktop-layout (≥ 1280 px), som i referansen**
+6. **Venstre sidemeny:** Hjem, Bibliotek, Spillelister, Live-sett, DJ-verktøy, Analyse, Vault (Studio). Innstillinger nederst. Aktivt punkt får glød. Spillelistene med fargeprikker (del 9) ligger under «Spillelister» som en utvidbar liste.
+7. **Øverste rad:**
+   - **Cover-kort:** cover, tittel, artist, hjerte (favoritt) og «⋯» (`TrackActions` fra del 11).
+   - **Spilles nå-panel:**
+     - Faner: **Spilles nå · Kø · Tekst · Kreditering**, med utgang-/«⋯»-ikoner til høyre.
+     - Stor bølgeform: spilt del i aksent med glød, uspilt i grått, tynn spillehode-linje og tider med millisekunder (`02:41.320`) i mono.
+     - Transport: bland, forrige, play/pause i ring, neste, gjenta.
+     - Nederste linje: volum, **A·B-løkke**, **hastighet** (1.0x) og lydinnstillinger.
+   - **Høyre kolonne:** **Låtinfo** (BPM, toneart + Camelot, LUFS, tid, format), **Bølgeform-zoom** og **Spektrum (Hz)**.
+8. **Låttabell under:**
+   - Kolonner: #, cover, tittel, artist, BPM (sorterbar), toneart, LUFS, varighet, hjerte og «⋯».
+   - Raden som spilles, markeres med aksent-bakgrunn og et lite equalizer-ikon i stedet for nummeret.
+9. **1024–1279 px:** høyre kolonne blir faner under bølgeformen (Låtinfo / Zoom / Spektrum).
+
+**Mobil og Android-app**
+10. **Fullskjermspiller**, ovenfra og ned:
+    - Cover
+    - Tittel, artist, hjerte og «⋯»
+    - Rad med brikker i mono: BPM, toneart, LUFS
+    - Bølgeform med tider
+    - Transport
+    - Volum (skjules i appen, der volumknappene brukes), A·B og hastighet
+    - Sveipbare kort: Låtinfo / Spektrum / Zoom
+    - Fanene Spilles nå · Kø · Tekst · Kreditering som segmentert kontroll
+
+    Minispiller og bunnmeny beholdes i ny stil. Listerader viser BPM og toneart i mono.
+
+**Funksjoner bildet krever**
+11. **Spektrum uten Web Audio:**
+    - Utvid analysen med `spectrum48`: 48 logaritmiske bånd 20 Hz–20 kHz, 20 bilder/s, Uint8 base64.
+    - Tegnes på canvas ut fra avspillingsposisjonen, med glatting (rask stigning, langsomt fall).
+    - Virker likt på web, desktop og i Android-appen, der lyden spilles native og ikke kan analyseres fra WebView.
+    - Øk analyse-versjonen og fyll inn for alle eksisterende låter fra `master.flac`.
+    - Mangler data: vis «Analyserer…», ikke et tomt panel.
+12. **Bølgeform-zoom:**
+    - Vindu rundt spillehodet, standard ±8 s, justerbart 2–30 s med hjul eller klyp.
+    - Dra for å spole.
+    - Viser seksjonsmarkørene og et takt-rutenett ut fra BPM.
+13. **A·B-løkke:**
+    - Sett A og B med knappen, eller dra i bølgeformen.
+    - Fester seg til takter, og Shift slår det av.
+    - I Android-appen gjøres løkken native (`NativePlayer.setLoop(a, b)`), så den virker med skjermen av.
+14. **Hastighet:**
+    - 0,90–1,10 i steg på 0,01, med tonehøyden bevart (`preservesPitch` på web, `PlaybackParameters` i ExoPlayer).
+    - Dobbeltklikk nullstiller. Hastigheten lagres ikke per låt.
+15. **Favoritter:**
+    - Hjertet lagres i `data/favorites.json` via API, med samme tilgangsregler som spillelistene.
+    - Gir en innebygd smart liste **Favoritter**.
+16. **Tekst:**
+    - Fra `data/lyrics/<slug>.lrc` (synkronisert) eller `.txt`. Kan redigeres i Studio.
+    - Synkronisert tekst ruller med avspillingen.
+    - Tom tilstand: «Ingen tekst ennå – legg til i Studio».
+17. **Kreditering:** artist, label, ℗, album, variant/versjon, ingest-dato, analyse-sikkerhet for BPM og toneart, og kildefil (privat, som i del 11).
+18. **Format:**
+    - Lagre kildeformatet fra masteren i manifestet ved ingest (f.eks. «WAV 16-bit / 44,1 kHz»), og fyll inn for eksisterende låter.
+    - Vis det i Låtinfo med strømmeformatet under, i dempet tekst («Strømmes som AAC 256 kbps»).
+19. **Nye sider, enkle i første versjon:**
+    - **Hjem:** fortsett der du slapp, nylig spilt, nylig lagt til, spillelister med glød.
+    - **DJ-verktøy:**
+      - Camelot-hjul med låtene plassert.
+      - Filter på BPM-spenn.
+      - «Passer etter denne»: Camelot ±1 eller relativ dur/moll, og BPM ±3 %.
+    - **Analyse:** egne avspillinger (mest spilt, tid lyttet) fra lokal logg. Lytteinnsikt fra andre kommer med del 13.
+
+**Kvalitet**
+20. Ytelse:
+    - Bølgeform, zoom og spektrum tegnes på canvas og pauses når fanen er skjult.
+    - Mål 60 fps på desktop og stabile 30 fps på S22 i appen.
+21. Tilgjengelighet: tastaturnavigasjon, fokusringer i aksent, `aria`-etiketter på transport og faner.
+
+**Tester:**
+- Analyse: `spectrum48` (størrelse og frekvensakser).
+- Avspilling: A·B-løkke (web og native-kontrakt), hastighet og tonehøyde, favoritter (API), parsing av LRC.
+- Visuell sammenligning: skjermbilder i hodeløs Edge i 1536×1024 og 390×844, med to låter med ulik coverfarge. Legg dem side om side med referansen i `docs/design/compare/` så Knut kan se dem.
+
+**Ferdig når:** Knut åpner desktop-appen og spiller en låt med blått cover, og det ligner referansebildet. Han bytter til en låt med rødt cover, og hele uttrykket blir rød neon. Fullskjermspilleren i Android-appen har samme stil, med spektrum som beveger seg i takt med musikken mens han spiller med skjermen på.
+
 ## Del 13 – Deling med lenker (drops)
 
 Mål: Knut sender én låt, en spilleliste eller et live-sett til en bestemt person med **én lenke**. Mottakeren trykker og hører, uten noe annet. Lenken kan trekkes tilbake, utløper og gir lytteinnsikt. Dette er alternativet til fildelingen i del 10 når Knut vil ha kontroll over hvor musikken havner.
@@ -357,7 +459,7 @@ Tailscale-adressen virker bare for Knuts egne enheter og skal **aldri** havne i 
 1. **Worker** `groovehouse-listen` på ruten `listen.groovehouserecords.com/*`, i `apps/listen-worker` (TypeScript, wrangler).
 2. **R2-bucket** `groovehouse-drops` (privat): HLS-segmenter, cover, `analysis.json` og eventuelt `.m4a` for nedlasting, **bare for låter som ligger i en drop**. Hele katalogen lastes aldri opp. Ingen offentlig tilgang til bucketen; alt går via Workeren.
 3. **D1** `groovehouse-listen` for `drops`, `drop_items`, `invites`, `invite_devices`, `listen_events` og `access_requests`. Bruk skjemaet fra `supabase/migrations/20261113000000_init.sql` som utgangspunkt, oversatt til SQLite. **Endring fra tidligere plan:** D1 i stedet for Supabase, så alt ligger i én konto og ingen nye tjenester trengs. Supabase-migrasjonene beholdes til del 5.
-4. **Lyttersiden** (`/d/<token>`) er en egen liten side servert av Workeren, på engelsk, i samme stil som spilleren: Obsidian-bakgrunn, gull som ramme, farger fra coveret. Bruk komponentene fra `apps/web` (bølgeform, spillerkontroller) der det går, men bygg den som eget lettvektig bundle. Ingen innlogging, innstillinger eller installering.
+4. **Lyttersiden** (`/d/<token>`) er en egen liten side servert av Workeren, på engelsk, i samme stil som spilleren: samme designsystem som del 14 (glasspaneler, Satoshi + JetBrains Mono, neon fra coveret). Bruk komponentene fra `apps/web` (bølgeform, spillerkontroller) der det går, men bygg den som eget lettvektig bundle. Ingen innlogging, innstillinger eller installering.
 5. **PC-en** er admin: Studio/Command Center lager drops og snakker med Workerens admin-API med et admin-token. Tokenet ligger som Worker-secret og i Windows Credential Manager, aldri i git.
 
 **Sikkerhet og tokens**
