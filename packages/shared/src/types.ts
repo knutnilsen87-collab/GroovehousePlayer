@@ -30,6 +30,8 @@ export interface AssetMarker {
   refSlug?: string;
   confidence?: number;
   confirmed: boolean;
+  /** Del 3: tempo i dette kapittelet (live-sett), når det kan måles. */
+  bpm?: number;
 }
 
 export interface Loudness {

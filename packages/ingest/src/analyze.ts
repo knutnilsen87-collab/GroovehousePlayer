@@ -7,8 +7,12 @@ const FFT_SIZE = 4096;
 const BANDS = 8;
 /** Hopp for onset-konvolutten (tempo): 128 samples ≈ 5,8 ms */
 export const ONSET_HOP = 128;
-/** Tempo regnes fra maks de første 4 minuttene etter intro – nok, og sett kan endre tempo underveis. */
-const ONSET_MAX_SAMPLES = 6 * 60 * RATE;
+/** Låter: tempo fra de første 6 minuttene. Sett: hele lengden (del 3: tempo per kapittel). */
+export const ONSET_TRACK_SAMPLES = 6 * 60 * RATE;
+/** Del 3: HPCP med 240 bøtter per oktav (5 cent), for tuning-estimat før folding til 12 tonehøyder. */
+export const HPCP_BINS = 240;
+/** Rammer med høyere spektral flathet (trommer, støy) tas ikke med i tonearts-analysen. */
+const FLATNESS_MAX = 0.35;
 const SUB_FRAME_MS = 50;
 
 export interface AnalysisResult {
@@ -17,8 +21,12 @@ export interface AnalysisResult {
   firstTransientMs: number | null;
   /** Positiv fluks i bass-konvolutten, ett tall per ONSET_HOP. Til tempoestimat. */
   onset: Float32Array;
-  /** Akkumulert kromagram (12 tonehøydeklasser, C = 0). Til tonearts-estimat. */
+  /** Akkumulert kromagram (12 tonehøydeklasser, C = 0) – den opprinnelige metoden (alle bins, alle rammer). */
   chroma: number[];
+  /** Del 3: HPCP (240 per oktav, C = 0): bare harmoniske rammer, spektraltopper med harmonisk vekting. */
+  hpcp: number[];
+  /** Andel rammer som var harmoniske nok til å telle i HPCP. */
+  harmonicShare: number;
 }
 
 /** Enkel ett-pols lavpass. Kaskadér for brattere filter. */
@@ -48,8 +56,11 @@ export function analyze(file: string, durationMs: number, opts: { peaks?: number
   const count = new Uint32Array(nEnergy);
   const subSq = new Float64Array(nSub);
   const subN = new Uint32Array(nSub);
-  const onsetEnv = new Float32Array(Math.ceil(Math.min(totalSamples, ONSET_MAX_SAMPLES) / ONSET_HOP) + 1);
+  const onsetEnv = new Float32Array(Math.ceil(totalSamples / ONSET_HOP) + 2);
   const chroma = new Array<number>(12).fill(0);
+  const hpcp = new Array<number>(HPCP_BINS).fill(0);
+  const hpcpAll = new Array<number>(HPCP_BINS).fill(0);
+  const tally = { harmonic: 0, total: 0 };
   const frames: number[][] = [];
   const fftBuf = new Float32Array(FFT_SIZE);
 
@@ -111,7 +122,7 @@ export function analyze(file: string, durationMs: number, opts: { peaks?: number
         }
 
         // Onset-konvolutt: glattet |bass| per hopp
-        if (i < ONSET_MAX_SAMPLES) {
+        {
           env = (1 - aEnv) * Math.abs(low2) + aEnv * env;
           hopAcc += env;
           if (++hopN === ONSET_HOP) {
@@ -130,7 +141,7 @@ export function analyze(file: string, durationMs: number, opts: { peaks?: number
         if (collecting) {
           fftBuf[fftFill++] = x;
           if (fftFill === FFT_SIZE) {
-            frames.push(analyseFrame(fftBuf, chroma));
+            frames.push(analyseFrame(fftBuf, chroma, hpcp, hpcpAll, tally));
             collecting = false;
             nextFrameAt += frameStride;
           }
@@ -160,6 +171,9 @@ export function analyze(file: string, durationMs: number, opts: { peaks?: number
         firstTransientMs: firstTransient,
         onset,
         chroma,
+        // For få harmoniske rammer (f.eks. bare trommer): bruk alle, heller enn ingenting
+        hpcp: tally.harmonic >= Math.max(8, tally.total * 0.1) ? hpcp : hpcpAll,
+        harmonicShare: tally.total ? round3(tally.harmonic / tally.total) : 0,
         analysis: {
           schema: 1,
           durationMs,
@@ -179,7 +193,7 @@ export function analyze(file: string, durationMs: number, opts: { peaks?: number
 }
 
 /** Bånd-energier for spektrumvisning + akkumulering av kroma (150 Hz – 5 kHz) for toneart. */
-function analyseFrame(frame: Float32Array, chroma: number[]): number[] {
+function analyseFrame(frame: Float32Array, chroma: number[], hpcp: number[], hpcpAll: number[], tally: { harmonic: number; total: number }): number[] {
   const re = new Float64Array(FFT_SIZE);
   const im = new Float64Array(FFT_SIZE);
   for (let k = 0; k < FFT_SIZE; k++) {
@@ -198,6 +212,7 @@ function analyseFrame(frame: Float32Array, chroma: number[]): number[] {
     const pc = ((Math.round(midi) % 12) + 12) % 12;
     chroma[pc] = chroma[pc]! + mag[k]! * mag[k]!;
   }
+  accumulateHpcp(mag, binHz, hpcp, hpcpAll, tally);
 
   const nyq = RATE / 2;
   const edges = Array.from({ length: BANDS + 1 }, (_, b) => 40 * Math.pow(nyq / 40, b / BANDS));
@@ -210,6 +225,51 @@ function analyseFrame(frame: Float32Array, chroma: number[]): number[] {
     out.push(s / (hi - lo));
   }
   return out;
+}
+
+/**
+ * Del 3: HPCP-bidrag fra én ramme. Bare rammer som er harmoniske nok (lav spektral flathet, altså ikke
+ * trommer/støy), bare spektraltopper (−40 dB under rammens sterkeste), frekvens finjustert med
+ * parabelinterpolasjon, og hver topp gir bidrag til mulige grunntoner f/h (h = 1–4) med fallende vekt.
+ */
+function accumulateHpcp(mag: Float64Array, binHz: number, hpcp: number[], hpcpAll: number[], tally: { harmonic: number; total: number }) {
+  const lo = Math.ceil(100 / binHz);
+  const hi = Math.min(mag.length - 2, Math.floor(5000 / binHz));
+  let logSum = 0;
+  let sum = 0;
+  let max = 0;
+  for (let k = lo; k <= hi; k++) {
+    const p = mag[k]! * mag[k]! + 1e-12;
+    logSum += Math.log(p);
+    sum += p;
+    if (mag[k]! > max) max = mag[k]!;
+  }
+  const n = hi - lo + 1;
+  if (!(max > 0) || n <= 0) return;
+  const flatness = Math.exp(logSum / n) / (sum / n);
+  tally.total++;
+  const harmonic = flatness <= FLATNESS_MAX;
+  if (harmonic) tally.harmonic++;
+  const thr = max * 0.01;
+  for (let k = lo + 1; k < hi; k++) {
+    const b = mag[k]!;
+    if (b < thr || b <= mag[k - 1]! || b < mag[k + 1]!) continue;
+    const a = mag[k - 1]!;
+    const c = mag[k + 1]!;
+    const d = a - 2 * b + c;
+    const off = d !== 0 ? Math.max(-0.5, Math.min(0.5, (0.5 * (a - c)) / d)) : 0;
+    const f = (k + off) * binHz;
+    const amp = b - 0.25 * (a - c) * off;
+    for (let h = 1; h <= 4; h++) {
+      const f0 = f / h;
+      if (f0 < 55) break;
+      const midi = 69 + 12 * Math.log2(f0 / 440);
+      const idx = ((Math.round(midi * (HPCP_BINS / 12)) % HPCP_BINS) + HPCP_BINS) % HPCP_BINS;
+      const w = amp * Math.pow(0.6, h - 1);
+      hpcpAll[idx] = hpcpAll[idx]! + w;
+      if (harmonic) hpcp[idx] = hpcp[idx]! + w;
+    }
+  }
 }
 
 /** In-place radix-2 FFT. */

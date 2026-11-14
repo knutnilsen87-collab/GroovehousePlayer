@@ -17,6 +17,11 @@ export interface VaultConfig {
   colors: { minContrast: number; colorFallback: boolean };
   /** Del 8: standarder for drops (lagres nå, brukes i delingsfasen). */
   drops: { tier: 'partner' | 'inner_circle' | 'supporter' | 'teaser'; ttlDays: number; maxDevices: number; watermark: boolean };
+  /**
+   * Del 3: tonearts-metode. «krumhansl» = som før (standard til fasiten avgjør), «edma» = HPCP med tuning,
+   * bare harmoniske rammer og EDMA-profiler. Sammenlign med `pnpm eval:analysis <mappe>` mot fixtures/truth.json.
+   */
+  analysis: { keyMethod: 'krumhansl' | 'edma' };
   /** Eksportmappa (Reason-bounces). Lagres lokalt (groovehouse.local.json); ellers GH_EXPORT_DIR i .env. */
   exportDir: string | null;
 }
@@ -51,6 +56,7 @@ const FALLBACK: VaultConfig = {
   ingest: { setThresholdMinutes: 20, rules: [] },
   colors: { minContrast: 4.5, colorFallback: true },
   drops: { tier: 'partner', ttlDays: 30, maxDevices: 2, watermark: true },
+  analysis: { keyMethod: 'krumhansl' },
   exportDir: null
 };
 export const DEFAULTS: Readonly<VaultConfig> = FALLBACK;
@@ -108,6 +114,7 @@ export function loadConfig(root = findRoot()): VaultConfig {
     ingest: { ...FALLBACK.ingest, ...(j.ingest ?? {}), ...(l.ingest ?? {}) },
     colors: legacyColors({ ...FALLBACK.colors, ...(j.colors ?? {}), ...(l.colors ?? {}) }),
     drops: { ...FALLBACK.drops, ...(j.drops ?? {}), ...(l.drops ?? {}) },
+    analysis: { keyMethod: (l.analysis?.keyMethod ?? j.analysis?.keyMethod) === 'edma' ? 'edma' : 'krumhansl' },
     // Eksportmappa er maskinspesifikk: bare fra den lokale fila (eller .env)
     exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null
   };

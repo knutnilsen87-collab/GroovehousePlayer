@@ -1,0 +1,166 @@
+{
+  "_les_meg": [
+    "Fasit for del 3: fyll inn «bpm» (tall, f.eks. 126) og «camelot» (f.eks. «8A») for 5–10 låter du kjenner sikkert.",
+    "La «null» stå for låter du er usikker på – de telles ikke. «tittel» og «vault» er bare hjelp (Vaults analyse i dag).",
+    "Låtene merket «metodene uenige» er mest nyttige: der avgjør fasiten om den nye metoden (EDMA) skal tas i bruk.",
+    "Kjør så: pnpm eval:analysis \"F:\\EchoGroove\\EchoAI\\REASONDONE\"  (leser bare mappa)"
+  ],
+  "tracks": {
+    "all-about-the-hussle": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "All About The Hussle",
+      "vault": "126 BPM · 5B (metodene uenige: før 5B, ny 4B)"
+    },
+    "baby-don-t-go": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Baby, Don't Go",
+      "vault": "126.2 BPM · 10B (metodene uenige: før 10B, ny 7A)"
+    },
+    "back-door-code": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Back Door Code",
+      "vault": "133.5 BPM · 5A"
+    },
+    "city-sleeps": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "City Sleeps",
+      "vault": "126.2 BPM · 10A"
+    },
+    "eyes-on-you": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Eyes On You",
+      "vault": "127.5 BPM · 4A"
+    },
+    "feel-good": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Feel Good",
+      "vault": "126 BPM · 6A"
+    },
+    "i-see-you": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "I See You",
+      "vault": "126 BPM · 7B (metodene uenige: før 7B, ny 4A)"
+    },
+    "ill-keep-it-real": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "I’ll Keep It Real",
+      "vault": "125.7 BPM · 9A"
+    },
+    "it-s-all-an-illusion": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "It's All An Illusion",
+      "vault": "132.4 BPM · 9A"
+    },
+    "late-night": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Late Night",
+      "vault": "129.2 BPM · 9A"
+    },
+    "let-me-rest": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Let Me Rest",
+      "vault": "130.9 BPM · 9A"
+    },
+    "midnight-rendezvous": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Midnight Rendezvous",
+      "vault": "ikke i katalogen ennå (eval: 127,7–128 BPM · 5A)"
+    },
+    "midnight-stutter": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Midnight Stutter",
+      "vault": "134.2 BPM · 6A"
+    },
+    "music-in-my-soul": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Music In My Soul",
+      "vault": "129.4 BPM · 7A (metodene uenige: før 7A, ny 6A)"
+    },
+    "out-of-control": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Out Of Control",
+      "vault": "133.7 BPM · 12B (metodene uenige: før 12B, ny 11B)"
+    },
+    "push-it": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Push It",
+      "vault": "124.8 BPM · 12B"
+    },
+    "shake-the-ground": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Shake The Ground",
+      "vault": "130.8 BPM · 4A"
+    },
+    "soul-purpose": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Soul Purpose",
+      "vault": "132.3 BPM · 7A"
+    },
+    "swaggering-lead-stabs": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Swaggering Lead Stabs",
+      "vault": "130.7 BPM · 7B (metodene uenige: før 7B, ny 5A)"
+    },
+    "terrace-heat": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Terrace Heat",
+      "vault": "126 BPM · 6B (metodene uenige: før 6B, ny 3A)"
+    },
+    "that-feeling": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "That Feeling",
+      "vault": "127.7 BPM · 12B (metodene uenige: før 12B, ny 9A)"
+    },
+    "this-is-how-we-do-it": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "This Is How We Do It",
+      "vault": "132.5 BPM · 6A"
+    },
+    "walkoff": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Walkoff",
+      "vault": "126.1 BPM · 7A (metodene uenige: før 7A, ny 6A)"
+    },
+    "welcome-to-the-carnival": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Welcome To The Carnival",
+      "vault": "133.6 BPM · 12B"
+    },
+    "whatchu-talkin-bout": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Whatchu Talkin' Bout",
+      "vault": "128.4 BPM · 2A"
+    },
+    "your-hand-leaves-a-mark": {
+      "bpm": null,
+      "camelot": null,
+      "tittel": "Your Hand Leaves A Mark",
+      "vault": "126.1 BPM · 8B (metodene uenige: før 8B, ny 5A)"
+    }
+  }
+}

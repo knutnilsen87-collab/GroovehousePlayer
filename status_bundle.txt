@@ -28,7 +28,7 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-14T16:05:00+01:00"
+last_updated: "2026-11-14T17:10:00+01:00"
 updated_by: "Claude Code (Claude Opus 5.5)"
 
 # ============================================================
@@ -55,21 +55,19 @@ environment: "lokal (Windows, Knuts stasjonære PC)"
 current_state:
   status: "in_progress"
   state_summary: >
-    Alt arbeid samles på setup/del-0 (Knut 2026-11-14: kjør gjennom alle deler selv, push dit, ikke merge til main).
-    Løpende plan og status per del står i docs/PROGRESS.md; spørsmål i docs/OPEN_QUESTIONS.md.
-    Ferdig: del 9, 11, 12 (APK bygget, ikke kjørt på telefon), 10, 1 pkt. 7–8, 8 og 14 (nytt utseende
-    «High-End Studio»: coveret styrer fargene, gull bare i logoen; spektrum, favoritter, tekst, A·B, hastighet,
-    Hjem/DJ-verktøy/Analyse; native løkke/hastighet/gjenta i Android). 164 enhetstester grønne.
-    UI verifiseres i hodeløs Edge via DevTools-protokollen (skript i scratchpad).
-    Neste: del 2 (markør-editor) → 4 → 3. Del 5 hoppes over (ingen Supabase-nøkler). Del 13 er ikke i denne runden.
-    Ikke verifisert: fysisk telefon og bil, autostart etter ekte omstart.
+    Alt arbeid samles på setup/del-0 (ikke merget til main). Plan og status per del: docs/PROGRESS.md; spørsmål: docs/OPEN_QUESTIONS.md.
+    Ferdig: del 9, 11, 12, 10, 1 pkt. 7–8, 8, 15 (appen oppdaterer seg selv), 14 (nytt utseende), 2 (markør-editor),
+    4 (parallell ingest, målt 10,6 → 6,4 s) og 3 så langt det går uten fasit (eval:analysis, syntetisk BPM 12/16 → 16/16).
+    205 enhetstester grønne. Fargeløse cover og standard = cyan #01E6FC; gull bare i logoen. Advarsel ved skysynkronisert prosjektmappe.
+    APK med oppdatereren: dist/android/groovehouse-vault-0.1.0.apk (versionCode 51), også publisert i data/app/apk.
+    Ikke verifisert: alt på telefon/bil (ingen emulator), autostart etter ekte omstart, «Ferdig når» for del 2/14/15 på Knuts utstyr.
   recommended_next_action: >
-    Fortsett med del 2 etter docs/PROGRESS.md.
+    Vent på fasit i fixtures/truth.json (del 3) og Knuts tester på telefon. Del 13 (deling med lenker) og del 5 (Supabase) er ikke i denne runden.
   active_blockers:
-    - "Del 3 krever fasit (BPM/toneart) for 5–10 låter fra Knut."
-    - "Del 5 krever at Knut oppretter Supabase-prosjekt og legger URL og anon-nøkkel i .env."
-    - "Google Drive ser ut til å synkronisere prosjektmappa inkl. media/ (OPEN_QUESTIONS 12) – Knut må avgjøre."
-  last_verified_at: "2026-11-14T16:00:00+01:00"
+    - "Del 3: fasit for 5–10 låter i fixtures/truth.json (avgjør Krumhansl eller EDMA)."
+    - "Del 5 krever Supabase-prosjekt og nøkler i .env."
+    - "Google Drive synkroniserer F:\prosjekter_MAIN (Knut tar dette selv)."
+  last_verified_at: "2026-11-14T17:05:00+01:00"
 
 # ============================================================
 # TASK AND SCOPE / OPPGAVE OG AVGRENSNING

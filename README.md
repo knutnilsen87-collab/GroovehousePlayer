@@ -130,6 +130,17 @@ Lagres av serveren på PC-en i `data/playlists.json` (gitignored, atomisk skrivi
 - **Nytt utseende «High-End Studio» (del 14):** Satoshi (UI) og JetBrains Mono (data), selvhostet i `apps/web/public/fonts/` med lisensene. Glasspaneler, neon-glød og alle aksenter fra coveret (`--accent`), gull bare i logoen. Desktop: sidemeny (Hjem, Bibliotek, Spillelister, Live-sett, DJ-verktøy, Analyse, Vault, Innstillinger), dekket øverst på Hjem og Bibliotek (cover-kort, Spilles nå med faner Spilles nå · Kø · Tekst · Kreditering, stor bølgeform med ms-tider, transport med bland/gjenta, volum, A·B-løkke, hastighet 0,90–1,10), høyre kolonne med Låtinfo, Bølgeform-zoom (±8 s, hjul/klyp 2–30 s, takt-rutenett) og Spektrum (Hz), og låttabellen (sorterbar BPM, toneart, LUFS, hjerte, «⋯»). 1024–1279 px: høyre kolonne blir faner.
 - **Favoritter, tekst og egne avspillinger (del 14):** hjertet lagres i `data/favorites.json` og gir smartlista «Favoritter». Sangtekst i `data/lyrics/<slug>.lrc|.txt`, redigeres i Studio (Rediger på låta; Ctrl+Enter setter tidsstempel fra spillehodet mens låta spilles). Egne avspillinger logges i `data/listens.json` og vises under Analyse og «Nylig spilt» på Hjem. Samme tilgangsregler som spillelistene.
 - **A·B-løkke:** knappen (A her → B her → av) eller dra i bølgeformen. Fester seg til takter; hold Shift for å slå det av. Hastigheten beholder tonehøyden og lagres ikke per låt.
+- **BPM og toneart (del 3):** `pnpm eval:analysis <mappe>` analyserer filene (bare lesing) og sammenligner den gamle og den nye metoden med fasiten i `fixtures/truth.json` (slug → `bpm`, `camelot`). `pnpm eval:analysis --synthetic` bruker en syntetisk house-samling med kjent fasit: akkorder over bass-pedal, kick og hi-hat, noen med halvtempo-kick, mye støy eller feilstemming opp til ±45 cent.
+  - **Tempo (i bruk):** autokorrelasjon av bass-onset lest som en kam over 1, 2, 4 og 8 slag, i et rutenett på 0,05 BPM. Halv eller dobbel tempo velges i 118–132 når pulsen er tydelig. Sett får tempo per kapittel (`bpm` på kapittelmarkøren), og tempoendringer står i ingest-loggen.
+  - **Toneart:** HPCP med 5-cent oppløsning (240 per oktav), bare harmoniske rammer (lav spektral flathet, ikke trommer), spektraltopper med harmonisk vekting (h = 1–4), tuning-estimat før folding, og EDMA-profilene til Faraldo et al. (2016). Den gamle Krumhansl-metoden er fortsatt standard (`analysis.keyMethod: "krumhansl"` i `groovehouse.config.json`) til fasiten avgjør. Sett `"edma"` for å bytte.
+  - Essentia.js er ikke tatt inn (AGPL-3.0).
+
+  | Treffrate (syntetisk, 16 filer) | Toneart | BPM ±0,5 |
+  |---|---|---|
+  | Før (Krumhansl, tempo 90–150) | 16/16 | 12/16 |
+  | Nå (HPCP + tuning + EDMA; kam + house) | 16/16 | 16/16 |
+
+  På de 26 ekte låtene i REASONDONE er metodene enige om BPM (stort sett innenfor ±1), men uenige om toneart på 10 låter, nesten alltid dur mot parallell eller relativ moll. Det avgjøres av fasiten.
 - **Raskere ingest (del 4):** alt som bare leser masteren, kjører samtidig: analyse (med spektrum og format), LUFS, HLS, cover og master-kopi. Tempo, toneart, struktur og preview venter bare på analysen. Sett over 20 minutter viser fremdrift i prosent i terminalen og på ingest-kortet i Studio (`media/ingest-progress.json`, finnes bare mens det kjører). Mål selv med `pnpm ingest:bench` (bruker en midlertidig mediemappe, rører ikke `media/`).
 
   | Fil (i9-13900F, 32 kjerner) | Før (etter hverandre) | Etter (parallelt) |

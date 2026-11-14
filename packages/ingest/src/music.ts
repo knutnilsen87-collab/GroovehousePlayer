@@ -102,6 +102,140 @@ function pearson(a: number[], b: number[]): number {
   return da && db ? num / Math.sqrt(da * db) : 0;
 }
 
+// ------------------------------------------------------------------ Del 3: EDMA, tuning og house-tempo
+
+/**
+ * Faraldo et al. (2016), «Key Estimation in Electronic Dance Music» – EDMA-profilene, slik de brukes som
+ * profil «edma» i Essentia (bare tallene; ingen Essentia-kode er tatt inn).
+ */
+const EDMA_MAJOR = [1.0, 0.29, 0.5, 0.4, 0.6, 0.56, 0.32, 0.8, 0.31, 0.45, 0.42, 0.39];
+const EDMA_MINOR = [1.0, 0.31, 0.44, 0.58, 0.33, 0.49, 0.29, 0.78, 0.43, 0.29, 0.53, 0.32];
+
+/**
+ * Tuning før kromagrammet: finn forskyvningen (i steg på 100/«bøtter per halvtone» cent, ±50) der energien samler seg
+ * om halvtonene, og fold 120 bøtter til 12 tonehøydeklasser rundt den.
+ */
+export function foldHpcp(hpcp: number[]): { chroma: number[]; tuningCents: number } {
+  const B = hpcp.length;
+  const per = B / 12;
+  const at = (i: number) => hpcp[((i % B) + B) % B] ?? 0;
+  let bestT = 0;
+  let best = -Infinity;
+  for (let t = -Math.floor(per / 2); t < Math.ceil(per / 2); t++) {
+    let sc = 0;
+    for (let s = 0; s < 12; s++) sc += at(s * per + t) + 0.5 * (at(s * per + t - 1) + at(s * per + t + 1));
+    // Ved (nesten) likt: minst mulig tuning
+    if (sc > best * (1 + 1e-9) || (Math.abs(sc - best) <= best * 1e-9 && Math.abs(t) < Math.abs(bestT))) {
+      best = sc;
+      bestT = t;
+    }
+  }
+  const chroma = Array.from({ length: 12 }, (_, s) => {
+    let sum = 0;
+    for (let d = -Math.floor(per / 2); d < Math.ceil(per / 2); d++) sum += at(s * per + bestT + d);
+    return sum;
+  });
+  return { chroma, tuningCents: Math.round((bestT * 100) / per) };
+}
+
+/** Del 3: toneart fra HPCP med tuning og EDMA-profiler (i stedet for Krumhansl). */
+export function estimateKeyEdma(hpcp: number[]): (MusicalKey & { tuningCents: number }) | null {
+  const { chroma, tuningCents } = foldHpcp(hpcp);
+  const total = chroma.reduce((a, b) => a + b, 0);
+  if (!(total > 0)) return null;
+  const c = chroma.map((v) => v / total);
+  const results: Array<{ pc: number; minor: boolean; r: number }> = [];
+  for (let pc = 0; pc < 12; pc++) {
+    for (const minor of [false, true]) {
+      const prof = minor ? EDMA_MINOR : EDMA_MAJOR;
+      results.push({ pc, minor, r: pearson(c, c.map((_, k) => prof[(k - pc + 12) % 12]!)) });
+    }
+  }
+  results.sort((a, b) => b.r - a.r);
+  const best = results[0]!;
+  const second = results[1]!;
+  return {
+    name: `${NAMES[best.pc]} ${best.minor ? 'minor' : 'major'}`,
+    camelot: camelotOf(best.pc, best.minor),
+    confidence: round3(Math.max(0, Math.min(1, (best.r - second.r) * 5 + Math.max(0, best.r) * 0.5))),
+    tuningCents
+  };
+}
+
+/** House-området: ved tydelig puls foretrekkes en oktav-variant her (118–132 BPM). */
+export const HOUSE_MIN = 118;
+export const HOUSE_MAX = 132;
+
+/**
+ * Del 3: tempo med kam over flere slag og house-regel.
+ *  - Autokorrelasjonen leses ved 1, 2, 4 og 8 slag (med interpolasjon), så tempoet bestemmes av lange
+ *    perioder (presisjon ~1/8 hopp) i stedet for ett enkelt slag.
+ *  - BPM søkes 90–150 i steg på 0,05; 118–132 (house) får et lite fortrinn.
+ *  - Halv/dobbel tempo som havner i 118–132 velges når pulsen er tydelig og den er nesten like sterk.
+ */
+export function estimateTempoHouse(onset: Float32Array, hopRate: number): { bpm: number; confidence: number; house: boolean } | null {
+  const n = onset.length;
+  if (n < hopRate * 8) return null;
+  let mean = 0;
+  for (const v of onset) mean += v;
+  mean /= n;
+  const x = Float64Array.from(onset, (v) => v - mean);
+  const maxLag = Math.min(n - 1, Math.ceil(((hopRate * 60) / 90) * 8) + 2);
+  const acf = new Float64Array(maxLag + 1);
+  for (let lag = 0; lag <= maxLag; lag++) {
+    let sum = 0;
+    for (let k = 0; k + lag < n; k++) sum += x[k]! * x[k + lag]!;
+    acf[lag] = sum / (n - lag);
+  }
+  if (!(acf[0]! > 0)) return null;
+  const at = (lag: number) => {
+    if (lag >= maxLag) return 0;
+    const i = Math.floor(lag);
+    const f = lag - i;
+    return acf[i]! * (1 - f) + acf[i + 1]! * f;
+  };
+  const score = (bpm: number) => {
+    const beat = (hopRate * 60) / bpm;
+    return at(beat) + 0.8 * at(2 * beat) + 0.6 * at(4 * beat) + 0.4 * at(8 * beat);
+  };
+  let best = -Infinity;
+  let bestBpm = 0;
+  for (let b = 90; b <= 150; b += 0.05) {
+    const sc = score(b) * (b >= HOUSE_MIN && b <= HOUSE_MAX ? 1.1 : 1);
+    if (sc > best) {
+      best = sc;
+      bestBpm = b;
+    }
+  }
+  const confidence = round3(Math.max(0, Math.min(1, at((hopRate * 60) / bestBpm) / acf[0]!)));
+  let bpm = bestBpm;
+  let house = bpm >= HOUSE_MIN && bpm <= HOUSE_MAX;
+  if (!house && confidence >= 0.15) {
+    for (const f of [2, 0.5]) {
+      const alt = bestBpm * f;
+      if (alt >= HOUSE_MIN && alt <= HOUSE_MAX && score(alt) >= 0.7 * score(bestBpm)) {
+        bpm = alt;
+        house = true;
+        break;
+      }
+    }
+  }
+  return { bpm: Math.round(bpm * 10) / 10, confidence, house };
+}
+
+/**
+ * Del 3: tempo per kapittel i et sett (minst 16 s per kapittel). Brukes til å rapportere tempoendringer.
+ * `onset` dekker hele settet med `hopRate` verdier per sekund.
+ */
+export function tempoPerChapter(onset: Float32Array, hopRate: number, chapters: Array<{ startMs: number; endMs?: number | null }>, durationMs: number): Array<number | null> {
+  return chapters.map((c) => {
+    const a = Math.floor((c.startMs / 1000) * hopRate);
+    const b = Math.min(onset.length, Math.floor(((c.endMs ?? durationMs) / 1000) * hopRate));
+    if (b - a < hopRate * 16) return null;
+    return estimateTempoHouse(onset.subarray(a, b), hopRate)?.bpm ?? null;
+  });
+}
+
 // ------------------------------------------------------------------ Struktur
 
 interface Segment {

@@ -18,13 +18,13 @@ import {
   type Palette,
   manualPalette
 } from '@gv/shared';
-import { analyze, ONSET_HOP, RATE } from './analyze';
+import { analyze, ONSET_HOP, ONSET_TRACK_SAMPLES, RATE } from './analyze';
 import { formatCopyright, loadConfig, matchRule, type VaultConfig } from './config';
 import { paletteFrom, processCover } from './cover';
 import { encodeHls, encodePreview, measureLoudness, retagPreview, type EmbedTags } from './encode';
 import { probe, probeTags } from './ffmpeg';
 import { liveLogToMarkers } from './livelog';
-import { estimateKey, estimateTempo, segmentStructure } from './music';
+import { estimateKey, estimateKeyEdma, estimateTempoHouse, segmentStructure, tempoPerChapter } from './music';
 import { findMaster, makeMasterCopy } from './share';
 import { analyzeSpectrum48, probeSourceFormat, SPECTRUM48_FILE } from './spectrum';
 import { previousEdited, readMarkersFile, writeMarkersFile } from './markers-file';
@@ -282,9 +282,13 @@ async function ingestOne(
     // Ingen ubehandlede avvisninger mens vi venter på analysen: feil fanges i Promise.all under
     for (const p of [loudnessP, hlsP, masterP, coverP]) p.catch(() => {});
 
-    const { analysis, firstTransientMs, onset, chroma, sourceFormat } = await analysisP;
-    const tempo = resolveTempo(meta.bpm, master.bpmHint, estimateTempo(onset, RATE / ONSET_HOP), report);
-    const key = meta.camelot ? { name: meta.camelot, camelot: meta.camelot, confidence: 1 } : estimateKey(chroma);
+    const { analysis, firstTransientMs, onset, chroma, hpcp, sourceFormat } = await analysisP;
+    // Del 3: tempo med kam over 1–8 slag og house-regel (118–132), fra de første 6 minuttene
+    const hopRate = RATE / ONSET_HOP;
+    const tempo = resolveTempo(meta.bpm, master.bpmHint, estimateTempoHouse(onset.subarray(0, Math.ceil(ONSET_TRACK_SAMPLES / ONSET_HOP)), hopRate), report);
+    // Del 3: toneart etter innstillingen (Krumhansl til fasiten avgjør, eller HPCP + tuning + EDMA)
+    const estimated = cfg.analysis.keyMethod === 'edma' ? estimateKeyEdma(hpcp) : estimateKey(chroma);
+    const key = meta.camelot ? { name: meta.camelot, camelot: meta.camelot, confidence: 1 } : estimated ? { name: estimated.name, camelot: estimated.camelot, confidence: estimated.confidence } : null;
     report(
       'bpm/key',
       tempo ? 'ok' : 'warn',
@@ -303,6 +307,18 @@ async function ingestOne(
       markers = segmentStructure(analysis.energy, info.durationMs, tempo?.bpm ?? null);
       const labels = markers.filter((m) => m.kind === 'chapter').map((m) => m.label);
       report('struktur', labels.length ? 'ok' : 'warn', labels.length ? `${labels.join(' → ')} (forslag)` : 'fant ingen tydelig struktur');
+    }
+
+    // Del 3: tempo per kapittel i sett, og tempoendringer i loggen
+    if (kind === 'set') {
+      const chapters = markers.filter((m) => m.kind === 'chapter');
+      const per = tempoPerChapter(onset, hopRate, chapters.map((c, i) => ({ startMs: c.startMs, endMs: c.endMs ?? chapters[i + 1]?.startMs ?? info.durationMs })), info.durationMs);
+      chapters.forEach((c, i) => {
+        if (per[i] != null) c.bpm = per[i]!;
+      });
+      const known = chapters.filter((c) => c.bpm != null);
+      const changes = known.filter((c, i) => i > 0 && Math.abs(c.bpm! - known[i - 1]!.bpm!) >= 1);
+      if (known.length) report('tempo', changes.length ? 'warn' : 'ok', changes.length ? `tempoendringer: ${known.map((c) => `${c.label ?? '?'} ${c.bpm}`).join(' → ')}` : `jevnt tempo i settet (${known[0]!.bpm} BPM)`);
     }
 
     // Del 2: Knuts rettelser fra Studio (markers.json) overlever ny ingest av samme versjon (--force).

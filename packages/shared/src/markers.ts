@@ -96,6 +96,7 @@ export function validateMarkers(input: unknown, durationMs: number): { ok: true;
       ...(label ? { label } : {}),
       ...(typeof m.refSlug === 'string' ? { refSlug: m.refSlug } : {}),
       ...(typeof m.confidence === 'number' ? { confidence: m.confidence } : {}),
+      ...(typeof m.bpm === 'number' && m.bpm > 0 && m.bpm < 400 ? { bpm: Math.round(m.bpm * 10) / 10 } : {}),
       confirmed: m.confirmed === true
     });
   }

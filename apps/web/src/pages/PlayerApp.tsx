@@ -655,6 +655,7 @@ function SetsView({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]; on
                     >
                       <span className="tabular text-muted">{formatTime(c.startMs)}</span>
                       {c.label}
+                      {c.bpm != null && <span className="font-mono text-[10px] text-muted">{Math.round(c.bpm)}</span>}
                       {!c.confirmed && <span className="text-accent" title="Ubekreftet – fant ikke sync-klikket">·?</span>}
                     </button>
                   </li>
