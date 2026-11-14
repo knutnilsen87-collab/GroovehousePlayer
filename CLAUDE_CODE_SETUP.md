@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger).
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -241,7 +241,7 @@ Mål: Knut lager og endrer spillelister med ett eller to trykk, både på mobile
 12. I Ctrl+K-søket: **Lagre som smart liste** lagrer selve søket (f.eks. `124 8A`, `sett`, `extended`) som en liste som oppdaterer seg selv. Den vises med eget ikon og kan ikke sorteres manuelt.
 13. To innebygde smarte lister: **Nylig lagt til** (siste 14 dager) og **Live-sett**.
 
-**Senere (ikke i denne delen):** «Gjør om til drop» (se utkastet til delingsfasen under), harmonisk forslag til neste låt etter Camelot, og eksport til M3U eller rekordbox.
+**Senere (ikke i denne delen):** «Gjør om til drop» (del 13), harmonisk forslag til neste låt etter Camelot, og eksport til M3U eller rekordbox.
 
 **Tester:** API (opprett, legg til, flytt, fjern, 409 ved konflikt), at en ny versjon av en låt dukker opp i eksisterende lister, at smarte lister gir samme treff som søket, og at mobil og desktop ser samme liste etter en endring.
 
@@ -249,7 +249,7 @@ Mål: Knut lager og endrer spillelister med ett eller to trykk, både på mobile
 
 ## Del 10 – Del en enkelt låt som fil (WhatsApp, e-post osv.)
 
-Knut vil kunne sende én låt til noen via WhatsApp, e-post eller lignende. Dette steget sender **selve lydfila** via enhetens delingsmeny. Det trenger ingen sky, og ingen lenke peker tilbake til PC-en. Lenkedeling med forhåndsvisning og utløp kommer i delingsfasen under.
+Knut vil kunne sende én låt til noen via WhatsApp, e-post eller lignende. Dette steget sender **selve lydfila** via enhetens delingsmeny. Det trenger ingen sky, og ingen lenke peker tilbake til PC-en. Lenkedeling med forhåndsvisning og utløp kommer i del 13.
 
 **Lage fila (server)**
 1. `GET /api/share/:slug/:variant/:version?kind=full|preview|wav` lager og returnerer fila, og cacher den i `media/<slug>/<variant|main>/v<N>/share/`. Cachen gjelder til master-hashen endres.
@@ -338,11 +338,11 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 
 **Ferdig når:** Knut installerer APK-en på S22, kobler til via Tailscale, starter en spilleliste, låser skjermen og bytter til en annen app. Musikken fortsetter i 15 minutter med flere låtskifter, kan pauses og hoppes fra låseskjermen og fra Bluetooth i bilen, og «⋯ → Del…» sender fila til WhatsApp.
 
-## Utkast: delingsfasen (drops til andre) – ikke bygg ennå
+## Del 13 – Deling med lenker (drops)
 
-**Enkeltlåt som lenke (første steg i denne fasen):** «Del lenke» på én låt lager en drop med én låt. Lenken gir en fin forhåndsvisning i WhatsApp/iMessage med cover og tittel (Open Graph-bilde generert fra coveret og paletten), kan strømmes uten nedlasting, utløper, og gir lytteinnsikt. Dette er alternativet til fildelingen i del 10 når Knut vil ha kontroll over hvor musikken havner.
+Mål: Knut sender én låt, en spilleliste eller et live-sett til en bestemt person med **én lenke**. Mottakeren trykker og hører, uten noe annet. Lenken kan trekkes tilbake, utløper og gir lytteinnsikt. Dette er alternativet til fildelingen i del 10 når Knut vil ha kontroll over hvor musikken havner.
 
-Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailscale-adressen virker bare for Knuts egne enheter og kan **ikke** brukes til å sende lenker til andre. Tailscale Funnel (offentlig) skal ikke brukes til uutgitt musikk. Teksten under er designet å bygge videre på.
+Tailscale-adressen virker bare for Knuts egne enheter og skal **aldri** havne i en lenke til andre. Tailscale Funnel skal ikke brukes.
 
 **Krav til lytteren (låst av Knut):** Mottakeren skal **aldri** trenge Tailscale, en app, en konto, et passord eller en adresse å skrive.
 - Ett trykk på lenken i WhatsApp/SMS/e-post, og låta spiller i nettleseren innen et par sekunder. Lenken gir forhåndsvisning med cover og tittel.
@@ -352,6 +352,37 @@ Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailsca
 - Ingen kode eller PIN som standard. En valgfri 4-sifret kode per drop finnes bare for særlig sensitive drops, og skrives da i samme melding som lenken.
 - Alt dette kjører i skyen (Worker + R2), helt atskilt fra PC-en. Tailscale og PC-adressen brukes bare av Knut.
 - **Domene: `listen.groovehouserecords.com`** (Knut eier `groovehouserecords.com`). Lenker ser slik ut: `listen.groovehouserecords.com/d/<token>`. Worker-ruter krever at DNS-sonen ligger i Cloudflare (gratisplan). Før nameserverne flyttes, kopier **alle** eksisterende DNS-poster (nettside, e-post/MX, SPF/DKIM, verifiseringer) og vis Knut lista. Nettside og e-post på domenet skal ikke falle ut. **Status 2026-11-14:** DNS for `groovehouserecords.com` er flyttet til Knuts Cloudflare-konto (gratisplan, aktiv). Registrar er fortsatt GoDaddy. Det finnes ingen nettside og ingen e-post/MX. Eneste poster er GoDaddys parkerings-A-poster (`@`, `www`), som kan slettes når Worker-ruten for `listen.` settes opp. DNSSEC er av.
+
+**Arkitektur (alt i Knuts Cloudflare-konto, gratisplan)**
+1. **Worker** `groovehouse-listen` på ruten `listen.groovehouserecords.com/*`, i `apps/listen-worker` (TypeScript, wrangler).
+2. **R2-bucket** `groovehouse-drops` (privat): HLS-segmenter, cover, `analysis.json` og eventuelt `.m4a` for nedlasting, **bare for låter som ligger i en drop**. Hele katalogen lastes aldri opp. Ingen offentlig tilgang til bucketen; alt går via Workeren.
+3. **D1** `groovehouse-listen` for `drops`, `drop_items`, `invites`, `invite_devices`, `listen_events` og `access_requests`. Bruk skjemaet fra `supabase/migrations/20261113000000_init.sql` som utgangspunkt, oversatt til SQLite. **Endring fra tidligere plan:** D1 i stedet for Supabase, så alt ligger i én konto og ingen nye tjenester trengs. Supabase-migrasjonene beholdes til del 5.
+4. **Lyttersiden** (`/d/<token>`) er en egen liten side servert av Workeren, på engelsk, i samme stil som spilleren: Obsidian-bakgrunn, gull som ramme, farger fra coveret. Bruk komponentene fra `apps/web` (bølgeform, spillerkontroller) der det går, men bygg den som eget lettvektig bundle. Ingen innlogging, innstillinger eller installering.
+5. **PC-en** er admin: Studio/Command Center lager drops og snakker med Workerens admin-API med et admin-token. Tokenet ligger som Worker-secret og i Windows Credential Manager, aldri i git.
+
+**Sikkerhet og tokens**
+6. Lenketoken: minst 128 bit tilfeldig (base62, ca. 22 tegn). Lagres bare som hash i D1.
+7. Ved første avspilling på en enhet settes en `HttpOnly; Secure; SameSite=Lax`-informasjonskapsel med enhets-id. Enhetsgrensen telles **når avspilling starter**, ikke når siden hentes. Ellers bruker WhatsApp/iMessage sine forhåndsvisnings-roboter opp en enhet.
+8. HLS-segmentene hentes via Workeren med kortlivede signerte URL-er (HMAC, 10 min), knyttet til invitasjon og enhet. Segment-URL-er alene skal ikke kunne deles.
+9. Trekk tilbake en lenke i Studio, så slutter den å virke umiddelbart (også midt i avspilling ved neste segment).
+10. Rate limiting på `/d/*` og admin-API. Admin-API godtar bare admin-tokenet.
+
+**Forhåndsvisning i WhatsApp/iMessage**
+11. `/d/<token>` gir `og:title` («Echo Groove – <Tittel>» eller dropnavnet), `og:description` («Private listen · Groovehouse Records») og `og:image` 1200×630, laget ved publisering fra coveret med palett og gullramme. Bildet lastes opp til R2 og serveres med en egen langlivet signert URL. Sjekk at forhåndsvisningen faktisk vises i WhatsApp.
+
+**Publisering fra PC-en**
+12. «Opprett drop» (fra en liste, flervalg eller «⋯ → Del lenke» på én låt) laster opp de valgte låtene (allerede ingestet HLS + cover + analyse) til R2, oppretter drop og invitasjon via admin-API og returnerer lenken. Opplasting er idempotent på hash, så samme låt i flere drops lastes opp én gang.
+13. Når en drop slettes eller utløper, og ingen andre drops bruker en låt, slettes låtens filer fra R2 etter 7 dager.
+14. «⋯ → Del…» (del 10) får et nytt førstevalg: **Del lenke** (strømming, anbefalt), mens **Send fil** blir valg nummer to.
+
+**Følge opp**
+15. Lyttesiden sender `listen_events` (start, 30 s, 50 %, ferdig, hopp) til Workeren. Command Center henter dem via admin-API og viser lytteinnsikt per mottaker.
+16. «Be om ny tilgang» fra en utløpt eller full lenke lagres i `access_requests`. PC-serveren sjekker hvert minutt og viser et Windows-varsel og et merke i Studio. Knut godkjenner med ett klikk, og får en ny lenke å sende.
+17. Lyttelogger slettes automatisk etter 180 dager. En kort personvernerklæring (engelsk) lenkes fra lyttersiden.
+
+**Oppsett Knut må godkjenne**
+18. `wrangler login` åpner nettleseren der Knut godkjenner tilgang til Cloudflare-kontoen. Spør før du kjører den. Opprett så Worker, R2-bucket, D1 og ruten, og slett GoDaddys parkerings-A-poster for `@` og `www` i Cloudflare-DNS (vis Knut hva som slettes).
+19. Kostnad: alt skal holde seg innenfor gratisplanen (Workers 100k forespørsler/dag, R2 10 GB, D1 5 GB). Lag en enkel bruksoversikt i Studio og varsle ved 80 %.
 
 **Flyt**
 1. **Samle:** en spilleliste (del 9) er utgangspunktet. «Gjør om til drop» på lista, eller velg låter i velgemodus/flervalg og velg **Opprett drop (3 låter)**.
@@ -365,13 +396,17 @@ Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailsca
 3. **Sende:** lag en personlig magisk lenke og del den med mobilens delingsmeny (Web Share API) til Snapchat, iMessage osv. På desktop: kopier lenke + QR.
 4. **Følge opp:** lytteinnsikt per mottaker i Command Center, som allerede er designet.
 
-**Forutsetninger:** opplasting av HLS/cover/analyse til R2, Worker med tokensjekk, Supabase-tabellene `drops`, `invites`, `invite_devices`, `listen_events` (finnes i migrasjonen), håndheving av enhetsgrense, personvernerklæring for partnere og sletting av lyttelogger etter en periode.
+**Ikke i denne delen:** vannmerke i lyd, nedlasting av stems og kommentarer (Inner Circle får foreløpig bare nedlasting av hele låter som `.m4a`), offentlige lenker uten mottaker.
+
+**Tester:** token-hash og utløp, enhetsgrense (robot-henting teller ikke, tredje enhet blokkeres), signerte segment-URL-er utløper og kan ikke gjenbrukes på annen invitasjon, tilbaketrekking virker midt i avspilling, `og:`-taggene, idempotent opplasting, opprydding i R2, og at `/d/*` aldri gir tilgang til noe fra PC-en. Bruk `wrangler dev` lokalt og en ende-til-ende-test i hodeløs Edge.
+
+**Ferdig når:** Knut lager en drop med tre låter fra en spilleliste på mobilen, sender lenken på WhatsApp til en annen telefon, forhåndsvisningen viser cover og tittel, låtene spiller på den andre telefonen uten noe ekstra, og Command Center viser at de er spilt.
 
 ## Ikke gjør nå
 
 - **Volum på iPhone:** kan ikke fikses i en nettside (iOS ignorerer `audio.volume`). Først mulig i en native iPhone-app. Bare dokumenter det. (Android-appen i del 12 løser det for Android.)
-- Tauri, iPhone-app, R2, partnerlenker med tokens og vannmerke i lyd: egne faser.
-- Ikke last opp musikk til skyen i denne runden. Supabase brukes bare til innlogging og posisjoner.
+- Tauri, iPhone-app og vannmerke i lyd: egne faser.
+- Ikke last opp musikk til skyen utenom del 13, og der bare låter som ligger i en drop. Supabase brukes bare til innlogging og posisjoner (del 5).
 
 ## Avslutning
 
