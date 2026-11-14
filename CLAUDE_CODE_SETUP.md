@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -337,6 +337,54 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 **Tester:** enhetstester for `PlayerEngine`-kontrakten (begge motorer), tokenpåkrevd på API og media, CORS kun for app-opprinnelsen, og at adressen ikke finnes i bygget/git (`git grep` etter `.ts.net`).
 
 **Ferdig når:** Knut installerer APK-en på S22, kobler til via Tailscale, starter en spilleliste, låser skjermen og bytter til en annen app. Musikken fortsetter i 15 minutter med flere låtskifter, kan pauses og hoppes fra låseskjermen og fra Bluetooth i bilen, og «⋯ → Del…» sender fila til WhatsApp.
+
+## Del 16 – Utkast: umastrede låter holdt atskilt fra release-klare
+
+Mål: Knut har mange umastrede låter han vil ha i spilleren for å planlegge sett og album. De skal **aldri blandes** med det som er ferdig eksportert fra Reason og klart for release, verken i biblioteket, i blanding, i smarte lister, i forslag eller i deling.
+
+**Status bestemmes av mappa, ikke av filnavnet**
+1. To kilder:
+   - `GH_EXPORT_DIR` (REASONDONE) = **Release-klar**, som i dag.
+   - Ny `GH_DRAFT_DIR` = **Utkast**. Spør Knut hvor utkastene ligger. Mappa settes i Innstillinger og i `groovehouse.local.json`, ikke i git.
+   - Begge er **kun lesing**.
+2. Watcher og `--backlog` støtter begge mappene. Utkastmappa kan ha undermapper (f.eks. per prosjekt), og filnavnreglene og metadata-rensingen fra del 0b gjelder likt, også Suno-rensing.
+3. I tillegg: **Importer som utkast** i Studio (dra inn filer). De kopieres til `data/drafts-inbox/` og ingestes derfra.
+4. Manifestet får `status: "release" | "draft"`, som vises og filtreres overalt. En låt kan **aldri** bytte status av seg selv. Å gjøre et utkast om til release-klar skjer bare ved at master kommer i REASONDONE, eller ved et eksplisitt valg i Studio med bekreftelse.
+
+**Samme låt i begge**
+5. Samme slug i begge mappene = samme låt. Utkastene blir versjoner med status utkast, og masteren fra REASONDONE blir release-versjonen.
+6. «Følg nyeste» i spillelister og visningen i biblioteket velger **release hvis den finnes, ellers nyeste utkast**. Når en låt blir mastret, går altså alle album- og settplaner automatisk over til masteren.
+
+**Atskilt i grensesnittet**
+7. Bibliotek, Hjem, «Nylig lagt til», Ctrl+K og DJ-verktøy («Passer etter denne») viser **bare release-klare** som standard. Et segment **Release-klar · Utkast · Alle** øverst bytter, og valget huskes per visning.
+8. Utkast er tydelig merket overalt:
+   - En liten **UTKAST**-brikke i mono.
+   - Stiplet kant på cover og miniatyrer.
+   - Dempet glød: aksenten på 50 % i stedet for full neon.
+9. Bland, autospill og smarte lister bruker bare release-klare, med mindre lista eller visningen eksplisitt er satt til Utkast eller Alle.
+
+**Planlegge sett og album**
+10. Nytt felt på spillelister: **Type**: Vanlig, **Album-plan** eller **Sett-plan**. Planer kan blande utkast og release-klare, og viser:
+    - Status øverst: «7 av 10 mastret».
+    - Brikker per rad.
+    - Total tid og BPM-/Camelot-flyt mellom låtene (grønn = harmonisk, gul = ±1, rød = brudd).
+    - Filteret **Mangler master**.
+11. Vanlige spillelister advarer når du legger til et utkast («Dette er et utkast – legg til likevel?»), med valget «Ikke spør igjen for denne lista».
+
+**Lydnivå**
+12. Umastrede låter er ofte mye svakere enn masterne. LUFS-utjevningen kan bare dempe (`audio.volume` ≤ 1), så utkast ville låte svake ved siden av masterne i en plan.
+    - Løsning: ved ingest av **utkast** lages HLS-strømmen med loudness-normalisering til målnivået (ffmpeg `loudnorm` i to passeringer, true peak −1 dBTP).
+    - `master.flac` lagres uendret.
+    - Låtinfo viser både målt original-LUFS og «Normalisert for avspilling».
+    - Release-låter rører vi ikke, som før.
+
+**Deling**
+13. Utkast kan **ikke** legges i drops (del 13) eller deles som lenke.
+14. Fildeling (del 10) av utkast krever et ekstra valg: «Del utkast likevel». Da får filnavnet og tittelmetadata « (Utkast)», og albumfeltet blir «Groovehouse Records – Demo».
+
+**Tester:** status fra mappe, samme slug i begge mappene gir riktig versjonskjede, «følg nyeste» foretrekker release, filtrene (bibliotek, bland, smarte lister, forslag, Ctrl+K), at utkast avvises i drops, loudnorm bare på utkast, og at REASONDONE og utkastmappa aldri endres.
+
+**Ferdig når:** Knut peker utkastmappa på sine umastrede låter. Biblioteket viser fortsatt bare de release-klare, og «Utkast»-segmentet viser resten tydelig merket. Han lager en Album-plan med fem utkast og to mastrede låter og ser «2 av 7 mastret». Når han så eksporterer master av ett av utkastene til REASONDONE, står det «3 av 7» og planen spiller masteren.
 
 ## Del 15 – Oppdatering av Android-appen
 
