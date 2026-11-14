@@ -211,7 +211,7 @@ async function planBacklog(releases: ReleaseSource[], mediaDir: string, skip: Se
       if (m.bpmHint) notes.push(`BPM-hint ${m.bpmHint}`);
       if (m.removed.length) notes.push(`fjernet: ${m.removed.join(', ')}`);
       if (findSuno(m.fileName).length) notes.push('SUNO i filnavnet');
-      if (!r.coverPath) notes.push('ingen cover → gull');
+      if (!r.coverPath) notes.push('ingen cover → standardfarge (cyan)');
       else notes.push(`cover: ${path.basename(r.coverPath)}`);
       let action: PlanRow['action'] = 'ingest';
       if (skip.has(r.slug)) action = 'skip';
