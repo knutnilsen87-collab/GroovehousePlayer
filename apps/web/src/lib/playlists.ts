@@ -267,14 +267,21 @@ export const toastError = (err: unknown) => useToast.getState().show(err instanc
 
 // ---------------------------------------------------------------- «Fortsett» i en liste
 
-/** Hvilken liste som spilles nå (køen = lista), så «Fortsett» vet hvor du slapp. */
+/**
+ * Hvilken liste som spilles nå, så «Fortsett» vet hvor du slapp. Følger køen via queueId: «Spill neste»
+ * og «Legg til i køen» (del 11) endrer køen uten å bytte den ut, og da gjelder lista fortsatt.
+ */
 interface NowList {
   listId: string | null;
-  /** Oppførings-id per plass i køen (rekkefølgen som ble spilt, også ved Bland). */
-  entryIds: string[];
-  slugs: string[];
+  /** usePlayer.queueId da lista ble startet. */
+  queueId: number;
+  /** Asset → oppførings-nøkkel (også ved Bland). Slug brukes som reserve etter variant-/versjonsbytte. */
+  keyOf: Map<LoadedAsset, string>;
+  keyBySlug: Map<string, string>;
+  /** Oppføringen som spilles nå (null = låta hører ikke til lista, f.eks. lagt til i køen). */
+  currentKey: string | null;
 }
-export const useNowList = create<NowList>(() => ({ listId: null, entryIds: [], slugs: [] }));
+export const useNowList = create<NowList>(() => ({ listId: null, queueId: -1, keyOf: new Map(), keyBySlug: new Map(), currentKey: null }));
 
 const resumeKey = (listId: string) => `gv:pl:${listId}`;
 export function savedEntry(listId: string): string | null {
@@ -287,22 +294,30 @@ export function savedEntry(listId: string): string | null {
 
 /** Spill en liste: køen blir lista. `entryIds[i]` hører til `assets[i]`. */
 export function playList(listId: string, assets: LoadedAsset[], entryIds: string[], i: number) {
-  useNowList.setState({ listId, entryIds, slugs: assets.map((a) => a.manifest.slug) });
+  const keyOf = new Map(assets.map((a, k) => [a, entryIds[k]!] as const));
+  const slugCount = new Map<string, number>();
+  for (const a of assets) slugCount.set(a.manifest.slug, (slugCount.get(a.manifest.slug) ?? 0) + 1);
+  const keyBySlug = new Map(assets.filter((a) => slugCount.get(a.manifest.slug) === 1).map((a) => [a.manifest.slug, keyOf.get(a)!] as const));
+  // Sett lista før playFrom, så abonnenten under ser den med én gang; queueId oppdateres rett etter.
+  useNowList.setState({ listId, queueId: usePlayer.getState().queueId + 1, keyOf, keyBySlug, currentKey: entryIds[i] ?? null });
   usePlayer.getState().playFrom(assets, i);
+  useNowList.setState({ queueId: usePlayer.getState().queueId });
 }
 
 if (typeof window !== 'undefined') {
   usePlayer.subscribe((s) => {
     const now = useNowList.getState();
     if (!now.listId) return;
-    // Køen er byttet til noe annet enn lista (variantbytte beholder slugene og teller ikke).
-    if (s.queue.length !== now.slugs.length || s.queue.some((a, i) => a.manifest.slug !== now.slugs[i])) {
-      useNowList.setState({ listId: null, entryIds: [], slugs: [] });
+    // Køen er byttet ut med noe annet (ny playFrom) → ikke lenger denne lista.
+    if (s.queueId !== now.queueId) {
+      useNowList.setState({ listId: null, queueId: -1, keyOf: new Map(), keyBySlug: new Map(), currentKey: null });
       return;
     }
-    const entryId = now.entryIds[s.index];
+    const a = s.queue[s.index];
+    const key = a ? (now.keyOf.get(a) ?? now.keyBySlug.get(a.manifest.slug) ?? null) : null;
+    if (key !== now.currentKey) useNowList.setState({ currentKey: key });
     try {
-      if (entryId && localStorage.getItem(resumeKey(now.listId)) !== entryId) localStorage.setItem(resumeKey(now.listId), entryId);
+      if (key && localStorage.getItem(resumeKey(now.listId)) !== key) localStorage.setItem(resumeKey(now.listId), key);
     } catch {
       /* privat modus */
     }

@@ -1,6 +1,6 @@
 import type Hls from 'hls.js';
 import { create } from 'zustand';
-import { mapPositionBetweenVariants, nextSectionStart, prevSectionStart, type ListenEventType } from '@gv/shared/web';
+import { enqueue as qEnqueue, insertNext as qInsertNext, mapPositionBetweenVariants, moveAt as qMove, nextSectionStart, prevSectionStart, removeAt as qRemove, toStored, type ListenEventType, type StoredQueue } from '@gv/shared/web';
 import { assetUrl, type LoadedAsset } from './catalog';
 
 /**
@@ -129,6 +129,16 @@ interface PlayerState {
   /** Bytt variant av låta som spilles, og land i samme del. */
   switchVariant: (to: LoadedAsset) => void;
   setVolume: (v: number) => void;
+  /** Øker når køen byttes ut (playFrom/setQueue/restore), ikke når den endres (spill neste o.l.). */
+  queueId: number;
+  /** «Spill neste»: rett etter låta som spilles. */
+  insertNext: (items: LoadedAsset[]) => void;
+  /** «Legg til i køen»: bakerst. */
+  enqueue: (items: LoadedAsset[]) => void;
+  removeFromQueue: (i: number) => void;
+  moveInQueue: (from: number, to: number) => void;
+  /** Etter omstart: legg tilbake køen pauset på lagret posisjon. */
+  restoreQueue: (queue: LoadedAsset[], index: number, positionMs: number) => void;
 }
 
 const sameQueue = (a: LoadedAsset[], b: LoadedAsset[]) => a.length === b.length && a.every((x, i) => x.manifest.id === b[i]?.manifest.id);
@@ -140,9 +150,10 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   positionMs: 0,
   started: false,
   volume: 1,
+  queueId: 0,
   setQueue: (queue, startIndex = 0) => {
     if (sameQueue(queue, get().queue)) return;
-    set({ queue, index: startIndex, positionMs: 0, playing: false });
+    set({ queue, index: startIndex, positionMs: 0, playing: false, queueId: get().queueId + 1 });
     if (queue[startIndex]) load(queue[startIndex]!, null);
   },
   playFrom: (list, i, atMs) => {
@@ -155,7 +166,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       requestPlay();
       return;
     }
-    set({ queue: list, index: i, positionMs: resume ?? 0, started: true });
+    set({ queue: list, index: i, positionMs: resume ?? 0, started: true, queueId: get().queueId + 1 });
     load(a, resume);
     requestPlay();
   },
@@ -219,11 +230,60 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   setVolume: (v) => {
     set({ volume: v });
     applyVolume(get().queue[get().index]);
+  },
+  insertNext: (items) => {
+    if (!items.length) return;
+    const wasEmpty = !get().queue.length;
+    set(qInsertNext(get(), items));
+    if (wasEmpty) load(get().queue[0]!, null);
+  },
+  enqueue: (items) => {
+    if (!items.length) return;
+    const wasEmpty = !get().queue.length;
+    set(qEnqueue(get(), items));
+    if (wasEmpty) load(get().queue[0]!, null);
+  },
+  removeFromQueue: (i) => set(qRemove(get(), i)),
+  moveInQueue: (from, to) => set(qMove(get(), from, to)),
+  restoreQueue: (queue, index, positionMs) => {
+    const a = queue[index];
+    if (!a || get().queue.length) return; // spiller allerede noe – ikke overstyr
+    set({ queue, index, positionMs, playing: false, queueId: get().queueId + 1 });
+    load(a, positionMs > 0 ? positionMs : null);
   }
 }));
 
+// ---------------------------------------------------------------- Køen overlever omstart (localStorage)
+const QUEUE_KEY = 'gv:queue';
+export function storedQueue(): StoredQueue | null {
+  try {
+    return JSON.parse(localStorage.getItem(QUEUE_KEY) ?? 'null') as StoredQueue | null;
+  } catch {
+    return null;
+  }
+}
+function saveQueue() {
+  const { queue, index, positionMs } = usePlayer.getState();
+  try {
+    if (queue.length) localStorage.setItem(QUEUE_KEY, JSON.stringify(toStored(queue, index, positionMs)));
+  } catch {
+    /* privat modus */
+  }
+}
+
 // ---------------------------------------------------------------- <audio>-hendelser → butikk og logg
 if (isBrowser) {
+  // Lagre ved endring av køen/plassen med en gang, posisjonen høyst hvert 5. sekund.
+  let lastQueueSave = 0;
+  usePlayer.subscribe((s, prev) => {
+    if (s.queue !== prev.queue || s.index !== prev.index) saveQueue();
+    else if (s.positionMs !== prev.positionMs && Date.now() - lastQueueSave > 5000) {
+      lastQueueSave = Date.now();
+      saveQueue();
+    }
+  });
+  window.addEventListener('pagehide', saveQueue);
+  audio.addEventListener('pause', saveQueue);
   const current = () => usePlayer.getState().queue[usePlayer.getState().index];
   const pos = () => Math.round(audio.currentTime * 1000);
   let lastBeat = 0;

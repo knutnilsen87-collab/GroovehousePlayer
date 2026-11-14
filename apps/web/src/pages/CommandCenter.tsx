@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { computeCoverage, formatTime, paletteToCssVars, type AccessTier, type AssetManifest } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
@@ -21,7 +21,8 @@ export function CommandCenter() {
     setTick((x) => x + 1);
   };
   // /studio#mobil åpner Mobil-visningen direkte.
-  const [view, setView] = useState<View>(() => (typeof location !== 'undefined' && location.hash === '#mobil' ? 'mobile' : 'drops'));
+  // /studio#arkiv/<slug> (fra «⋯ → Åpne i Studio» i spilleren) åpner Arkiv og markerer låta.
+  const [view, setView] = useState<View>(() => (typeof location === 'undefined' ? 'drops' : location.hash === '#mobil' ? 'mobile' : location.hash.startsWith('#arkiv') ? 'archive' : 'drops'));
 
   return (
     <div className="flex min-h-screen flex-wrap items-stretch bg-obsidian text-ink">
@@ -557,11 +558,28 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions }: { a: Loaded
   }, [picked, latest, versions]);
   const a = older && older.manifest.version === picked ? older : latest;
   const m = a.manifest;
+  // «Kildefil» (privat, data/sources.json) – vises bare her og i Info i spilleren.
+  const [source, setSource] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/sources/${encodeURIComponent(m.slug)}/${encodeURIComponent(m.variant ?? 'main')}/${m.version}`)
+      .then(async (r) => (r.ok ? ((await r.json()) as { fileName: string }).fileName : null))
+      .catch(() => null)
+      .then((f) => alive && setSource(f));
+    return () => {
+      alive = false;
+    };
+  }, [m.slug, m.variant, m.version]);
+  const rowRef = useRef<HTMLLIElement>(null);
+  const focused = typeof location !== 'undefined' && decodeURIComponent(location.hash) === `#arkiv/${latest.manifest.slug}`;
+  useEffect(() => {
+    if (focused) rowRef.current?.scrollIntoView({ block: 'center' });
+  }, [focused]);
   const [editing, setEditing] = useState(false);
   const vars = paletteToCssVars(m.palette) as CSSProperties;
   const chapters = m.markers.filter((k) => k.kind === 'chapter' || k.kind === 'highlight');
   return (
-    <li className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-surface p-4" style={vars}>
+    <li id={`arkiv-${latest.manifest.slug}`} ref={rowRef} className={`flex flex-col gap-3 rounded-2xl border bg-surface p-4 ${focused ? 'border-gold/60 ring-1 ring-gold/40' : 'border-white/[0.06]'}`} style={vars}>
       <div className="flex flex-wrap items-center gap-4">
         <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={56} rounded={10} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -571,6 +589,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions }: { a: Loaded
           </span>
           <span className="text-xs text-[#C9C4B6]">{[m.artist, m.album && m.album !== m.title ? m.album : null, m.copyright].filter(Boolean).join(' · ')}</span>
           {m.titleNeedsReview && <span className="text-[11px] text-gold">{t.titleNeedsReview}</span>}
+          {source && <span className="text-[11px] text-muted">Kildefil: <span className="text-[#C9C4B6]">{source}</span></span>}
           <span className="text-xs text-muted">
             {m.kind} ·{' '}
             {versions.length > 1 ? (

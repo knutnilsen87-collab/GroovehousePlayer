@@ -21,21 +21,17 @@ import {
   VolumeIcon
 } from '../components/Icons';
 import { SpectralWaveform } from '../components/SpectralWaveform';
-import { assetUrl, groupTracks, useCatalog, variantName, type LoadedAsset, type Track } from '../lib/catalog';
-import { savedPosition, usePlayer } from '../lib/player';
+import { assetUrl, groupTracks, loadVersion, useCatalog, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
+import { savedPosition, storedQueue, usePlayer } from '../lib/player';
 import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, useToast, type AddItem } from '../lib/playlists';
 import { useSubBass } from '../lib/useSubBass';
 import { useVersionCtx } from '../lib/versions';
+import { QueuePanel, TrackActionsHost } from '../components/TrackActions';
+import { useUi } from '../lib/ui';
+import { fromStored } from '@gv/shared/web';
 
 type View = 'catalog' | 'sets' | 'playlists';
 
-/** Arket «Legg til i spilleliste»: hva som legges til, og (desktop) hvor det åpnes. */
-interface SheetState {
-  items: AddItem[];
-  label: string;
-  variantLabel: string | null;
-  anchor: { x: number; y: number } | null;
-}
 type Filter = 'all' | 'track' | 'set';
 
 /**
@@ -50,7 +46,8 @@ export function PlayerApp() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [full, setFull] = useState(false);
   const [listId, setListId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<SheetState | null>(null);
+  const addSheet = useUi((s) => s.addSheet);
+  const openActions = useUi((s) => s.openActions);
   /** Desktop: valgte låter i tabellen (Ctrl/Shift-klikk). Mobil: velgemodus (hold inne på en låt). */
   const [selected, setSelected] = useState<string[]>([]);
   const [selectMode, setSelectMode] = useState(false);
@@ -69,16 +66,35 @@ export function PlayerApp() {
   };
   /** Det du ser: en låt som spilles i en annen variant, legges til med den varianten. */
   const shownAsset = (t: Track) => (cur?.manifest.slug === t.slug ? cur : t.main);
-  const openSheet = (assetsToAdd: LoadedAsset[], anchor: SheetState['anchor'] = null) => {
-    if (!assetsToAdd.length) return;
-    const one = assetsToAdd.length === 1 ? assetsToAdd[0]! : null;
-    setSheet({
-      items: assetsToAdd.map(itemFor),
-      label: one ? one.manifest.title + (one.manifest.variant ? ` · ${variantName(one)}` : '') : `${assetsToAdd.length} låter`,
-      variantLabel: one?.manifest.variant ? variantName(one) : null,
-      anchor
-    });
+  const openSheet = (assetsToAdd: LoadedAsset[], anchor: { x: number; y: number } | null = null) => {
+    if (assetsToAdd.length) useUi.getState().openAddSheet({ assets: assetsToAdd, anchor });
   };
+  /** «⋯» for låta som spilles (fullskjerm, minispiller, dokken, Shift+F10). */
+  const openNowActions = (anchor: { x: number; y: number } | null = null) => {
+    const now = usePlayer.getState().queue[usePlayer.getState().index];
+    if (now) openActions({ assets: [now], context: 'now', anchor });
+  };
+
+  // Køen fra forrige gang: legges tilbake pauset når katalogen er lastet (eldre versjoner hentes ved behov).
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current || loading || !catalogIndex.length) return;
+    restored.current = true;
+    const stored = storedQueue();
+    if (!stored || usePlayer.getState().queue.length) return;
+    const latest = new Map(assets.map((a) => [versionKey(a.manifest.slug, a.manifest.variant, a.manifest.version), a]));
+    void Promise.all(
+      stored.items.map(async (it) => {
+        const key = versionKey(it.slug, it.variant, it.version);
+        if (latest.has(key)) return;
+        const e = catalogIndex.find((x) => x.slug === it.slug && (x.variant ?? null) === it.variant && x.version === it.version);
+        if (e) latest.set(key, await loadVersion(e).catch(() => undefined as never));
+      })
+    ).then(() => {
+      const r = fromStored(stored, (slug, variant, version) => latest.get(versionKey(slug, variant, version)));
+      if (r) usePlayer.getState().restoreQueue(r.queue, r.index, r.positionMs);
+    });
+  }, [loading, assets, catalogIndex]);
   const exitSelectMode = () => {
     setSelectMode(false);
     setSelected([]);
@@ -110,6 +126,11 @@ export function PlayerApp() {
         const target = mostRecentTarget(usePlaylists.getState().playlists);
         if (target) void addWithUndo(target, [itemFor(now)]).catch(toastError);
         else openSheet([now]);
+      } else if ((e.shiftKey && e.key === 'F10') || e.key === 'ContextMenu') {
+        // Shift+F10 / menytasten: «⋯» for låta som spilles, ved ⋯-knappen i dokken
+        e.preventDefault();
+        const r = document.getElementById('gv-dock-more')?.getBoundingClientRect();
+        openNowActions(r ? { x: r.left, y: r.top - 360 } : null);
       } else if (typing) return;
       else if (e.key === ' ' && t?.tagName !== 'BUTTON' && t?.tagName !== 'A') {
         e.preventDefault();
@@ -214,13 +235,19 @@ export function PlayerApp() {
               itemsFor={(slug) => assetsFor(slug).map(itemFor)}
               onContext={(slug, at) => {
                 if (!selected.includes(slug)) setSelected([slug]);
-                openSheet(selected.includes(slug) ? assetsFor(slug) : [shownAsset(visible.find((t) => t.slug === slug)!)], at);
+                openActions({ assets: selected.includes(slug) ? assetsFor(slug) : [shownAsset(visible.find((t) => t.slug === slug)!)], context: 'row', anchor: at });
               }}
             />
             <TrackList
               tracks={visible}
               onPlay={play}
-              onMore={(t) => openSheet([shownAsset(t)])}
+              onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
+              onSwipeRight={(t) => {
+                // Mobil: sveip til høyre = legg til i sist brukte liste (med angre). Ingen liste ennå → arket.
+                const target = mostRecentTarget(usePlaylists.getState().playlists);
+                if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
+                else openSheet([shownAsset(t)]);
+              }}
               selectMode={selectMode}
               selected={selected}
               onLongPress={(t) => {
@@ -235,8 +262,8 @@ export function PlayerApp() {
         )}
       </main>
 
-      {cur && <Dock cur={cur} track={trackOf(cur)} onVariant={(v) => switchVariant(v)} tracks={tracks} onPlay={play} />}
-      {cur && !selectMode && <MiniPlayer cur={cur} onOpen={() => setFull(true)} />}
+      {cur && <Dock cur={cur} track={trackOf(cur)} onVariant={(v) => switchVariant(v)} tracks={tracks} onPlay={play} onMore={openNowActions} />}
+      {cur && !selectMode && <MiniPlayer cur={cur} onOpen={() => setFull(true)} onMore={() => openNowActions()} />}
       {selectMode && (
         <div className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 lg:hidden">
           <button
@@ -263,19 +290,21 @@ export function PlayerApp() {
           setListId(null);
         }}
       />
-      {full && cur && <FullPlayer cur={cur} track={trackOf(cur)} tracks={tracks} onClose={() => setFull(false)} onPlay={play} onMore={() => openSheet([cur])} />}
-      {sheet && (
+      {full && cur && <FullPlayer cur={cur} track={trackOf(cur)} tracks={tracks} onClose={() => setFull(false)} onPlay={play} onMore={() => openNowActions()} />}
+      {addSheet && (
         <AddToPlaylistSheet
-          items={sheet.items}
-          label={sheet.label}
-          variantLabel={sheet.variantLabel}
-          anchor={sheet.anchor}
+          items={addSheet.assets.map(itemFor)}
+          label={addSheet.assets.length === 1 ? addSheet.assets[0]!.manifest.title + (addSheet.assets[0]!.manifest.variant ? ` · ${variantName(addSheet.assets[0]!)}` : '') : `${addSheet.assets.length} låter`}
+          variantLabel={addSheet.assets.length === 1 && addSheet.assets[0]!.manifest.variant ? variantName(addSheet.assets[0]!) : null}
+          anchor={addSheet.anchor ?? null}
           onClose={() => {
-            setSheet(null);
+            useUi.getState().closeAddSheet();
             if (selectMode) history.back();
           }}
         />
       )}
+      <TrackActionsHost tracks={tracks} index={catalogIndex} onPlay={play} />
+      <QueuePanel />
       <Toast />
       <CommandPalette
         open={paletteOpen}
@@ -600,13 +629,14 @@ function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedAsset; o
 }
 
 /**
- * Mobil: kompakt liste, én tommel. ⋯ = Legg til i spilleliste.
- * Hold inne på en låt = velgemodus: trykk på flere, og legg dem til samlet.
+ * Mobil: kompakt liste, én tommel. ⋯ = låthandlinger (del 11).
+ * Hold inne = velgemodus. Sveip til høyre = legg til i sist brukte spilleliste (med angre).
  */
 function TrackList({
   tracks,
   onPlay,
   onMore,
+  onSwipeRight,
   selectMode,
   selected,
   onLongPress,
@@ -615,6 +645,7 @@ function TrackList({
   tracks: Track[];
   onPlay: (t: Track) => void;
   onMore: (t: Track) => void;
+  onSwipeRight: (t: Track) => void;
   selectMode: boolean;
   selected: string[];
   onLongPress: (t: Track) => void;
@@ -622,10 +653,11 @@ function TrackList({
 }) {
   const { queue, index, playing } = usePlayer();
   const cur = queue[index];
-  const press = useRef<{ timer: number; fired: boolean; x: number; y: number } | null>(null);
+  const press = useRef<{ timer: number; fired: boolean; x: number; y: number; slug: string; swiping: boolean; dx: number } | null>(null);
+  const [swipe, setSwipe] = useState<{ slug: string; dx: number } | null>(null);
   const startPress = (t: Track, x: number, y: number) => {
     if (selectMode) return;
-    const p = { timer: 0, fired: false, x, y };
+    const p = { timer: 0, fired: false, x, y, slug: t.slug, swiping: false, dx: 0 };
     p.timer = window.setTimeout(() => {
       p.fired = true;
       navigator.vibrate?.(10);
@@ -658,15 +690,40 @@ function TrackList({
               onTouchStart={(e) => startPress(t, e.touches[0]!.clientX, e.touches[0]!.clientY)}
               onTouchMove={(e) => {
                 const p = press.current;
+                if (!p || p.fired) return;
                 const tt = e.touches[0]!;
-                if (p && (Math.abs(tt.clientX - p.x) > 10 || Math.abs(tt.clientY - p.y) > 10)) cancelPress();
+                const dx = tt.clientX - p.x;
+                const dy = tt.clientY - p.y;
+                if (Math.abs(dx) > 10 || Math.abs(dy) > 10) cancelPress();
+                // Sveip til høyre (tydelig vannrett): raden følger fingeren
+                if (!selectMode && (p.swiping || (dx > 12 && dx > Math.abs(dy) * 1.5))) {
+                  p.swiping = true;
+                  p.dx = Math.max(0, dx);
+                  setSwipe({ slug: t.slug, dx: p.dx });
+                }
               }}
-              onTouchEnd={cancelPress}
+              onTouchEnd={() => {
+                cancelPress();
+                const p = press.current;
+                if (p?.swiping) {
+                  if (p.dx > 90) {
+                    navigator.vibrate?.(10);
+                    onSwipeRight(t);
+                  }
+                  p.fired = true; // ikke spill låta på klikket som følger
+                  setSwipe(null);
+                }
+              }}
               onContextMenu={(e) => e.preventDefault()}
               aria-pressed={selectMode ? isSel : undefined}
-              className={`flex min-h-[64px] min-w-0 flex-1 select-none items-center gap-3 rounded-xl px-1.5 text-left [-webkit-touch-callout:none] active:bg-white/[0.05] ${isSel ? 'bg-white/[0.07]' : ''}`}
-              style={paletteToCssVars(m.palette) as CSSProperties}
+              className={`relative flex min-h-[64px] min-w-0 flex-1 select-none items-center gap-3 rounded-xl px-1.5 text-left [-webkit-touch-callout:none] active:bg-white/[0.05] ${isSel ? 'bg-white/[0.07]' : ''}`}
+              style={{ ...(paletteToCssVars(m.palette) as CSSProperties), ...(swipe?.slug === t.slug ? { transform: `translateX(${swipe.dx}px)`, background: '#15181F' } : {}) }}
             >
+              {swipe?.slug === t.slug && (
+                <span aria-hidden="true" className="absolute inset-y-0 right-full flex items-center whitespace-nowrap pr-3 text-xs font-semibold text-gold" style={{ opacity: Math.min(1, swipe.dx / 90) }}>
+                  + Sist brukte liste
+                </span>
+              )}
               {selectMode && (
                 <span aria-hidden="true" className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border text-[13px] font-bold ${isSel ? 'border-gold bg-gold text-[#120D02]' : 'border-white/30'}`}>
                   {isSel ? '✓' : ''}
@@ -825,7 +882,7 @@ function NowLabel({ cur, hideVariant = false }: { cur: LoadedAsset; hideVariant?
 }
 
 /** Desktop: fullbredde transport-dock. Kantlinja puster med sub-bassen. */
-function Dock({ cur, track, onVariant, tracks, onPlay }: { cur: LoadedAsset; track?: Track; onVariant: (v: LoadedAsset) => void; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void }) {
+function Dock({ cur, track, onVariant, tracks, onPlay, onMore }: { cur: LoadedAsset; track?: Track; onVariant: (v: LoadedAsset) => void; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: (anchor?: { x: number; y: number } | null) => void }) {
   const { positionMs, started, seek, volume, setVolume } = usePlayer();
   const m = cur.manifest;
   const setNow = m.kind === 'set' ? sectionAt(m.markers, positionMs) : null;
@@ -835,9 +892,32 @@ function Dock({ cur, track, onVariant, tracks, onPlay }: { cur: LoadedAsset; tra
       <SubBassEdge />
       <div className="mx-auto flex h-full max-w-[1600px] items-center gap-6 px-6">
         <div className="flex w-[300px] min-w-0 items-center gap-3">
-          <CoverArt src={assetUrl(cur, m.files.coverThumb)} palette={m.palette} title={m.title} size={60} rounded={8} />
+          <span
+            title="Høyreklikk for valg"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              onMore({ x: e.clientX, y: e.clientY - 360 });
+            }}
+          >
+            <CoverArt src={assetUrl(cur, m.files.coverThumb)} palette={m.palette} title={m.title} size={60} rounded={8} />
+          </span>
           <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-sm font-semibold text-ink-strong">{m.title}</span>
+            <span className="flex min-w-0 items-center gap-1">
+              <span className="truncate text-sm font-semibold text-ink-strong">{m.title}</span>
+              <button
+                id="gv-dock-more"
+                type="button"
+                aria-label={`Valg for ${m.title}`}
+                title="Valg (Shift+F10)"
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  onMore({ x: r.left, y: r.top - 360 });
+                }}
+                className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-muted hover:bg-white/[0.08] hover:text-ink-strong"
+              >
+                <MoreIcon width={16} height={16} />
+              </button>
+            </span>
             {track && track.variants.length > 1 ? <VariantSelect t={track} value={cur} onChange={onVariant} /> : null}
             <NowLabel cur={cur} hideVariant={!!track && track.variants.length > 1} />
             {single && (
@@ -877,24 +957,67 @@ function SubBassEdge() {
   );
 }
 
-/** Mobil: glassmorfisk pille over bunnmenyen. Trykk = fullskjerm, sveip = bytt spor. */
-function MiniPlayer({ cur, onOpen }: { cur: LoadedAsset; onOpen: () => void }) {
+/** Mobil: glassmorfisk pille over bunnmenyen. Trykk = fullskjerm, sveip = bytt spor, hold inne = «⋯»-menyen. */
+function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => void; onMore: () => void }) {
   const { playing, toggle, positionMs, next, prev, started } = usePlayer();
   const m = cur.manifest;
   const startX = useRef<number | null>(null);
+  const hold = useRef<{ timer: number; fired: boolean; x: number; y: number } | null>(null);
   return (
     <div
       className="fixed inset-x-3 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 overflow-hidden rounded-2xl border border-white/[0.08] bg-[rgba(14,16,21,0.92)] shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden"
-      onTouchStart={(e) => (startX.current = e.touches[0]?.clientX ?? null)}
+      onTouchStart={(e) => {
+        const t = e.touches[0];
+        startX.current = t?.clientX ?? null;
+        if (!t) return;
+        const h = { timer: 0, fired: false, x: t.clientX, y: t.clientY };
+        h.timer = window.setTimeout(() => {
+          h.fired = true;
+          navigator.vibrate?.(10);
+          onMore();
+        }, 500);
+        hold.current = h;
+      }}
+      onTouchMove={(e) => {
+        const h = hold.current;
+        const t = e.touches[0];
+        if (h && t && (Math.abs(t.clientX - h.x) > 10 || Math.abs(t.clientY - h.y) > 10)) window.clearTimeout(h.timer);
+      }}
       onTouchEnd={(e) => {
+        if (hold.current) window.clearTimeout(hold.current.timer);
+        if (hold.current?.fired) {
+          // Menyarket har glidd opp under fingeren: klikket som følger skal ikke treffe et valg i det.
+          const swallow = (ev: Event) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+          };
+          for (const t of ['mousedown', 'mouseup', 'click']) window.addEventListener(t, swallow, { capture: true });
+          setTimeout(() => {
+            for (const t of ['mousedown', 'mouseup', 'click']) window.removeEventListener(t, swallow, { capture: true });
+          }, 450);
+          hold.current = null;
+        }
         const dx = (e.changedTouches[0]?.clientX ?? 0) - (startX.current ?? 0);
-        if (startX.current != null && Math.abs(dx) > 60) (dx < 0 ? next : prev)();
+        if (startX.current != null && !hold.current?.fired && Math.abs(dx) > 60) (dx < 0 ? next : prev)();
         startX.current = null;
       }}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <SubBassEdge />
       <div className="flex items-center gap-3 p-2 pr-3">
-        <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Åpne spilleren: ${m.title}`}>
+        <button
+          type="button"
+          onClick={(e) => {
+            // Klikket etter et langt trykk skal ikke åpne fullskjerm
+            if (hold.current?.fired) {
+              hold.current = null;
+              return e.preventDefault();
+            }
+            onOpen();
+          }}
+          className="flex min-w-0 flex-1 select-none items-center gap-3 text-left [-webkit-touch-callout:none]"
+          aria-label={`Åpne spilleren: ${m.title}`}
+        >
           <CoverArt src={assetUrl(cur, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={8} />
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-ink-strong">{m.title}</span>
@@ -926,7 +1049,7 @@ function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cur: Load
           <ChevronDownIcon width={26} height={26} />
         </button>
         <span className="text-[10px] font-semibold tracking-[2px] text-muted">{m.kind === 'set' ? 'LIVE-SETT' : 'SPILLES NÅ'}</span>
-        <button type="button" onClick={onMore} aria-label="Legg til i spilleliste" className="flex h-11 w-11 items-center justify-center rounded-full text-champagne">
+        <button type="button" onClick={onMore} aria-label="Valg for låta som spilles" className="flex h-11 w-11 items-center justify-center rounded-full text-champagne">
           <MoreIcon width={22} height={22} />
         </button>
       </div>

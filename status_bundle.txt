@@ -55,16 +55,14 @@ environment: "lokal (Windows, Knuts stasjonære PC)"
 current_state:
   status: "in_progress"
   state_summary: >
-    setup/del-0 (del 0b, 1+6, manifest-fiks, del 7) og setup/del-9 er pushet; ingen PR mot main ennå (gh mangler).
-    Del 9 (spillelister) er FERDIG på setup/del-9: alle punkter 1–15 + smarte lister er bygget, 97/97 enhetstester
-    og typecheck grønne, «Ferdig når» kjørt mot ekte server, og UI-et er verifisert i hodeløs Edge (DevTools-
-    protokollen, egen tom profil) på desktop 1440×900 og mobil 384×854 med berøring: 31/31 sjekker, ingen JS-feil.
-    Verifiseringen fant og rettet 3 feil: klikk på rad på desktop spilte i stedet for å velge (Delete virket ikke),
-    ⋯-menyen i lista stakk utenfor skjermen på mobil, og fargevelgeren lå bak minispilleren/bunnmenyen.
-    Rekkefølge videre (main 7dc8714): del 11 («⋯»-meny) → del 10 (del låt som fil) → del 12 (Android) → del 1 pkt. 7–8 → del 8.
-    Ikke verifisert: ekte telefon/berøring (bare emulert), og avspilling av en eldre låst versjon (ingen låt har >1 versjon i media).
+    Alt arbeid samles nå på setup/del-0 (Knut 2026-11-14: kjør gjennom alle deler selv, push dit, ikke merge til main).
+    Løpende plan og status per del står i docs/PROGRESS.md; spørsmål i docs/OPEN_QUESTIONS.md.
+    Ferdig: del 9 (spillelister, 31/31 UI-sjekker) og del 11 («⋯»-meny + kø, 29/29 UI-sjekker). 103/103 enhetstester.
+    UI verifiseres i hodeløs Edge via DevTools-protokollen (egen profil, --disable-extensions; skript i scratchpad).
+    Neste: del 12 (Android) → 10 → 1 pkt. 7–8 → 8 → 2 → 4 → 3. Del 5 hoppes over (ingen Supabase-nøkler).
+    Ikke verifisert: fysisk telefon (berøring er emulert), avspilling av eldre låst versjon.
   recommended_next_action: >
-    Knut sier OK til plan for del 11. PR for setup/del-9 mot main må lages (gh mangler).
+    Fortsett med del 12 etter docs/PROGRESS.md.
   active_blockers:
     - "Del 3 krever fasit (BPM/toneart) for 5–10 låter fra Knut."
     - "Del 5 krever at Knut oppretter Supabase-prosjekt og legger URL og anon-nøkkel i .env."

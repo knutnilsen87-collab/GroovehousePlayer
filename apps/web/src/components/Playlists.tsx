@@ -24,7 +24,9 @@ import {
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { playList, savedEntry, toastError, useNowList, usePlaylists, useToast, type AddItem } from '../lib/playlists';
+import { useTouchReorder } from '../lib/useTouchReorder';
 import { lockOptions, lockValue, type VersionCtx } from '../lib/versions';
+import { useUi, type ExtraAction } from '../lib/ui';
 import { CoverArt } from './CoverArt';
 import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
 
@@ -514,6 +516,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
   const loaded = usePlaylists((s) => s.loaded);
   const v = buildListView(id, playlists, tracks, vctx);
   const nowList = useNowList((s) => s.listId);
+  const nowKey = useNowList((s) => s.currentKey);
   const { queue, index, playing } = usePlayer();
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -704,13 +707,13 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
 
       <div className="relative mt-6">
         {v.kind === 'manual' ? (
-          <ManualRows v={v} playingId={isNow ? v.keys[index] : undefined} onPlay={play} queueLen={queue.length} vctx={vctx} />
+          <ManualRows v={v} playingId={isNow ? (nowKey ?? undefined) : undefined} onPlay={play} queueLen={queue.length} vctx={vctx} />
         ) : (
           <ol className="m-0 list-none p-0">
             {v.assets.length === 0 && <li className="text-sm text-muted">Ingen treff ennå.</li>}
             {v.assets.map((a, i) => (
               <li key={a.manifest.id}>
-                <EntryButton a={a} i={i} current={isNow && v.keys[index] === v.keys[i]} onPlay={() => play(i)} />
+                <EntryButton a={a} i={i} current={isNow && nowKey === v.keys[i]} onPlay={() => play(i)} />
               </li>
             ))}
           </ol>
@@ -771,7 +774,6 @@ function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: st
   const [anchor, setAnchor] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropBefore, setDropBefore] = useState<string | null | undefined>(undefined);
-  const [touch, setTouch] = useState<{ id: string; mode: 'drag' | 'swipe'; dy: number; dx: number } | null>(null);
   const p = v.playlist!;
   const rows = v.rows;
   const playIndexOf = (entryId: string) => v.keys.indexOf(entryId);
@@ -805,100 +807,16 @@ function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: st
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const removeRef = useRef(removeWithUndo);
-  removeRef.current = removeWithUndo;
-
-  // Mobil: hold inne (300 ms) = dra, vannrett sveip = fjern. Native lyttere (ikke passive) så siden ikke scroller under draget.
-  useEffect(() => {
-    const el = listRef.current;
-    if (!el) return;
-    let start: { x: number; y: number; id: string; t: number } | null = null;
-    let timer = 0;
-    let mode: 'drag' | 'swipe' | null = null;
-    let moved = false;
-    let before: string | null | undefined;
-    let lastDx = 0;
-    const rowAt = (y: number): string | null => {
-      for (const li of Array.from(el.querySelectorAll<HTMLElement>('[data-entry]'))) {
-        const r = li.getBoundingClientRect();
-        if (y < r.top + r.height / 2) return li.dataset.entry!;
-      }
-      return null;
-    };
-    const onStart = (e: TouchEvent) => {
-      const li = (e.target as HTMLElement).closest<HTMLElement>('[data-entry]');
-      if (!li || e.touches.length !== 1) return;
-      const t = e.touches[0]!;
-      start = { x: t.clientX, y: t.clientY, id: li.dataset.entry!, t: Date.now() };
-      mode = null;
-      moved = false;
-      before = undefined;
-      lastDx = 0;
-      timer = window.setTimeout(() => {
-        if (!start || moved) return;
-        mode = 'drag';
-        navigator.vibrate?.(10);
-        setTouch({ id: start.id, mode: 'drag', dy: 0, dx: 0 });
-        setDropBefore(undefined);
-      }, 300);
-    };
-    const onMove = (e: TouchEvent) => {
-      if (!start) return;
-      const t = e.touches[0]!;
-      const dx = t.clientX - start.x;
-      const dy = t.clientY - start.y;
-      if (mode === 'drag') {
-        e.preventDefault();
-        before = rowAt(t.clientY);
-        setTouch({ id: start.id, mode: 'drag', dy, dx: 0 });
-        setDropBefore(before);
-        return;
-      }
-      if (mode === 'swipe') {
-        e.preventDefault();
-        lastDx = Math.min(0, dx);
-        setTouch({ id: start.id, mode: 'swipe', dy: 0, dx: lastDx });
-        return;
-      }
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        moved = true;
-        window.clearTimeout(timer);
-        if (Math.abs(dx) > Math.abs(dy) * 1.5 && dx < 0) {
-          mode = 'swipe';
-          e.preventDefault();
-        } else start = null; // vanlig scrolling
-      }
-    };
-    const onEnd = () => {
-      window.clearTimeout(timer);
-      const s = start;
-      start = null;
-      if (!s || !mode) return;
-      const m = mode;
-      mode = null;
-      if (m === 'swipe' && lastDx < -90) void removeRef.current([s.id]);
-      if (m === 'drag' && before !== undefined && before !== s.id) void usePlaylists.getState().move(p.id, s.id, before).catch(toastError);
-      setTouch(null);
-      setDropBefore(undefined);
-      // Ikke la draget/sveipet bli et trykk på raden
-      const swallow = (ev: Event) => {
-        ev.stopPropagation();
-        ev.preventDefault();
-      };
-      window.addEventListener('click', swallow, { capture: true, once: true });
-      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 400);
-    };
-    el.addEventListener('touchstart', onStart, { passive: true });
-    el.addEventListener('touchmove', onMove, { passive: false });
-    el.addEventListener('touchend', onEnd);
-    el.addEventListener('touchcancel', onEnd);
-    return () => {
-      el.removeEventListener('touchstart', onStart);
-      el.removeEventListener('touchmove', onMove);
-      el.removeEventListener('touchend', onEnd);
-      el.removeEventListener('touchcancel', onEnd);
-    };
-  }, [p.id]);
+  const touch = useTouchReorder(
+    listRef,
+    {
+      attr: 'entry',
+      onMove: (id, before) => void usePlaylists.getState().move(p.id, id, before).catch(toastError),
+      onSwipe: (id) => void removeWithUndo([id]),
+      setDropBefore
+    },
+    [p.id]
+  );
 
   const select = (entryId: string, e: MouseEvent) => {
     if (e.shiftKey && anchor) {
@@ -959,6 +877,12 @@ function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: st
                 select(id, e);
               }}
               onDoubleClick={() => r.asset && onPlay(playIndexOf(id))}
+              onContextMenu={(e) => {
+                // Desktop: høyreklikk = låtmenyen, med lista sine egne valg (låsing, fjern)
+                if (!r.asset) return;
+                e.preventDefault();
+                (e.currentTarget.querySelector('[data-list-more]') as HTMLButtonElement | null)?.dispatchEvent(new CustomEvent('gv-open', { detail: { x: e.clientX, y: e.clientY } }));
+              }}
               aria-selected={selected.includes(id)}
               className={`relative select-none ${selected.includes(id) ? 'rounded-xl bg-white/[0.06] ring-1 ring-white/10' : ''} ${dragId === id ? 'opacity-40' : ''}`}
               style={style}
@@ -1019,6 +943,21 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
     const o = all.find((x) => x.value === value);
     if (o) void usePlaylists.getState().setLock(p.id, r.entry.id, o.variant, o.version).catch(toastError);
   };
+  /** Valg som bare gjelder denne lista, lagt til i låtmenyen (del 11). */
+  const listExtras = (): ExtraAction[] => [
+    ...(all.length > 1 ? [{ label: 'Låsing i lista', options: all.map((o) => ({ label: o.label, checked: o.value === current, run: () => choose(o.value) })) }] : []),
+    { label: 'Fjern fra lista', danger: true, run: onRemove }
+  ];
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const extrasRef = useRef(listExtras);
+  extrasRef.current = listExtras;
+  useEffect(() => {
+    const b = moreRef.current;
+    if (!b) return;
+    const open = (e: Event) => r.asset && useUi.getState().openActions({ assets: [r.asset], context: 'row', extra: extrasRef.current(), anchor: (e as CustomEvent<{ x: number; y: number }>).detail });
+    b.addEventListener('gv-open', open);
+    return () => b.removeEventListener('gv-open', open);
+  }, [r.asset]);
   const lockLabel = r.entry.version != null ? `v${r.entry.version}` : r.entry.variant ? 'låst' : null;
   return (
     <>
@@ -1042,7 +981,7 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
       <button type="button" onClick={onRemove} aria-label="Fjern fra lista" title="Fjern (Delete)" className="hidden h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-white/[0.06] hover:text-[#FF8A7A] lg:flex">
         <TrashIcon width={16} height={16} />
       </button>
-      <button type="button" onClick={() => setSheet(true)} aria-label={`Valg for ${t?.main.manifest.title ?? r.entry.slug}`} className="flex h-10 w-9 flex-none items-center justify-center rounded-full text-muted active:bg-white/[0.06] lg:hidden">
+      <button ref={moreRef} data-list-more type="button" onClick={() => (r.asset ? useUi.getState().openActions({ assets: [r.asset], context: 'row', extra: listExtras() }) : setSheet(true))} aria-label={`Valg for ${t?.main.manifest.title ?? r.entry.slug}`} className="flex h-10 w-9 flex-none items-center justify-center rounded-full text-muted active:bg-white/[0.06] lg:hidden">
         <MoreIcon width={18} height={18} />
       </button>
       <span aria-hidden="true" className="hidden h-9 w-6 items-center justify-center text-muted/70 lg:flex lg:cursor-grab">

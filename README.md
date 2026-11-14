@@ -91,6 +91,16 @@ Lagres av serveren på PC-en i `data/playlists.json` (gitignored, atomisk skrivi
 - **Samtidige endringer:** hver endring sendes med `updatedAt`. Er lista endret et annet sted, svarer serveren 409, og appen regner endringen ut på nytt mot den ferske lista i stedet for å overskrive.
 - API: `GET/POST /api/playlists`, `PATCH/DELETE /api/playlists/:id`, `PUT/DELETE /api/playlists/:id/cover`, `GET /api/playlist-covers/:fil`. Samme tilgang som resten av appen (PC-en, Tailscale, eller Wi-Fi med PIN).
 
+## Låtmeny («⋯») og køen
+
+Én meny for alt du kan gjøre med en låt, med nøyaktig den versjonen og varianten som vises eller spilles. På mobil er den et ark nederfra, på desktop en kontekstmeny.
+
+- **Hvor:** ⋯ på låtrader og i fullskjermspilleren, hold inne på minispilleren, ⋯ ved tittelen i dokken, høyreklikk på en rad eller på coveret i dokken, og **Shift+F10** eller menytasten.
+- **Innhold:** Legg til i spilleliste · Del… (kommer i del 10) · Spill neste / Legg til i køen (rader) eller Vis køen (låta som spilles) · Bytt variant · Velg versjon · Gå til seksjon · Info · Åpne i Studio (desktop). I en spilleliste kommer også «Låsing i lista» og «Fjern fra lista».
+- **Rask vei på mobil:** sveip til høyre på en rad i katalogen legger låta i sist brukte spilleliste, med angre.
+- **Info → Kildefil:** originalfilnavnet fra eksportmappa. Det lagres privat i `data/sources.json` (gitignored) og vises bare i Info og i Studio, aldri i delte filer, tags eller noe lyttersiden ser. Låter som ble ingestet før dette, kobles med `pnpm gh-ingest --index-sources` (leser bare eksportmappa, matcher på hash).
+- **Køen:** «Spill neste» setter låta rett etter den som spilles, «Legg til i køen» legger den bakerst. I køvisningen: hold inne og dra for å flytte (dra og slipp på desktop), sveip for å fjerne. Låta som spilles står fast. Køen lagres i nettleseren og legges tilbake pauset etter omstart. En ny liste eller låt fra katalogen erstatter køen som før.
+
 ## Prøv hele kjeden
 
 ```powershell
