@@ -3,13 +3,14 @@ import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import type { VaultConfig } from '../src/config';
+import { DEFAULTS, type VaultConfig } from '../src/config';
 import { FFMPEG, run } from '../src/ffmpeg';
 import type { IngestResult } from '../src/ingest';
 import { startWatcher } from '../src/watcher';
 
 const hasFfmpeg = spawnSync(FFMPEG, ['-version']).status === 0;
 const cfg: VaultConfig = {
+  ...DEFAULTS,
   ports: { server: 41733, dev: 41734 },
   lan: { enabled: false, rememberDays: 30 },
   allowedHosts: [],

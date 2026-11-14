@@ -52,7 +52,7 @@ export async function encodeHls(input: string, outDir: string): Promise<string> 
   return 'hls/index.m3u8';
 }
 
-export async function measureLoudness(input: string): Promise<Loudness> {
+export async function measureLoudness(input: string, targetLufs = TARGET_LUFS): Promise<Loudness> {
   const { stderr } = await run(FFMPEG, ['-hide_banner', '-nostats', '-i', input, '-af', 'ebur128=peak=true', '-f', 'null', '-']);
   // Bruk sammendraget nederst i loggen
   const summary = stderr.slice(stderr.lastIndexOf('Summary:'));
@@ -65,7 +65,7 @@ export async function measureLoudness(input: string): Promise<Loudness> {
   const truePeak = num(/Peak:\s+(-?[\d.]+)\s+dBFS/);
   const lra = num(/LRA:\s+(-?[\d.]+)\s+LU/);
   // Aldri løft over 0 dBTP: positiv gain begrenses av headroom.
-  let gain = TARGET_LUFS - integrated;
+  let gain = targetLufs - integrated;
   if (gain > 0) gain = Math.min(gain, truePeak !== null ? Math.max(0, -1 - truePeak) : 0);
   return { integratedLufs: integrated, truePeakDbtp: truePeak, lra, playbackGainDb: Math.round(gain * 10) / 10 };
 }

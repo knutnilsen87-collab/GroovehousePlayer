@@ -35,5 +35,19 @@ export interface PlayerEngine {
   positionMs(): number;
 }
 
+/**
+ * Del 8: målnivå fra innstillingene (null = bruk det ingest regnet ut, -14 LUFS).
+ * Settes ved oppstart fra /api/settings/playback, så et nytt mål virker uten ny ingest.
+ */
+let targetLufs: number | null = null;
+export const setTargetLufs = (v: number | null) => {
+  targetLufs = v !== null && Number.isFinite(v) ? v : null;
+};
+
 /** LUFS-utjevning: bare demping, aldri løft. */
-export const gainOf = (a: LoadedAsset | undefined) => (a ? Math.min(1, Math.pow(10, a.manifest.loudness.playbackGainDb / 20)) : 1);
+export const gainOf = (a: LoadedAsset | undefined) => {
+  if (!a) return 1;
+  const l = a.manifest.loudness;
+  const db = targetLufs !== null && Number.isFinite(l.integratedLufs) ? targetLufs - l.integratedLufs : l.playbackGainDb;
+  return Math.min(1, Math.pow(10, db / 20));
+};

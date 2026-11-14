@@ -9,6 +9,36 @@ export interface VaultConfig {
   allowedHosts: string[];
   defaults: { artist: string | null; label: string | null; copyright: string | null };
   titleCleanup: TitleCleanupConfig;
+  /** Del 8: lyd. Målnivå for avspilling (spilleren demper bare, løfter aldri). */
+  audio: { targetLufs: number };
+  /** Del 8: kategorisering. Lengre enn grensen = live-sett; regler på filnavn kan sette type/variant. */
+  ingest: { setThresholdMinutes: number; rules: IngestRule[] };
+  /** Del 8: farger fra cover. */
+  colors: { minContrast: number; goldFallback: boolean };
+  /** Del 8: standarder for drops (lagres nå, brukes i delingsfasen). */
+  drops: { tier: 'partner' | 'inner_circle' | 'supporter' | 'teaser'; ttlDays: number; maxDevices: number; watermark: boolean };
+  /** Eksportmappa (Reason-bounces). Lagres lokalt (groovehouse.local.json); ellers GH_EXPORT_DIR i .env. */
+  exportDir: string | null;
+}
+
+/** «* (Live *)» → set. Mønster med * som jokertegn, uten hensyn til store/små bokstaver. */
+export interface IngestRule {
+  pattern: string;
+  kind?: 'set' | 'track';
+  variant?: string;
+}
+
+export function ruleMatches(pattern: string, fileName: string): boolean {
+  const base = fileName.replace(/\.[^.]+$/, '');
+  const re = new RegExp('^' + pattern.split('*').map(escapeRe).join('.*') + '$', 'i');
+  return re.test(base) || re.test(fileName);
+}
+
+const escapeRe = (s: string) => s.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
+
+/** Første regel som passer filnavnet, eller null. */
+export function matchRule(cfg: Pick<VaultConfig, 'ingest'>, fileName: string): IngestRule | null {
+  return cfg.ingest.rules.find((r) => ruleMatches(r.pattern, fileName)) ?? null;
 }
 
 const FALLBACK: VaultConfig = {
@@ -16,8 +46,14 @@ const FALLBACK: VaultConfig = {
   lan: { enabled: false, rememberDays: 30 },
   allowedHosts: [],
   defaults: { artist: null, label: null, copyright: null },
-  titleCleanup: { remove: ['suno ai', 'suno'] }
+  titleCleanup: { remove: ['suno ai', 'suno'] },
+  audio: { targetLufs: -14 },
+  ingest: { setThresholdMinutes: 20, rules: [] },
+  colors: { minContrast: 4.5, goldFallback: true },
+  drops: { tier: 'partner', ttlDays: 30, maxDevices: 2, watermark: true },
+  exportDir: null
 };
+export const DEFAULTS: Readonly<VaultConfig> = FALLBACK;
 
 /** Prosjektroten = nærmeste mappe oppover som har groovehouse.config.json eller pnpm-workspace.yaml. */
 export function findRoot(start = process.env.INIT_CWD ?? process.cwd()): string {
@@ -67,7 +103,13 @@ export function loadConfig(root = findRoot()): VaultConfig {
     lan: { ...FALLBACK.lan, ...(j.lan ?? {}), ...(l.lan ?? {}) },
     allowedHosts: [...new Set([...hostList(j.allowedHosts), ...hostList(l.allowedHosts)])],
     defaults: { ...FALLBACK.defaults, ...(j.defaults ?? {}), ...(l.defaults ?? {}) },
-    titleCleanup: { remove: l.titleCleanup?.remove ?? j.titleCleanup?.remove ?? FALLBACK.titleCleanup.remove }
+    titleCleanup: { remove: l.titleCleanup?.remove ?? j.titleCleanup?.remove ?? FALLBACK.titleCleanup.remove },
+    audio: { ...FALLBACK.audio, ...(j.audio ?? {}), ...(l.audio ?? {}) },
+    ingest: { ...FALLBACK.ingest, ...(j.ingest ?? {}), ...(l.ingest ?? {}) },
+    colors: { ...FALLBACK.colors, ...(j.colors ?? {}), ...(l.colors ?? {}) },
+    drops: { ...FALLBACK.drops, ...(j.drops ?? {}), ...(l.drops ?? {}) },
+    // Eksportmappa er maskinspesifikk: bare fra den lokale fila (eller .env)
+    exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null
   };
 }
 

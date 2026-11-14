@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parseFlatName, parseMasterName, scrubSuno, titleFromSlug, type AssetKind } from '@gv/shared';
-import type { VaultConfig } from './config';
+import { matchRule, type VaultConfig } from './config';
 import type { LiveLog } from './livelog';
 
 export const AUDIO_RE = /\.(wav|wave|aif|aiff|flac)$/i;
@@ -28,6 +28,10 @@ export interface MetaFile {
   /** Overstyr analysen hvis den bommer */
   bpm?: number;
   camelot?: string;
+  /** Del 8: manuell palett fra Studio (overlever ny ingest). */
+  palette?: { primary: string; secondary: string };
+  /** Del 8: live-sett – flytt markørene så mange ms (±10 000, steg på 50). */
+  liveOffsetMs?: number;
 }
 
 export interface MasterSource {
@@ -144,7 +148,8 @@ export async function scanFlat(dir: string, cfg: VaultConfig): Promise<FlatScan>
         path: full,
         fileName: f,
         slug: p.slug,
-        variant: p.variant,
+        // Del 8: en filnavnregel kan sette varianten («* (Club *)» → club)
+        variant: matchRule(cfg, f)?.variant || p.variant,
         version: p.version,
         titleFromFile: p.clean.title,
         wasAllCaps: p.clean.wasAllCaps,

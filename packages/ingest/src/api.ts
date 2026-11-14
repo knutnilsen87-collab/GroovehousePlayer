@@ -8,7 +8,7 @@ import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
 import { retagSlug } from './ingest';
 import { ensureShareFile, ShareError } from './share';
-import type { AssetManifest, ShareKind } from '@gv/shared';
+import { manualPalette, type AssetManifest, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { readSources, sourceKey, sourcesFile } from './source-index';
 import { overridePath, readOverrides, type MetaFile } from './sources';
@@ -135,6 +135,22 @@ export function createApiHandler(opts: ApiOptions) {
         }
         if (Object.keys(vars).length) next.variants = vars;
         else delete next.variants;
+      }
+      // Del 8: manuell farge (null = tilbake til coverets) og live-forskyvning
+      if (body.palette !== undefined) {
+        if (body.palette === null) delete next.palette;
+        else {
+          const p = body.palette as { primary?: unknown; secondary?: unknown };
+          const mp = manualPalette(String(p?.primary ?? ''), String(p?.secondary ?? ''), cfg.colors.minContrast);
+          if (!mp.ok) return send(res, 400, { error: mp.error, contrast: mp.contrast });
+          next.palette = { primary: mp.palette.primary, secondary: mp.palette.secondary };
+        }
+      }
+      if (body.liveOffsetMs !== undefined) {
+        const v = body.liveOffsetMs;
+        if (v === null || v === 0) delete next.liveOffsetMs;
+        else if (typeof v !== 'number' || !Number.isInteger(v) || Math.abs(v) > 10_000 || v % 50 !== 0) return send(res, 400, { error: 'forskyvning må være hele 50 ms mellom −10 000 og 10 000' });
+        else next.liveOffsetMs = v;
       }
       const file = overridePath(opts.mediaDir, slug);
       await mkdir(path.dirname(file), { recursive: true });

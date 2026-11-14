@@ -15,6 +15,14 @@ export interface ColorCandidate {
 const MIN_CHROMA = 0.045; // under dette regnes coveret som fargeløst
 const MIN_CONTRAST = 4.5;
 
+/** Del 8: innstillinger for farger fra cover. */
+export interface PaletteOptions {
+  /** Minste kontrast mot bakgrunnen (WCAG), 3–7. Standard 4.5. */
+  minContrast?: number;
+  /** Gull for fargeløse cover (standard). Av: bruk coverets egen (dempede) farge. */
+  goldFallback?: boolean;
+}
+
 function oklchOf(hex: string): Oklch {
   const c = toOklch(hex);
   if (!c) throw new Error(`Ugyldig farge: ${hex}`);
@@ -29,7 +37,8 @@ function hex(c: Oklch): string {
  * Velger den mest *levende* fargen (ikke den mest dominerende) og låser den
  * til et lesbart område mot obsidian-bakgrunnen.
  */
-export function choosePalette(candidates: ColorCandidate[]): Palette {
+export function choosePalette(candidates: ColorCandidate[], opts: PaletteOptions = {}): Palette {
+  const minContrast = opts.minContrast ?? MIN_CONTRAST;
   const scored = candidates
     .filter((c) => /^#[0-9a-f]{6}$/i.test(c.hex))
     .map((c) => {
@@ -41,9 +50,9 @@ export function choosePalette(candidates: ColorCandidate[]): Palette {
     .sort((a, b) => b.score - a.score);
 
   const best = scored[0];
-  if (!best || best.o.c < MIN_CHROMA) return { ...GOLD_FALLBACK };
+  if (!best || (best.o.c < MIN_CHROMA && opts.goldFallback !== false)) return { ...GOLD_FALLBACK };
 
-  const primary = clampAccent(best.o);
+  const primary = clampAccent(best.o, minContrast);
 
   // Sekundær: en annen kulør (≥ 25° unna) hvis den finnes, ellers en mørkere variant.
   const other = scored.find((s) => s !== best && s.o.c >= MIN_CHROMA && hueDistance(s.o.h ?? 0, best.o.h ?? 0) >= 25);
@@ -62,17 +71,26 @@ export function choosePalette(candidates: ColorCandidate[]): Palette {
 }
 
 /** Hever lysheten til fargen har ≥ 4.5:1 mot bakgrunnen, og holder metningen i et pent område. */
-export function clampAccent(input: Oklch): Oklch {
+export function clampAccent(input: Oklch, minContrast = MIN_CONTRAST): Oklch {
   let c: Oklch = {
     mode: 'oklch',
     l: clamp(input.l, 0.68, 0.9),
     c: clamp(input.c, 0.09, 0.2),
     h: input.h ?? 0
   };
-  for (let i = 0; i < 40 && wcagContrast(hex(c), OBSIDIAN) < MIN_CONTRAST; i++) {
+  for (let i = 0; i < 40 && wcagContrast(hex(c), OBSIDIAN) < minContrast; i++) {
     c = { ...c, l: Math.min(0.97, c.l + 0.01) };
   }
   return c;
+}
+
+/** Del 8: manuell farge fra Studio. Primærfargen må holde minst `minContrast` mot bakgrunnen. */
+export function manualPalette(primary: string, secondary: string, minContrast = MIN_CONTRAST): { ok: true; palette: Palette } | { ok: false; error: string; contrast: number } {
+  if (!/^#[0-9a-f]{6}$/i.test(primary) || !/^#[0-9a-f]{6}$/i.test(secondary)) return { ok: false, error: 'farger må være #rrggbb', contrast: 0 };
+  const contrast = Math.round(wcagContrast(primary, OBSIDIAN) * 100) / 100;
+  if (contrast < minContrast) return { ok: false, error: `primærfargen har bare ${contrast}:1 mot bakgrunnen (krav ${minContrast}:1)`, contrast };
+  const onPrimary = wcagContrast(primary, OBSIDIAN) >= wcagContrast(primary, '#F4F1EA') ? '#07080B' : '#F4F1EA';
+  return { ok: true, palette: { primary: primary.toUpperCase(), secondary: secondary.toUpperCase(), onPrimary, source: 'manual' } };
 }
 
 export function contrastOnObsidian(hexColor: string): number {

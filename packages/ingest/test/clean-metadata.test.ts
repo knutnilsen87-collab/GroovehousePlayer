@@ -5,7 +5,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AssetManifest } from '@gv/shared';
-import type { VaultConfig } from '../src/config';
+import { DEFAULTS, type VaultConfig } from '../src/config';
 import { FFMPEG, FFPROBE, run } from '../src/ffmpeg';
 import { ingestRelease, retagSlug, type IngestResult } from '../src/ingest';
 import { scanFlat } from '../src/sources';
@@ -16,6 +16,7 @@ import { scanFlat } from '../src/sources';
  */
 const hasFfmpeg = spawnSync(FFMPEG, ['-version']).status === 0;
 const cfg: VaultConfig = {
+  ...DEFAULTS,
   ports: { server: 41733, dev: 41734 },
   lan: { enabled: false, rememberDays: 30 },
   allowedHosts: [],

@@ -17,7 +17,8 @@ export interface Palette {
   secondary: string;
   /** Tekstfarge oppå en flate i `primary`. */
   onPrimary: string;
-  source: 'cover' | 'fallback';
+  /** manual = valgt i Studio (del 8), overlever ny ingest. */
+  source: 'cover' | 'fallback' | 'manual';
 }
 
 export interface AssetMarker {
@@ -90,6 +91,8 @@ export interface AssetManifest {
   loudness: Loudness;
   palette: Palette;
   markers: AssetMarker[];
+  /** Live-sett: manuell forskyvning av markørene (ms) fra Studio, i tillegg til sync-klikket. */
+  liveOffsetMs?: number;
   performedAt: string | null;
   venue: string | null;
   files: {

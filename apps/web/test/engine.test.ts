@@ -219,3 +219,17 @@ describe('spiller-storen mot motor-kontrakten', () => {
     expect(e.calls).toEqual(['vol:1', 'load:sett@61000', 'play', 'vol:0.5']);
   });
 });
+
+describe('LUFS-mål fra innstillingene (del 8)', () => {
+  it('demper mot nytt mål uten ny ingest, og løfter aldri', async () => {
+    const { gainOf, setTargetLufs } = await import('../src/lib/engine/types');
+    const a = { manifest: { loudness: { integratedLufs: -9, playbackGainDb: -5, truePeakDbtp: -0.5, lra: 5 } } } as never;
+    setTargetLufs(null);
+    expect(gainOf(a)).toBeCloseTo(Math.pow(10, -5 / 20));
+    setTargetLufs(-12);
+    expect(gainOf(a)).toBeCloseTo(Math.pow(10, -3 / 20));
+    setTargetLufs(-6);
+    expect(gainOf(a)).toBe(1);
+    setTargetLufs(null);
+  });
+});

@@ -11,11 +11,12 @@ import {
   type AssetManifest,
   type AssetMarker,
   type CatalogIndex,
-  type Palette
+  type Palette,
+  manualPalette
 } from '@gv/shared';
 import { analyze, ONSET_HOP, RATE } from './analyze';
-import { formatCopyright, loadConfig, type VaultConfig } from './config';
-import { processCover } from './cover';
+import { formatCopyright, loadConfig, matchRule, type VaultConfig } from './config';
+import { paletteFrom, processCover } from './cover';
 import { encodeHls, encodePreview, measureLoudness, retagPreview, type EmbedTags } from './encode';
 import { probe, probeTags } from './ffmpeg';
 import { liveLogToMarkers } from './livelog';
@@ -24,7 +25,6 @@ import { findMaster, makeMasterCopy } from './share';
 import { recordSources, relativeToExport, sourceKey, sourcesFile } from './source-index';
 import { readOverrides, releaseFromFolder, type MasterSource, type MetaFile, type ReleaseSource } from './sources';
 
-const SET_THRESHOLD_MS = 20 * 60 * 1000;
 /** Et BPM-hint fra filnavnet godtas hvis analysen er innenfor ± dette. */
 const BPM_HINT_TOLERANCE = 2;
 
@@ -249,7 +249,7 @@ async function ingestOne(
     );
 
     report('lufs', 'start');
-    const loudness = await measureLoudness(master.path);
+    const loudness = await measureLoudness(master.path, cfg.audio.targetLufs);
     report('lufs', 'ok', `${loudness.integratedLufs} LUFS · gain ${loudness.playbackGainDb >= 0 ? '+' : ''}${loudness.playbackGainDb} dB`);
 
     report('hls', 'start');
@@ -261,7 +261,7 @@ async function ingestOne(
     let coverThumb: string | null = null;
     if (release.coverPath) {
       report('palett', 'start');
-      const c = await processCover(release.coverPath, work);
+      const c = await processCover(release.coverPath, work, cfg.colors);
       palette = c.palette;
       cover = c.cover;
       coverThumb = c.coverThumb;
@@ -270,10 +270,20 @@ async function ingestOne(
       report('palett', 'warn', release.origin === 'flat' ? `ingen «${master.titleFromFile}.png/jpg» ved siden av lydfila – bruker gull` : 'ingen cover.png/jpg – bruker gull. Legg til cover og kjør på nytt.');
     }
 
-    const kind: AssetKind = meta.kind ?? (liveLog || info.durationMs >= SET_THRESHOLD_MS ? 'set' : 'track');
+    // Del 8: manuell farge fra Studio vinner over coveret
+    if (meta.palette) {
+      const mp = manualPalette(meta.palette.primary, meta.palette.secondary, 0);
+      if (mp.ok) {
+        palette = mp.palette;
+        report('palett', 'ok', `${palette.primary} / ${palette.secondary} (valgt i Studio)`);
+      }
+    }
+
+    const rule = matchRule(cfg, path.basename(master.path));
+    const kind: AssetKind = meta.kind ?? rule?.kind ?? (liveLog || info.durationMs >= cfg.ingest.setThresholdMinutes * 60_000 ? 'set' : 'track');
     let markers: AssetMarker[] = [];
     if (liveLog && kind === 'set') {
-      const r = liveLogToMarkers(liveLog, info.durationMs, firstTransientMs, opts.offsetMs ?? 0);
+      const r = liveLogToMarkers(liveLog, info.durationMs, firstTransientMs, opts.offsetMs ?? meta.liveOffsetMs ?? 0);
       markers = r.markers;
       report('live-logg', r.synced ? 'ok' : 'warn', `${r.markers.length} markører · forskyvning ${r.offsetMs} ms${r.synced ? '' : ' (fant ikke sync-klikk – ubekreftet)'}`);
     }
@@ -316,6 +326,7 @@ async function ingestOne(
       loudness,
       palette,
       markers,
+      ...(kind === 'set' && meta.liveOffsetMs ? { liveOffsetMs: meta.liveOffsetMs } : {}),
       performedAt: meta.performedAt ?? null,
       venue: resolved.venue,
       files: { hls, analysis: 'analysis.json', preview, cover, coverThumb },
@@ -361,12 +372,18 @@ export function resolveTempo(
   return analysed;
 }
 
+/** Flytter markørene `deltaMs` (del 8, live-forskyvning), innenfor låta. */
+export function shiftMarkers(markers: AssetMarker[], deltaMs: number, durationMs: number): AssetMarker[] {
+  const c = (v: number) => Math.min(durationMs, Math.max(0, v + deltaMs));
+  return markers.map((m) => ({ ...m, startMs: c(m.startMs), ...(m.endMs !== undefined && m.endMs !== null ? { endMs: c(m.endMs) } : {}) }));
+}
+
 function tagsDiffer(m: AssetManifest, r: ResolvedMeta): boolean {
   return m.title !== r.title || m.artist !== r.artist || m.album !== r.album || m.label !== r.label || m.copyright !== r.copyright || m.variantLabel !== r.variantLabel || m.venue !== r.venue;
 }
 
 /** Bare tag- og manifest-steget: ny tittel/artist/album i manifest og preview.m4a, lyden kodes ikke på nytt. */
-async function retagOne(outDir: string, m: AssetManifest, r: ResolvedMeta): Promise<AssetManifest> {
+async function retagOne(outDir: string, m: AssetManifest, r: ResolvedMeta, overrides: MetaFile = {}, cfg: VaultConfig = loadConfig()): Promise<AssetManifest> {
   const updated: AssetManifest = {
     ...m,
     title: r.title,
@@ -379,6 +396,20 @@ async function retagOne(outDir: string, m: AssetManifest, r: ResolvedMeta): Prom
   };
   delete updated.titleNeedsReview;
   if (r.titleNeedsReview) updated.titleNeedsReview = true;
+  // Del 8: manuell farge – eller tilbake til coverets når overstyringen er fjernet
+  if (overrides.palette) {
+    const mp = manualPalette(overrides.palette.primary, overrides.palette.secondary, 0);
+    if (mp.ok) updated.palette = mp.palette;
+  } else if (m.palette.source === 'manual') {
+    updated.palette = m.files.cover ? await paletteFrom(path.join(outDir, m.files.cover), cfg.colors) : { ...GOLD_FALLBACK };
+  }
+  // Del 8: live-sett – flytt markørene med endringen i forskyvning
+  if (m.kind === 'set') {
+    const delta = (overrides.liveOffsetMs ?? 0) - (m.liveOffsetMs ?? 0);
+    if (delta) updated.markers = shiftMarkers(m.markers, delta, m.durationMs);
+    delete updated.liveOffsetMs;
+    if (overrides.liveOffsetMs) updated.liveOffsetMs = overrides.liveOffsetMs;
+  }
   delete (updated as unknown as Record<string, unknown>).masterFile;
   await retagPreview(path.join(outDir, m.files.preview), embedTags(r));
   await writeFile(path.join(outDir, 'manifest.json'), JSON.stringify(updated, null, 2));
@@ -417,7 +448,7 @@ export async function retagSlug(mediaDir: string, slug: string, cfg: VaultConfig
       const found: string[] = [];
       const r = resolveMeta(meta, { titleFromFile: src.title, wasAllCaps: false, variant: m.variant, year: new Date().getFullYear() }, cfg, found);
       if (overrides.title === undefined && m.titleNeedsReview) r.titleNeedsReview = true;
-      const updated = await retagOne(dir, m, r);
+      const updated = await retagOne(dir, m, r, overrides, cfg);
       await appendIngestLog(mediaDir, {
         at: new Date().toISOString(),
         slug,
