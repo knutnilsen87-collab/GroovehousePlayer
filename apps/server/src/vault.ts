@@ -9,6 +9,9 @@ import { appDataDir, logsDir, portFile } from './paths';
 import { credDelete } from './credstore';
 import { elevated, FIREWALL_RULE, firewallRuleExists, lanCommand } from './lan-cli';
 import { remoteCommand } from './remote-cli';
+import { autostartStatus, disableAutostart, enableAutostart, TASK_NAME } from './autostart';
+import { setShortcutAumid } from './aumid';
+import { AUMID, notify, readyMessage } from './notify';
 import { probeHealth } from './server';
 
 /**
@@ -117,6 +120,21 @@ async function install() {
     );
     console.log(`    ✓ ${lnk}`);
   }
+  // Del 1 pkt. 8: Startmeny-snarveien får AppUserModelID, så Windows-varsler vises som «Groovehouse Vault».
+  try {
+    setShortcutAumid(path.join(programs, SHORTCUT_NAME), AUMID);
+    console.log('    ✓ varsler vises som «Groovehouse Vault»');
+  } catch (err) {
+    console.log(`    ! ${err instanceof Error ? err.message : String(err)} – varsler vises med PowerShell som avsender`);
+  }
+
+  // Del 1 pkt. 7: autostart ved pålogging (planlagt oppgave, bare denne brukeren, uten administrator)
+  try {
+    enableAutostart(launcher);
+    console.log(`    ✓ Autostart ved pålogging (Oppgaveplanlegging: «${TASK_NAME}», uten vindu). Slå av: pnpm vault:autostart off`);
+  } catch (err) {
+    console.log(`    ! ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   console.log('4/4 Registrerer installasjonen');
   const record: InstallRecord = { version: 1, installedAt: new Date().toISOString(), root, files: [launcher, icon], shortcuts };
@@ -195,6 +213,12 @@ async function uninstall(args: string[]) {
       console.log(`✓ Fjernet ${dir}`);
     }
   }
+  // Autostart (planlagt oppgave)
+  try {
+    if (disableAutostart()) console.log(`✓ Fjernet autostart («${TASK_NAME}» i Oppgaveplanlegging)`);
+  } catch (err) {
+    console.log(`! ${err instanceof Error ? err.message : String(err)}`);
+  }
   // 5. LAN: PIN-hash og nøkkel i Credential Manager, og ev. brannmurregel.
   const hadPin = credDelete('lan-pin');
   const hadSecret = credDelete('lan-secret');
@@ -221,10 +245,32 @@ const [cmd, ...rest] = process.argv.slice(2);
     ? uninstall(rest)
     : cmd === 'lan'
       ? lanCommand(root, serverDir, rest)
-      : cmd === 'remote'
+      : cmd === 'autostart'
+        ? autostartCommand(rest)
+        : cmd === 'remote'
         ? remoteCommand(root, serverDir, rest)
-        : Promise.reject(new Error('Bruk: vault install | vault uninstall [--keep-logs|--delete-logs] | vault lan on|off|pin|status | vault remote on|off|status'))
+        : Promise.reject(new Error('Bruk: vault install | vault uninstall [--keep-logs|--delete-logs] | vault lan on|off|pin|status | vault remote on|off|status | vault autostart on|off|status'))
 ).catch((err) => {
   console.error(`\n✗ ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });
+
+/** pnpm vault:autostart on|off|status|test */
+async function autostartCommand(args: string[]) {
+  const sub = args[0];
+  const launcher = path.join(appDataDir(), 'launcher.vbs');
+  if (sub === 'on') {
+    if (!existsSync(launcher)) throw new Error('Launcheren finnes ikke – kjør «pnpm vault:install» først.');
+    enableAutostart(launcher);
+    console.log(`✓ Autostart ved pålogging er på («${TASK_NAME}» i Oppgaveplanlegging, bare for deg, uten vindu)`);
+  } else if (sub === 'off') {
+    console.log(disableAutostart() ? '✓ Autostart er av' : '✓ Autostart var ikke på');
+  } else if (sub === 'status') {
+    const st = autostartStatus();
+    console.log(st.installed ? `Autostart: på (${st.state}) – ${st.action}` : 'Autostart: av');
+  } else if (sub === 'test-varsel') {
+    const msg = readyMessage({ title: 'Testvarsel', variantLabel: null, bpm: 125, key: { camelot: '8A' } as never });
+    notify(msg.title, msg.body, console.log);
+    console.log(`Sendt: «${msg.body}»`);
+  } else throw new Error('Bruk: pnpm vault:autostart on | off | status | test-varsel');
+}

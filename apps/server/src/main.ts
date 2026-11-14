@@ -9,6 +9,7 @@ import type { PinRecord } from './lan-auth';
 import { lanAddresses } from './lan';
 import { createDeviceStore } from './devices';
 import { createLogger } from './logger';
+import { notify, readyMessage } from './notify';
 import { appDataDir, logsDir, portFile } from './paths';
 import { candidatePorts, createHandler, listenWithFallback, readVersion, type LanOptions } from './server';
 
@@ -69,7 +70,17 @@ async function main() {
   let watcher: ReturnType<typeof startWatcher> | null = null;
   if (exportDir && existsSync(exportDir)) {
     log(`Watcher: ${exportDir} (leser bare)`);
-    watcher = startWatcher({ exportDir, mediaDir, config, log });
+    watcher = startWatcher({
+      exportDir,
+      mediaDir,
+      config,
+      log,
+      // Del 1 pkt. 8: Windows-varsel når en ny bounce er klar
+      onIngested: (res) => {
+        const msg = readyMessage(res.manifest);
+        notify(msg.title, msg.body, log);
+      }
+    });
   } else {
     log(`! Watcher er av: GH_EXPORT_DIR ${exportDir ? `finnes ikke (${exportDir})` : 'er ikke satt i .env'}`);
   }

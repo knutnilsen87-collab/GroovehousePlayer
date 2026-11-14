@@ -40,6 +40,11 @@ pnpm vault:server      # serveren i forgrunnen (feilsøking)
 - **Ikon:** `assets/brand/Windows/Groovehouse_Vault_IconPack.ico` på snarveiene. App-vinduet får Groovehouse-ikonet på oppgavelinja (fra favicon), ikke Edge-ikonet.
 - **Tauri** er ikke med nå: Edge-app-vindu gir samme opplevelse uten Rust-bygg. Tauri er neste steg hvis du vil ha automix med Web Audio på desktop.
 
+### Autostart og varsel
+
+- **Autostart ved pålogging:** `vault:install` lager en planlagt oppgave, «Groovehouse Vault» i Oppgaveplanlegging. Den gjelder bare din bruker og krever ikke administrator. Oppgaven kjører `launcher.vbs /bakgrunn`, som starter serveren og watcheren uten vindu og uten feilbokser (feil havner i loggen). `pnpm vault:autostart on|off|status`. `vault:uninstall` fjerner oppgaven.
+- **Varsel når en ny bounce er klar:** «Would You Run (Extended) er klar – 125 BPM · 8A». Startmeny-snarveien får en AppUserModelID (`GroovehouseRecords.Vault`), så varselet vises med «Groovehouse Vault» som avsender. `pnpm vault:autostart test-varsel` sender et testvarsel. «Ikke forstyrr» i Windows demper varslene som vanlig.
+
 ## Mobilen på samme Wi-Fi (LAN-modus)
 
 > **Kun hjemme.** Dette er vanlig HTTP på lokalnettet: PIN og lyd går ukryptert over Wi-Fi-en. Ikke bruk det på offentlige nett, og ikke for partnere – partnerlenker kommer med R2 og invitasjonstokens i en egen fase.

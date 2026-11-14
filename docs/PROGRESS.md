@@ -15,8 +15,8 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 11 «⋯»-meny | ✅ ferdig | 103 enhetstester (ny: kø), 29/29 UI-sjekker i hodeløs Edge (mobil + desktop), del 9-UI 31/31 på nytt | «Del…» slås på i del 10. Fysisk telefon: hold inne på minispilleren, sveip høyre/venstre |
 | 12 Android-app | ✅ bygget (ikke kjørt på telefon) | 114 enhetstester (motor-kontrakt 7, paring/token/CORS 4), signert APK bygget, CORS/paring/401 verifisert live over Tailscale | Hele «Ferdig når» på S22: installer, koble til, skjerm av 15 min, låseskjerm, Bluetooth i bil. Ingen emulator på PC-en |
 | 10 Del låt som fil | ✅ ferdig (web), app bygget | 5 ffmpeg-tester (FLAC bit-for-bit, AAC 256k, tags, cover, cache, WAV-lyd identisk, /drop/ 403), 4 tekst/filnavn-tester, ekte server via Tailscale (ffprobe), UI 13/13; del 9 og 11 på nytt 31/29 | «Ferdig når»: del til deg selv på WhatsApp fra mobilen (Tailscale) og på e-post fra desktop-appen. Del i Android-appen (ikke kjørt). Om navigator.share med filer virker i Edge --app-vinduet |
-| 1 pkt. 7–8 Autostart + varsel | 🔨 neste | – | – |
-| 8 Innstillinger | ⏳ | – | – |
+| 1 pkt. 7–8 Autostart + varsel | ✅ ferdig | Oppgaven laget uten admin; server stoppet → oppgaven startet → server oppe, ingen vindu (LastTaskResult 0); AUMID satt og lest tilbake; varsel vist (exit 0); 2 enhetstester for tekst/injeksjon | «Ferdig når»: start PC-en på nytt, og bounce noe nytt fra Reason – varselet skal komme av seg selv |
+| 8 Innstillinger | 🔨 neste | – | – |
 | 2 Markør-editor | ⏳ | – | – |
 | 4 Raskere ingest | ⏳ | – | – |
 | 3 Analyse (uten fasit) | ⏳ | – | Fasit i `fixtures/truth.json` |
@@ -49,6 +49,8 @@ Knuts svar gjelder: «Del…» vises deaktivert («kommer») til del 10 · «Kil
 
 **Del 10 ferdig:** Vaults egen master (`master.flac`) lages ved ingest; 25 eksisterende låter fylt inn fra REASONDONE (kun lesing, hash sjekket) og 3 fixtures via ny ingest. `media/` gikk fra 214 MB til ca. 0,75 GB. Delte filer i `share/` (aldri via /media). «Del…» i menyen, to-stegs ark, Vis i Utforsker bare fra PC-en, logg i `data/shares.json`, «Delt N ganger» i Studio. Appen deler via Filesystem + Share, og FileProvider er begrenset til appens cache.
 
+**Del 1 pkt. 7–8 ferdig:** planlagt oppgave «Groovehouse Vault» (AtLogOn, bare Knut, uten admin) som kjører `launcher.vbs /bakgrunn`; varsel via WinRT i Windows PowerShell (ingen ny npm-pakke) med AUMID på Startmeny-snarveien. Funn: AUMID via filsti-egenskapslager ble ikke lagret, og «-Command -» kjørte ikke Add-Type pålitelig – løst med ShellLink + IPersistFile i en midlertidig .ps1.
+
 ## Logg
 
 - 2026-11-14: Del 9 ferdig (bcdb20b). Del 11 påbegynt: kildefil (5e7c426). Main (7862d80) merget inn.
@@ -56,3 +58,4 @@ Knuts svar gjelder: «Del…» vises deaktivert («kommer») til del 10 · «Kil
 - 2026-11-14: Del 11 ferdig (UI 29/29, del 9 31/31 på nytt). «Out of Control» (ny bounce) ingestet av watcheren og koblet til kildefil.
 - 2026-11-14: Del 12 bygget (APK 7,3 MB, signert). Keystore laget i %APPDATA%GroovehouseVaultandroidelease.jks.
 - 2026-11-14: Del 10 ferdig. Master-kopier for 28 versjoner. APK bygget på nytt (7,4 MB) med Filesystem/Share.
+- 2026-11-14: Del 1 pkt. 7–8 ferdig. Planlagt oppgave og AUMID installert via vault:install. To testvarsler vist på skjermen.

@@ -2,6 +2,7 @@
 ' 1. Spør /api/health på porten i %LOCALAPPDATA%\GroovehouseVault\port (ellers standardporten).
 ' 2. Svarer ikke Groovehouse Vault: start serveren usynlig og vent på helse-sjekken.
 ' 3. Åpne spilleren i eget vindu: Edge --app, Chrome --app som reserve.
+' Med /bakgrunn (autostart ved pålogging, del 1 pkt. 7): bare start serveren, uten vindu og uten feilbokser.
 ' Svarer et annet program på porten, åpnes aldri det – det sies tydelig fra i stedet.
 Option Explicit
 
@@ -15,9 +16,17 @@ Const LOG_FILE = "{{LOG_FILE}}"
 Const DEFAULT_PORT = {{PORT}}
 Const START_TIMEOUT_MS = 30000
 
-Dim sh, fso
+Dim sh, fso, background
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
+background = False
+If WScript.Arguments.Count > 0 Then background = (LCase(WScript.Arguments(0)) = "/bakgrunn")
+
+' Feilmelding: boks når Knut har dobbeltklikket, stille ved autostart (står i loggen).
+Sub Fail(msg)
+  If Not background Then MsgBox msg, vbExclamation, TITLE
+  WScript.Quit 1
+End Sub
 
 Function ReadPort()
   ReadPort = DEFAULT_PORT
@@ -81,13 +90,11 @@ End If
 
 If state <> "ours" Then
   If Not fso.FileExists(DIST_INDEX) Then
-    MsgBox "Web-appen er ikke bygget, så det er ingenting å vise ennå." & vbCrLf & vbCrLf & _
-      "Kjør «pnpm vault:install» i prosjektmappa." & vbCrLf & "(Mangler: " & DIST_INDEX & ")", vbExclamation, TITLE
-    WScript.Quit 1
+    Fail "Web-appen er ikke bygget, så det er ingenting å vise ennå." & vbCrLf & vbCrLf & _
+      "Kjør «pnpm vault:install» i prosjektmappa." & vbCrLf & "(Mangler: " & DIST_INDEX & ")"
   End If
   If Not fso.FileExists(NODE_EXE) Then
-    MsgBox "Fant ikke Node.js: " & NODE_EXE & vbCrLf & vbCrLf & "Kjør «pnpm vault:install» på nytt.", vbExclamation, TITLE
-    WScript.Quit 1
+    Fail "Fant ikke Node.js: " & NODE_EXE & vbCrLf & vbCrLf & "Kjør «pnpm vault:install» på nytt."
   End If
   sh.CurrentDirectory = SERVER_DIR
   ' Vindusstil 0: serveren kjører uten synlig konsollvindu.
@@ -102,14 +109,17 @@ If state <> "ours" Then
   Next
   If state <> "ours" Then
     If firstState = "other" Then
-      MsgBox "Port " & firstPort & " brukes av et annet program, og Groovehouse Vault fikk ikke startet på en ledig port." & vbCrLf & vbCrLf & _
-        "Se loggen: " & LOG_FILE, vbExclamation, TITLE
+      Fail "Port " & firstPort & " brukes av et annet program, og Groovehouse Vault fikk ikke startet på en ledig port." & vbCrLf & vbCrLf & _
+        "Se loggen: " & LOG_FILE
     Else
-      MsgBox "Groovehouse Vault startet ikke." & vbCrLf & vbCrLf & "Se loggen: " & LOG_FILE, vbExclamation, TITLE
+      Fail "Groovehouse Vault startet ikke." & vbCrLf & vbCrLf & "Se loggen: " & LOG_FILE
     End If
     WScript.Quit 1
   End If
 End If
+
+' Autostart: serveren kjører – ikke åpne noe vindu.
+If background Then WScript.Quit 0
 
 Dim url, browser
 url = "http://127.0.0.1:" & port & "/"
