@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -342,6 +342,118 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 **Tester:** enhetstester for `PlayerEngine`-kontrakten (begge motorer), tokenpåkrevd på API og media, CORS kun for app-opprinnelsen, og at adressen ikke finnes i bygget/git (`git grep` etter `.ts.net`).
 
 **Ferdig når:** Knut installerer APK-en på S22, kobler til via Tailscale, starter en spilleliste, låser skjermen og bytter til en annen app. Musikken fortsetter i 15 minutter med flere låtskifter, kan pauses og hoppes fra låseskjermen og fra Bluetooth i bilen, og «⋯ → Del…» sender fila til WhatsApp.
+
+## Del 16 – Utkast: umastrede låter holdt atskilt fra release-klare
+
+Mål: Knut har mange umastrede låter han vil ha i spilleren for å planlegge sett og album. De skal **aldri blandes** med det som er ferdig eksportert fra Reason og klart for release, verken i biblioteket, i blanding, i smarte lister, i forslag eller i deling.
+
+**Status bestemmes av mappa, ikke av filnavnet**
+1. To kilder:
+   - `GH_EXPORT_DIR` (REASONDONE) = **Release-klar**, som i dag.
+   - Ny `GH_DRAFT_DIR` = **Utkast**. Spør Knut hvor utkastene ligger. Mappa settes i Innstillinger og i `groovehouse.local.json`, ikke i git.
+   - Begge er **kun lesing**.
+2. Watcher og `--backlog` støtter begge mappene. Utkastmappa kan ha undermapper (f.eks. per prosjekt), og filnavnreglene og metadata-rensingen fra del 0b gjelder likt, også Suno-rensing.
+3. I tillegg: **Importer som utkast** i Studio (dra inn filer). De kopieres til `data/drafts-inbox/` og ingestes derfra.
+4. Manifestet får `status: "release" | "draft"`, som vises og filtreres overalt. En låt kan **aldri** bytte status av seg selv. Å gjøre et utkast om til release-klar skjer bare ved at master kommer i REASONDONE, eller ved et eksplisitt valg i Studio med bekreftelse.
+
+**Samme låt i begge**
+5. Samme slug i begge mappene = samme låt. Utkastene blir versjoner med status utkast, og masteren fra REASONDONE blir release-versjonen.
+6. «Følg nyeste» i spillelister og visningen i biblioteket velger **release hvis den finnes, ellers nyeste utkast**. Når en låt blir mastret, går altså alle album- og settplaner automatisk over til masteren.
+
+**Atskilt i grensesnittet**
+7. Bibliotek, Hjem, «Nylig lagt til», Ctrl+K og DJ-verktøy («Passer etter denne») viser **bare release-klare** som standard. Et segment **Release-klar · Utkast · Alle** øverst bytter, og valget huskes per visning.
+8. Utkast er tydelig merket overalt:
+   - En liten **UTKAST**-brikke i mono.
+   - Stiplet kant på cover og miniatyrer.
+   - Dempet glød: aksenten på 50 % i stedet for full neon.
+9. Bland, autospill og smarte lister bruker bare release-klare, med mindre lista eller visningen eksplisitt er satt til Utkast eller Alle.
+
+**Planlegge sett og album**
+10. Nytt felt på spillelister: **Type**: Vanlig, **Album-plan** eller **Sett-plan**. Planer kan blande utkast og release-klare, og viser:
+    - Status øverst: «7 av 10 mastret».
+    - Brikker per rad.
+    - Total tid og BPM-/Camelot-flyt mellom låtene (grønn = harmonisk, gul = ±1, rød = brudd).
+    - Filteret **Mangler master**.
+11. Vanlige spillelister advarer når du legger til et utkast («Dette er et utkast – legg til likevel?»), med valget «Ikke spør igjen for denne lista».
+
+**Lydnivå**
+12. Umastrede låter er ofte mye svakere enn masterne. LUFS-utjevningen kan bare dempe (`audio.volume` ≤ 1), så utkast ville låte svake ved siden av masterne i en plan.
+    - Løsning: ved ingest av **utkast** lages HLS-strømmen med loudness-normalisering til målnivået (ffmpeg `loudnorm` i to passeringer, true peak −1 dBTP).
+    - `master.flac` lagres uendret.
+    - Låtinfo viser både målt original-LUFS og «Normalisert for avspilling».
+    - Release-låter rører vi ikke, som før.
+
+**Deling**
+13. Utkast kan **ikke** legges i drops (del 13) eller deles som lenke.
+14. Fildeling (del 10) av utkast krever et ekstra valg: «Del utkast likevel». Da får filnavnet og tittelmetadata « (Utkast)», og albumfeltet blir «Groovehouse Records – Demo».
+
+**Tester:** status fra mappe, samme slug i begge mappene gir riktig versjonskjede, «følg nyeste» foretrekker release, filtrene (bibliotek, bland, smarte lister, forslag, Ctrl+K), at utkast avvises i drops, loudnorm bare på utkast, og at REASONDONE og utkastmappa aldri endres.
+
+**Ferdig når:** Knut peker utkastmappa på sine umastrede låter. Biblioteket viser fortsatt bare de release-klare, og «Utkast»-segmentet viser resten tydelig merket. Han lager en Album-plan med fem utkast og to mastrede låter og ser «2 av 7 mastret». Når han så eksporterer master av ett av utkastene til REASONDONE, står det «3 av 7» og planen spiller masteren.
+
+## Del 17 – Settbygger: automatisk sammensatte DJ-sett
+
+Mål: Knut velger varighet og stil. Vault setter sammen de beste settene av låtene han har, etter de reglene erfarne DJ-er faktisk bruker. Resultatet lagres som **planlagte sett** under **Live-sett**.
+
+**Ærlig avgrensning:** vi har ikke data fra «verdens beste sett» å trene på. Kjente tracklister består av andres låter, og vi har ikke analyse av dem. Derfor bygges det på **etablerte prinsipper** (under) med vekter som kan justeres. Vault lærer i tillegg av Knuts egne valg: hva han bytter ut og flytter, og overgangene i hans faktiske live-logger (`live_log.json`).
+
+**Forutsetninger:** del 3 (presis BPM og toneart) og del 2 (riktige intro- og outro-markører) må være på plass. Feil toneart eller BPM gir feil sett. Vis en advarsel på låter med lav analyse-sikkerhet og foreslå å sjekke dem.
+
+**Kriterier (hver gir poeng per overgang eller for hele settet)**
+1. **Harmonisk miksing (Camelot):**
+   - Best: samme nøkkel, ±1 på hjulet og relativ dur/moll (8A↔8B).
+   - Akseptabelt med vilje: «energiløft» +2 og +7 (halvtone opp).
+   - Straff: alt annet. Vis relasjonen på hver overgang («8A → 9A»).
+2. **Tempo:**
+   - Nabolåter innen ±3 %. Over ±6 % straffes hardt.
+   - Jevne tempoendringer over flere låter er bedre enn hopp.
+   - Halv- og dobbelt-tempo regnes som match.
+3. **Energikurve:**
+   - Hver låt får en energiscore 1–10 fra analysen (lydstyrke i drop-seksjonene, bass-energi, transient-tetthet). Knut kan overstyre den i Studio.
+   - Settet følger en valgt kurve:
+     - **Oppvarming:** jevn stigning.
+     - **Peak time:** høyt med små pustepauser.
+     - **Reise:** bølger opp og ned med topp ved ca. 70 %.
+     - **Avslutning:** fallende.
+     - **Egen:** Knut tegner kurven.
+4. **Mikspunkter:**
+   - Foretrekk overganger der låt A har en ren outro og låt B en ren intro på minst 16 takter, fra strukturmarkørene.
+   - Mikspunktene legges på frasegrenser (8/16/32 takter).
+   - Første låt bør ha lang intro, siste låt en tydelig outro.
+5. **Variasjon:**
+   - Aldri samme låt to ganger. Ikke to versjoner eller varianter av samme låt i ett sett.
+   - Unngå mange like låter etter hverandre: samme toneart mer enn tre ganger på rad, eller nesten lik energi for lenge.
+6. **Lydnivå:** store sprang i LUFS mellom nabolåter straffes litt. For utkast brukes det normaliserte nivået (del 16).
+7. **Varianter:** for DJ-sett foretrekkes **Extended**-varianter. For korte sett under 30 min kan originalversjonen brukes.
+
+**Algoritme**
+8. Lag en kostnadsmatrise for alle par av kandidatlåter (kriterie 1, 2, 4 og 6). Finn rekkefølgen med beam search, og forbedre med lokal søk / simulert nedkjøling mot hele målet (overganger + energikurve + variasjon + varighet).
+   - Deterministisk med frø, så samme valg gir samme sett.
+   - Raskt nok til å kjøre lokalt: under 3 s for 200 låter.
+9. Lag **tre alternativer** med ulik karakter, f.eks. «tryggest harmonisk», «mest energi» og «mest variasjon». Vis totalscore og delscore per kriterium.
+
+**Bruk**
+10. **Lag sett** fra Live-sett (og fra DJ-verktøy):
+    - Varighet: 30, 60, 90, 120 min eller fritt.
+    - Kurve, og eventuelt BPM-spenn og starttoneart.
+    - **Må være med:** fest låter, eventuelt på bestemte plasser. **Utelat** låter.
+    - **Ta med utkast:** av som standard (del 16).
+11. Resultatvisning:
+    - Liste med overganger mellom låtene: Camelot-relasjon, tempojustering i %, mikspunkt («ut ved 5:12 / inn ved 0:32, 16 takter») og farge for hvor god overgangen er.
+    - Energikurven tegnes oppå målkurven.
+    - **Bytt ut** på en plass gir de 5 beste alternativene som passer begge naboene.
+    - **Lås og bygg på nytt** beholder låste plasser og regner om resten.
+12. **Lagre** gjør settet til en Sett-plan (del 16) under **Live-sett → Planlagte sett**. Den holdes atskilt fra **Innspilte sett**, som er Knuts faktiske live-opptak. Planlagte sett kan spilles som vanlige spillelister.
+13. **Eksport** til rekordbox XML, med mikspunktene som hot cues / memory cues, og til M3U. Da kan settet brukes direkte i hybride live-sett.
+
+**Læring (enkel i første versjon)**
+14. Logg Knuts endringer (bytt ut, flytt, slett) og overgangene i innspilte sett. Bruk dem til å justere vektene litt over tid. Vis det åpent («Vektene er justert etter 12 av dine endringer»), med **Tilbakestill**.
+
+**Senere (ikke i denne delen):** forhåndslytting av overganger med automatisk beatmatching (krever presis takt-fase fra del 3 og to avspillere), og vokal-deteksjon for å unngå vokal oppå vokal.
+
+**Tester:** Camelot-relasjoner (alle 24 nøkler), tempo med halv/dobbel, at energikurven treffer målet innen toleranse, at låste plasser respekteres, ingen duplikater eller varianter av samme låt, determinisme med frø, ytelse med 200 låter, at utkast utelates som standard, og gyldig rekordbox-XML (validér mot et kjent eksempel).
+
+**Ferdig når:** Knut ber om et 60-minutters «Reise»-sett. Han får tre forslag på under 3 sekunder, ser hvorfor hver overgang er valgt, bytter ut én låt, lagrer settet under Live-sett → Planlagte sett, og åpner eksporten i rekordbox med mikspunktene på plass.
 
 ## Del 15 – Oppdatering av Android-appen
 
