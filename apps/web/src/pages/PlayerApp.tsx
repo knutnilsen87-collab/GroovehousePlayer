@@ -1,29 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatTime, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
+import { CoverCard, NowPanel, SideTabs, SpectrumPanel, TrackInfoPanel, ZoomPanel } from '../components/Deck';
+import { BottomNav, Sidebar, type View } from '../components/Nav';
+import { sortTracks, StudioTable, VariantSelect, type Sort } from '../components/StudioTable';
+import { startListenReporting, useFavorites } from '../lib/library';
+import { DjView, HomeView, StatsView } from './Views';
 import { CommandPalette } from '../components/CommandPalette';
 import { CoverArt } from '../components/CoverArt';
-import { addWithUndo, AddToPlaylistSheet, DRAG_ITEMS, PlaylistDetail, PlaylistsOverview, SidebarPlaylists, Toast } from '../components/Playlists';
-import {
-  ChevronDownIcon,
-  LibraryIcon,
-  ListIcon,
-  MoreIcon,
-  NextIcon,
-  PauseIcon,
-  PlayIcon,
-  PrevIcon,
-  PulseIcon,
-  SearchIcon,
-  SectionNextIcon,
-  SectionPrevIcon,
-  StudioIcon,
-  VolumeIcon
-} from '../components/Icons';
+import { addWithUndo, AddToPlaylistSheet, PlaylistDetail, PlaylistsOverview, SidebarPlaylists, Toast } from '../components/Playlists';
+import { ChevronDownIcon, MoreIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SearchIcon, SectionNextIcon, SectionPrevIcon, VolumeIcon } from '../components/Icons';
 import { SpectralWaveform } from '../components/SpectralWaveform';
 import { assetUrl, groupTracks, loadVersion, useCatalog, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
 import { savedPosition, storedQueue, usePlayer } from '../lib/player';
-import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, useToast, type AddItem } from '../lib/playlists';
+import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, useToast } from '../lib/playlists';
 import { useSubBass } from '../lib/useSubBass';
 import { useVersionCtx } from '../lib/versions';
 import { QueuePanel, TrackActionsHost } from '../components/TrackActions';
@@ -35,18 +25,18 @@ import { isApp } from '../lib/platform';
 import { loadPlaybackSettings } from '../lib/settings';
 import { UnreachableScreen } from './Connect';
 
-type View = 'catalog' | 'sets' | 'playlists';
-
 type Filter = 'all' | 'track' | 'set';
 
 /**
  * Din egen spiller. Mobil: én tommel – bunnmeny, flytende mini-spiller, fullskjerm ved trykk.
- * Desktop: sidebar, presisjonstabell og transport-dock. Gull er rammen; det som spilles farger rommet.
+ * Desktop (del 14 «High-End Studio»): sidemeny, dekket (cover, Spilles nå, låtinfo/zoom/spektrum) og
+ * låttabellen. Coveret styrer alle farger; gull bare i logoen.
  */
 export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = {}) {
   const { assets, index: catalogIndex, loading, error: catalogError, reload } = useCatalog();
   const tracks = useMemo(() => groupTracks(assets), [assets]);
-  const [view, setView] = useState<View>('catalog');
+  const [view, setView] = useState<View>('home');
+  const [sort, setSort] = useState<Sort>({ key: 'none', dir: 1 });
   const [filter, setFilter] = useState<Filter>('all');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [full, setFull] = useState(false);
@@ -81,8 +71,11 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   };
 
   // Del 8: LUFS-målet fra innstillingene (demping regnes ut i spilleren).
+  // Del 14: favoritter og egne avspillinger (Analyse, Hjem) ligger på PC-en.
   useEffect(() => {
     void loadPlaybackSettings();
+    void useFavorites.getState().load();
+    return startListenReporting();
   }, []);
 
   // Køen fra forrige gang: legges tilbake pauset når katalogen er lastet (eldre versjoner hentes ved behov).
@@ -130,7 +123,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     else if (full) setFull(false);
     else if (selectMode) history.back();
     else if (listId) setListId(null);
-    else if (view !== 'catalog') setView('catalog');
+    else if (view !== 'home') setView('home');
     else void CapApp.minimizeApp();
   };
   useEffect(() => {
@@ -178,7 +171,12 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     return () => window.removeEventListener('keydown', onKey);
   }, [toggle, nextSection, prevSection]);
 
-  const visible = tracks.filter((t) => (view === 'sets' ? t.main.manifest.kind === 'set' : filter === 'all' || t.main.manifest.kind === filter));
+  const visible = sortTracks(
+    tracks.filter((t) => (view === 'sets' ? t.main.manifest.kind === 'set' : view === 'home' || filter === 'all' || t.main.manifest.kind === filter)),
+    view === 'library' ? sort : { key: 'none', dir: 1 }
+  );
+  /** Hjem: nyeste først (tabellen «Nylig lagt til» under dekket). */
+  const newest = useMemo(() => [...tracks].sort((a, b) => b.main.manifest.createdAt.localeCompare(a.main.manifest.createdAt)), [tracks]);
 
   /** Spill en låt (valgfri variant og posisjon). Køen blir listen du ser. */
   const play = (t: Track, variant?: LoadedAsset, atMs?: number) => {
@@ -214,35 +212,36 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
 
   if (isApp && catalogError) return <UnreachableScreen error={catalogError} onRetry={reload} onReconnect={() => onDisconnected?.()} />;
 
-  return (
-    <div ref={root} className="relative min-h-[100svh] bg-obsidian text-ink lg:grid lg:grid-cols-[240px_minmax(0,1fr)]" style={vars}>
-      <AmbientGlow />
-      <Sidebar
-        view={view}
-        setView={(v) => {
-          setView(v);
-          setListId(null);
-        }}
-        onSearch={() => setPaletteOpen(true)}
-      >
-        <SidebarPlaylists tracks={tracks} activeId={view === 'playlists' ? listId : null} onOpen={openList} />
-      </Sidebar>
+  const deckAsset = cur ?? newest[0]?.main;
+  const showDeck = (view === 'home' || view === 'library') && !!deckAsset && tracks.length > 0;
+  /** Dekket før noe er spilt: play/spoling starter låta som vises. */
+  const idle = cur ? undefined : (atMs?: number) => newest[0] && playFrom(newest.map((t) => t.main), 0, atMs);
+  const tableProps = {
+    onPlay: play,
+    selected,
+    onSelect: selectRow,
+    itemsFor: (slug: string) => assetsFor(slug).map(itemFor),
+    onContext: (slug: string, at: { x: number; y: number }) => {
+      if (!selected.includes(slug)) setSelected([slug]);
+      openActions({ assets: selected.includes(slug) ? assetsFor(slug) : [shownAsset(visible.find((t) => t.slug === slug) ?? tracks.find((t) => t.slug === slug)!)], context: 'row', anchor: at });
+    }
+  };
+  const goto = (v: View) => {
+    setView(v);
+    setListId(null);
+    setSelected([]);
+    window.scrollTo({ top: 0 });
+  };
 
-      <main className="relative z-10 min-w-0 px-5 pb-[168px] pt-5 lg:px-8 lg:pb-[132px] lg:pt-7">
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <div className="lg:hidden">
-            <Logo size={36} />
-          </div>
-          <button
-            type="button"
-            onClick={() => setPaletteOpen(true)}
-            className="hidden h-10 w-full max-w-[460px] items-center gap-3 rounded-full border border-white/[0.08] bg-surface/70 px-4 text-left text-sm text-muted hover:border-white/15 lg:flex"
-          >
-            <SearchIcon width={16} height={16} />
-            <span className="flex-1">Søk i tittel, BPM, toneart …</span>
-            <kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-soft">Ctrl K</kbd>
-          </button>
-          <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Søk" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-soft lg:hidden">
+  return (
+    <div ref={root} className="relative min-h-[100svh] bg-obsidian text-ink lg:grid lg:grid-cols-[272px_minmax(0,1fr)]" style={vars}>
+      <AmbientGlow />
+      <Sidebar view={view} setView={goto} onSearch={() => setPaletteOpen(true)} playlists={<SidebarPlaylists tracks={tracks} activeId={view === 'playlists' ? listId : null} onOpen={openList} />} />
+
+      <main className={`relative z-10 min-w-0 px-4 pb-[168px] pt-4 lg:px-5 lg:pt-4 ${showDeck ? 'lg:pb-8' : 'lg:pb-[132px]'}`}>
+        <header className="mb-5 flex items-center justify-between gap-4 lg:hidden">
+          <Logo size={36} subtitle="VAULT" />
+          <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Søk" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-soft">
             <SearchIcon width={20} height={20} />
           </button>
         </header>
@@ -251,66 +250,100 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
           <p className="text-sm text-muted">Åpner hvelvet …</p>
         ) : tracks.length === 0 ? (
           <EmptyState />
-        ) : view === 'playlists' ? (
-          listId ? (
-            <PlaylistDetail id={listId} tracks={tracks} vctx={vctx} onBack={() => setListId(null)} onClosed={() => setListId(null)} />
-          ) : (
-            <PlaylistsOverview tracks={tracks} onOpen={openList} vctx={vctx} />
-          )
-        ) : view === 'catalog' ? (
-          <>
-            {visible[0] && filter === 'all' && <Hero t={tracks[0]!} onPlay={(v, at) => play(tracks[0]!, v, at)} />}
-            <Pills value={filter} onChange={setFilter} />
-            <TrackTable
-              tracks={visible}
-              onPlay={play}
-              selected={selected}
-              onSelect={selectRow}
-              itemsFor={(slug) => assetsFor(slug).map(itemFor)}
-              onContext={(slug, at) => {
-                if (!selected.includes(slug)) setSelected([slug]);
-                openActions({ assets: selected.includes(slug) ? assetsFor(slug) : [shownAsset(visible.find((t) => t.slug === slug)!)], context: 'row', anchor: at });
-              }}
-            />
-            <TrackList
-              tracks={visible}
-              onPlay={play}
-              onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
-              onSwipeRight={(t) => {
-                // Mobil: sveip til høyre = legg sist i køen (med angre).
-                const a = shownAsset(t);
-                const player = usePlayer.getState();
-                player.enqueue([a]);
-                const at = usePlayer.getState().queue.length - 1;
-                useToast.getState().show(`Lagt i køen: ${a.manifest.title}`, {
-                  label: 'Angre',
-                  run: () => {
-                    const q = usePlayer.getState().queue;
-                    if (q[at]?.manifest.id === a.manifest.id && at !== usePlayer.getState().index) usePlayer.getState().removeFromQueue(at);
-                  }
-                });
-              }}
-              onSwipeLeft={(t) => {
-                // Mobil: sveip til venstre = legg til i sist brukte spilleliste (med angre). Ingen liste ennå → arket.
-                const target = mostRecentTarget(usePlaylists.getState().playlists);
-                if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
-                else openSheet([shownAsset(t)]);
-              }}
-              selectMode={selectMode}
-              selected={selected}
-              onLongPress={(t) => {
-                setSelectMode(true);
-                setSelected([t.slug]);
-              }}
-              onToggle={(t) => toggleMobileSelect(t.slug)}
-            />
-          </>
         ) : (
-          <SetsView sets={visible} tracks={tracks} onPlay={play} />
+          <div className={showDeck ? 'xl:grid xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:gap-4' : ''}>
+            <div className="flex min-w-0 flex-col gap-4">
+              {showDeck && deckAsset && (
+                <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)]">
+                  <CoverCard cur={deckAsset} onMore={(at) => (cur ? openNowActions(at) : openActions({ assets: [deckAsset], context: 'row', anchor: at }))} />
+                  <NowPanel
+                    cur={deckAsset}
+                    idle={idle}
+                    onMore={(at) => (cur ? openNowActions(at) : openActions({ assets: [deckAsset], context: 'row', anchor: at }))}
+                    extra={
+                      <div className="xl:hidden">
+                        <SideTabs cur={deckAsset} />
+                      </div>
+                    }
+                  />
+                </div>
+              )}
+
+              {view === 'home' && (
+                <HomeView
+                  tracks={tracks}
+                  onPlay={play}
+                  onOpenList={openList}
+                  table={<StudioTable {...tableProps} tracks={newest} limit={8} label="Nylig lagt til" />}
+                />
+              )}
+              {view === 'library' && (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="m-0 text-[28px] font-bold tracking-tight text-ink-strong lg:hidden">Bibliotek</h1>
+                    <Pills value={filter} onChange={setFilter} />
+                    <span className="hidden font-mono text-[11px] text-muted lg:inline">
+                      {visible.length} låter · klikk = velg · dobbeltklikk = spill
+                    </span>
+                  </div>
+                  <StudioTable {...tableProps} tracks={visible} sort={sort} onSort={setSort} />
+                  <TrackList
+                    tracks={visible}
+                    onPlay={play}
+                    onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
+                    onSwipeRight={(t) => {
+                      // Mobil: sveip til høyre = legg sist i køen (med angre).
+                      const a = shownAsset(t);
+                      const player = usePlayer.getState();
+                      player.enqueue([a]);
+                      const at = usePlayer.getState().queue.length - 1;
+                      useToast.getState().show(`Lagt i køen: ${a.manifest.title}`, {
+                        label: 'Angre',
+                        run: () => {
+                          const q = usePlayer.getState().queue;
+                          if (q[at]?.manifest.id === a.manifest.id && at !== usePlayer.getState().index) usePlayer.getState().removeFromQueue(at);
+                        }
+                      });
+                    }}
+                    onSwipeLeft={(t) => {
+                      // Mobil: sveip til venstre = legg til i sist brukte spilleliste (med angre). Ingen liste ennå → arket.
+                      const target = mostRecentTarget(usePlaylists.getState().playlists);
+                      if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
+                      else openSheet([shownAsset(t)]);
+                    }}
+                    selectMode={selectMode}
+                    selected={selected}
+                    onLongPress={(t) => {
+                      setSelectMode(true);
+                      setSelected([t.slug]);
+                    }}
+                    onToggle={(t) => toggleMobileSelect(t.slug)}
+                  />
+                </>
+              )}
+              {view === 'playlists' &&
+                (listId ? (
+                  <PlaylistDetail id={listId} tracks={tracks} vctx={vctx} onBack={() => setListId(null)} onClosed={() => setListId(null)} />
+                ) : (
+                  <PlaylistsOverview tracks={tracks} onOpen={openList} vctx={vctx} />
+                ))}
+              {view === 'sets' && <SetsView sets={visible} tracks={tracks} onPlay={play} />}
+              {view === 'dj' && <DjView tracks={tracks} onPlay={play} />}
+              {view === 'stats' && <StatsView tracks={tracks} onPlay={play} />}
+            </div>
+
+            {showDeck && deckAsset && (
+              <aside aria-label="Analyse av låta" className="sticky top-4 hidden min-w-0 flex-col gap-4 self-start xl:flex">
+                <TrackInfoPanel cur={deckAsset} />
+                <ZoomPanel cur={deckAsset} />
+                <SpectrumPanel cur={deckAsset} />
+              </aside>
+            )}
+          </div>
         )}
       </main>
 
-      {cur && <Dock cur={cur} track={trackOf(cur)} onVariant={(v) => switchVariant(v)} tracks={tracks} onPlay={play} onMore={openNowActions} />}
+      {cur && <Dock cur={cur} track={trackOf(cur)} onVariant={(v) => switchVariant(v)} tracks={tracks} onPlay={play} onMore={openNowActions} hideOnDesktop={showDeck} />}
       {cur && !selectMode && <MiniPlayer cur={cur} onOpen={() => setFull(true)} onMore={() => openNowActions()} />}
       {selectMode && (
         <div className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 lg:hidden">
@@ -331,13 +364,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
           </button>
         </div>
       )}
-      <BottomNav
-        view={view}
-        setView={(v) => {
-          setView(v);
-          setListId(null);
-        }}
-      />
+      <BottomNav view={view} setView={goto} />
       {full && cur && <FullPlayer cur={cur} track={trackOf(cur)} tracks={tracks} onClose={() => setFull(false)} onPlay={play} onMore={() => openNowActions()} />}
       {addSheet && (
         <AddToPlaylistSheet
@@ -393,76 +420,6 @@ function AmbientGlow() {
   );
 }
 
-function Sidebar({ view, setView, onSearch, children }: { view: View; setView: (v: View) => void; onSearch: () => void; children?: ReactNode }) {
-  const item = (id: View, label: string, Icon: typeof LibraryIcon) => {
-    const active = view === id;
-    return (
-      <button
-        type="button"
-        aria-current={active ? 'page' : undefined}
-        onClick={() => setView(id)}
-        className={`flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-left text-sm ${active ? 'bg-accent/[0.08] font-semibold text-accent' : 'text-muted hover:text-ink-strong'}`}
-      >
-        <Icon width={18} height={18} />
-        {label}
-      </button>
-    );
-  };
-  return (
-    <aside className="sticky top-0 z-10 hidden h-[100svh] flex-col gap-7 border-r border-white/[0.06] bg-sunken/90 px-[18px] pb-[132px] pt-6 lg:flex">
-      <Logo size={44} />
-      <nav aria-label="Hovedmeny" className="flex flex-col gap-0.5">
-        {item('catalog', 'Katalog', LibraryIcon)}
-        {item('sets', 'Live-sett', PulseIcon)}
-        <button type="button" onClick={onSearch} className="flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-left text-sm text-muted hover:text-ink-strong">
-          <SearchIcon width={18} height={18} />
-          Søk
-        </button>
-        <a href="/studio" className="flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-sm text-muted no-underline hover:text-ink-strong">
-          <StudioIcon width={18} height={18} />
-          Studio og drops
-        </a>
-      </nav>
-      {children}
-      <div className="rounded-xl border border-white/[0.06] bg-surface p-3.5 text-[11px] leading-relaxed text-muted">
-        <span className="block text-xs font-semibold text-ink">Snarveier</span>
-        Mellomrom: spill/pause
-        <br />
-        Shift + ← →: forrige/neste del
-        <br />
-        Ctrl + K: søk
-        <br />
-        Ctrl + Shift + P: låta → sist brukte liste
-      </div>
-    </aside>
-  );
-}
-
-/** Mobil: fire faner. Søk ligger som knappen øverst til høyre (avklart med Knut), så Lister tar plassen. */
-function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }) {
-  const cls = (active: boolean) => `flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium ${active ? 'text-accent' : 'text-muted'}`;
-  return (
-    <nav aria-label="Hovedmeny" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.07] bg-sunken/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
-      <button type="button" className={cls(view === 'catalog')} aria-current={view === 'catalog' ? 'page' : undefined} onClick={() => setView('catalog')}>
-        <LibraryIcon width={22} height={22} />
-        Katalog
-      </button>
-      <button type="button" className={cls(view === 'sets')} aria-current={view === 'sets' ? 'page' : undefined} onClick={() => setView('sets')}>
-        <PulseIcon width={22} height={22} />
-        Live-sett
-      </button>
-      <button type="button" className={cls(view === 'playlists')} aria-current={view === 'playlists' ? 'page' : undefined} onClick={() => setView('playlists')}>
-        <ListIcon width={22} height={22} />
-        Lister
-      </button>
-      <a href="/studio" className={`${cls(false)} no-underline`}>
-        <StudioIcon width={22} height={22} />
-        Studio
-      </a>
-    </nav>
-  );
-}
-
 function EmptyState() {
   return (
     <div className="rounded-2xl border border-dashed border-accent/30 p-8 text-center text-sm text-muted">
@@ -472,61 +429,6 @@ function EmptyState() {
 }
 
 // ---------------------------------------------------------------- Katalog
-
-function Hero({ t, onPlay }: { t: Track; onPlay: (v?: LoadedAsset, atMs?: number) => void }) {
-  const m = t.main.manifest;
-  const { queue, index, positionMs } = usePlayer();
-  const isCur = queue[index]?.manifest.slug === t.slug;
-  const shown = isCur ? queue[index]! : t.main;
-  return (
-    <section
-      aria-label="Nyeste i hvelvet"
-      className="relative mb-7 overflow-hidden rounded-[22px] border border-white/[0.07] bg-surface/80 p-5 lg:p-6"
-      style={paletteToCssVars(m.palette) as CSSProperties}
-    >
-      <div aria-hidden="true" className="pointer-events-none absolute -right-24 -top-32 h-[420px] w-[420px] rounded-full" style={{ background: 'radial-gradient(closest-side, var(--glow), transparent)', opacity: 0.55 }} />
-      <div className="relative flex flex-col gap-5 sm:flex-row sm:items-center">
-        <CoverArt src={assetUrl(t.main, m.files.cover)} palette={m.palette} title={m.title} size={168} rounded={14} />
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <span className="text-[10px] font-semibold tracking-[2px] text-accent">NYESTE I HVELVET</span>
-          <h1 className="m-0 font-display text-[34px] font-semibold uppercase leading-none tracking-[1.5px] text-ink-strong lg:text-[44px]">{m.title}</h1>
-          <p className="m-0 text-[13px] text-muted">
-            {[m.artist, t.variants.length > 1 ? `${t.variants.length} varianter` : null, m.bpm ? `${m.bpm} BPM` : null, m.key?.camelot, formatTime(m.durationMs)].filter(Boolean).join(' · ')}
-          </p>
-          <div className="mt-1 flex items-center gap-3">
-            <button type="button" onClick={() => onPlay()} aria-label={`Spill ${m.title}`} className="flex h-12 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent">
-              <PlayIcon width={18} height={18} />
-              Spill
-            </button>
-            {t.variants.length > 1 && (
-              <div className="flex flex-wrap gap-1.5">
-                {t.variants.map((v) => (
-                  <button key={v.manifest.id} type="button" onClick={() => onPlay(v)} className="h-9 rounded-full border border-white/10 px-3 text-xs text-ink hover:border-accent">
-                    {variantName(v)}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="mt-2">
-            <SpectralWaveform
-              analysis={shown.analysis}
-              durationMs={shown.manifest.durationMs}
-              progress={isCur ? positionMs / shown.manifest.durationMs : 0}
-              active
-              unplayedAlpha={isCur ? 0.3 : 0.8}
-              height={44}
-              markers={shown.manifest.markers}
-              showLabels
-              onSeek={(r) => onPlay(shown, r * shown.manifest.durationMs)}
-              label={`Spol i ${m.title}`}
-            />
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
 
 function Pills({ value, onChange }: { value: Filter; onChange: (f: Filter) => void }) {
   const opts: Array<[Filter, string]> = [
@@ -548,132 +450,6 @@ function Pills({ value, onChange }: { value: Filter; onChange: (f: Filter) => vo
         </button>
       ))}
     </div>
-  );
-}
-
-/** Desktop: presisjonstabell med bølgeform-kolonne for «needle drop». */
-function TrackTable({
-  tracks,
-  onPlay,
-  selected,
-  onSelect,
-  itemsFor,
-  onContext
-}: {
-  tracks: Track[];
-  onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void;
-  selected: string[];
-  onSelect: (slug: string, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => void;
-  itemsFor: (slug: string) => AddItem[];
-  onContext: (slug: string, at: { x: number; y: number }) => void;
-}) {
-  const { queue, index, positionMs, playing } = usePlayer();
-  const cur = queue[index];
-  return (
-    <div className="hidden overflow-x-auto lg:block">
-      {selected.length > 1 && <p className="m-0 mb-2 text-[11px] text-muted">{selected.length} valgt · dra til en liste i sidemenyen, eller høyreklikk → Legg til i spilleliste · Esc fjerner valget</p>}
-      <table className="w-full min-w-[900px] border-collapse text-[13px]">
-        <thead>
-          <tr className="text-left text-[10px] tracking-[1.5px] text-muted">
-            <th scope="col" className="w-10 pb-2 font-semibold">#</th>
-            <th scope="col" className="pb-2 font-semibold">TITTEL</th>
-            <th scope="col" className="w-[34%] pb-2 font-semibold">BØLGEFORM</th>
-            <th scope="col" className="w-20 pb-2 text-right font-semibold">BPM</th>
-            <th scope="col" className="w-16 pb-2 text-right font-semibold">KEY</th>
-            <th scope="col" className="w-16 pb-2 text-right font-semibold">TID</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tracks.map((t, i) => {
-            const isCur = cur?.manifest.slug === t.slug;
-            const a = isCur ? cur! : t.main;
-            const m = a.manifest;
-            return (
-              <tr
-                key={t.slug}
-                draggable
-                aria-selected={selected.includes(t.slug)}
-                onDragStart={(e) => {
-                  if (!selected.includes(t.slug)) onSelect(t.slug, { ctrlKey: false, metaKey: false, shiftKey: false });
-                  const items = itemsFor(t.slug);
-                  e.dataTransfer.setData(DRAG_ITEMS, JSON.stringify(items));
-                  e.dataTransfer.setData('text/plain', items.length > 1 ? `${items.length} låter` : m.title);
-                  e.dataTransfer.effectAllowed = 'copy';
-                }}
-                onClick={(e) => {
-                  if ((e.target as HTMLElement).closest('button,select,[role="slider"],canvas,input')) return;
-                  onSelect(t.slug, e);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  onContext(t.slug, { x: e.clientX, y: e.clientY });
-                }}
-                className={`border-t border-white/[0.05] ${selected.includes(t.slug) ? 'bg-white/[0.07] outline outline-1 -outline-offset-1 outline-white/15' : isCur ? 'bg-white/[0.035]' : 'hover:bg-white/[0.02]'}`}
-                style={paletteToCssVars(m.palette) as CSSProperties}
-              >
-                <td className="tabular py-2 text-muted">{isCur && playing ? <span className="text-accent">▶</span> : i + 1}</td>
-                <td className="py-2 pr-4">
-                  <div className="flex items-center gap-3">
-                    <button type="button" onClick={() => onPlay(t)} aria-label={`Spill ${m.title}`} className="flex-none">
-                      <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={40} rounded={6} />
-                    </button>
-                    <div className="flex min-w-0 flex-col">
-                      <button type="button" onClick={() => onPlay(t)} className="truncate text-left font-semibold text-ink-strong hover:underline">
-                        {m.title}
-                      </button>
-                      <VariantSelect t={t} value={a} onChange={(v) => onPlay(t, v)} />
-                    </div>
-                  </div>
-                </td>
-                <td className="py-2">
-                  <SpectralWaveform
-                    analysis={a.analysis}
-                    durationMs={m.durationMs}
-                    progress={isCur ? positionMs / m.durationMs : 0}
-                    active
-                    height={30}
-                    barPx={3}
-                    unplayedAlpha={isCur ? 0.3 : 0.75}
-                    markers={m.markers}
-                    onSeek={(r) => onPlay(t, a, r * m.durationMs)}
-                    label={`Spill ${m.title} fra punktet`}
-                  />
-                </td>
-                <td className="tabular py-2 text-right text-ink">{m.bpm ?? '–'}</td>
-                <td className="tabular py-2 text-right font-semibold text-soft">{m.key?.camelot ?? '–'}</td>
-                <td className="tabular py-2 text-right text-muted">{formatTime(m.durationMs)}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedAsset; onChange: (v: LoadedAsset) => void }) {
-  if (t.variants.length < 2) {
-    return <span className="text-[11px] text-muted">{t.main.manifest.kind === 'set' ? 'Live-sett' : t.main.manifest.artist ?? 'Groovehouse'}</span>;
-  }
-  return (
-    <label className="inline-flex items-center gap-1.5 text-[11px] text-muted">
-      <span className="sr-only">Variant av {t.main.manifest.title}</span>
-      <span className="relative inline-flex items-center">
-      <select
-        value={value.manifest.id}
-        onChange={(e) => onChange(t.variants.find((v) => v.manifest.id === e.target.value)!)}
-        className="appearance-none bg-transparent pr-4 text-[11px] text-soft focus:outline-none"
-      >
-        {t.variants.map((v) => (
-          <option key={v.manifest.id} value={v.manifest.id} className="bg-surface text-ink">
-            {variantName(v)} · {formatTime(v.manifest.durationMs)}
-          </option>
-        ))}
-      </select>
-      <ChevronDownIcon width={12} height={12} className="pointer-events-none absolute right-0 text-soft" />
-      </span>
-      <span aria-hidden="true" className="rounded border border-white/10 px-1 text-[9px] tracking-[1px]">{t.variants.length} VARIANTER</span>
-    </label>
   );
 }
 
@@ -941,13 +717,13 @@ function NowLabel({ cur, hideVariant = false }: { cur: LoadedAsset; hideVariant?
 }
 
 /** Desktop: fullbredde transport-dock. Kantlinja puster med sub-bassen. */
-function Dock({ cur, track, onVariant, tracks, onPlay, onMore }: { cur: LoadedAsset; track?: Track; onVariant: (v: LoadedAsset) => void; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: (anchor?: { x: number; y: number } | null) => void }) {
+function Dock({ cur, track, onVariant, tracks, onPlay, onMore, hideOnDesktop = false }: { cur: LoadedAsset; track?: Track; onVariant: (v: LoadedAsset) => void; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: (anchor?: { x: number; y: number } | null) => void; /** Dekket viser transporten (Hjem, Bibliotek). */ hideOnDesktop?: boolean }) {
   const { positionMs, started, seek, volume, setVolume } = usePlayer();
   const m = cur.manifest;
   const setNow = m.kind === 'set' ? sectionAt(m.markers, positionMs) : null;
   const single = setNow?.refSlug ? tracks.find((x) => x.slug === setNow.refSlug && x.main.manifest.kind === 'track') : undefined;
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 hidden h-[112px] border-t border-white/[0.07] bg-sunken/90 backdrop-blur-xl lg:block">
+    <div className={`fixed inset-x-0 bottom-0 z-30 hidden h-[112px] border-t border-accent/20 bg-[#0A0B0F]/95 lg:left-[272px] ${hideOnDesktop ? '' : 'lg:block'}`}>
       <SubBassEdge />
       <div className="mx-auto flex h-full max-w-[1600px] items-center gap-6 px-6">
         <div className="flex w-[300px] min-w-0 items-center gap-3">

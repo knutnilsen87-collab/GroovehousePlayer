@@ -33,7 +33,18 @@ export interface PlayerEngine {
   hasSource(): boolean;
   /** Posisjon nå (native interpolerer mellom rapportene). */
   positionMs(): number;
+  /**
+   * Del 14: A·B-løkke i låta som spilles (null = av). Native gjør løkken i tjenesten, så den virker
+   * med skjermen av. Nullstilles av motoren ved ny låt (load).
+   */
+  setLoop(loop: { a: number; b: number } | null): void;
+  /** Del 14: hastighet 0,90–1,10 med tonehøyden bevart. Gjelder til den endres (ikke per låt). */
+  setRate(rate: number): void;
+  /** Del 14: gjenta. HTML: storen gjør det ved «ended». Native: tjenesten (virker i bakgrunnen). */
+  setRepeat(mode: RepeatMode): void;
 }
+
+export type RepeatMode = 'off' | 'all' | 'one';
 
 /**
  * Del 8: målnivå fra innstillingene (null = bruk det ingest regnet ut, -14 LUFS).

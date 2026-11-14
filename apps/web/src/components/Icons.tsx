@@ -6,7 +6,7 @@ const base = (p: SVGProps<SVGSVGElement>) => ({
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 2,
+  strokeWidth: 1.5,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
   'aria-hidden': true,
@@ -182,5 +182,94 @@ export const TrashIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M14 11v6" />
     <path d="M6 7l1 13h10l1-13" />
     <path d="M9 7V4h6v3" />
+  </svg>
+);
+
+// ---------------------------------------------------------------- Del 14: linjeikoner (1,5 px strek)
+
+export const HomeIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M3.5 10.5 12 3.5l8.5 7" />
+    <path d="M5.5 9v11h4.5v-6h4v6h4.5V9" />
+  </svg>
+);
+export const PlaylistIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M4 6h12M4 11h12M4 16h7" />
+    <circle cx="17.5" cy="17" r="2.5" />
+    <path d="M20 17V9.5l-2.5-1" />
+  </svg>
+);
+export const DjIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M6 4v16M12 4v16M18 4v16" />
+    <rect x="4" y="13" width="4" height="3" rx="1" />
+    <rect x="10" y="7" width="4" height="3" rx="1" />
+    <rect x="16" y="11" width="4" height="3" rx="1" />
+  </svg>
+);
+export const AnalyticsIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M5 20v-6M10 20V9M15 20v-9M20 20V4" />
+  </svg>
+);
+export const VaultIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2" />
+    <path d="M3.5 9.5h4l1.5 2h6l1.5-2h4" />
+  </svg>
+);
+export const SettingsIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1Z" />
+  </svg>
+);
+export const HeartIcon = ({ filled = false, ...p }: SVGProps<SVGSVGElement> & { filled?: boolean }) => (
+  <svg {...base(p)} fill={filled ? 'currentColor' : 'none'}>
+    <path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7a4.4 4.4 0 0 1 7.5 2.9C19.5 15.4 12 20 12 20Z" />
+  </svg>
+);
+export const RepeatIcon = ({ one = false, ...p }: SVGProps<SVGSVGElement> & { one?: boolean }) => (
+  <svg {...base(p)}>
+    <path d="M17 2.5 20 5.5l-3 3" />
+    <path d="M4 11.5v-1a5 5 0 0 1 5-5h11" />
+    <path d="M7 21.5 4 18.5l3-3" />
+    <path d="M20 12.5v1a5 5 0 0 1-5 5H4" />
+    {one && <path d="M11.5 10.5 12.5 10v4.5" />}
+  </svg>
+);
+export const SpeedIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M20 12a8 8 0 1 1-2.3-5.6" />
+    <path d="M20 4v4h-4" />
+    <path d="M12 12l3-2" />
+  </svg>
+);
+export const SlidersIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <path d="M4 7h10M18 7h2M4 17h4M12 17h8" />
+    <circle cx="16" cy="7" r="2" />
+    <circle cx="10" cy="17" r="2" />
+  </svg>
+);
+export const OutputIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="1.5" />
+    <path d="M8.5 15.5a5 5 0 0 1 0-7M15.5 8.5a5 5 0 0 1 0 7M5.6 18.4a9 9 0 0 1 0-12.8M18.4 5.6a9 9 0 0 1 0 12.8" />
+  </svg>
+);
+export const ScreenIcon = (p: SVGProps<SVGSVGElement>) => (
+  <svg {...base(p)}>
+    <rect x="3" y="4.5" width="18" height="12" rx="1.5" />
+    <path d="M8 20h8M12 16.5V20" />
+  </svg>
+);
+/** Lite equalizer-ikon for raden som spilles (animert når den spiller, stille ved redusert bevegelse). */
+export const EqIcon = ({ playing = false, ...p }: SVGProps<SVGSVGElement> & { playing?: boolean }) => (
+  <svg {...base(p)} stroke="none" fill="currentColor" className={`${p.className ?? ''} ${playing ? 'gv-eq' : ''}`}>
+    <rect x="4" y="10" width="3" height="10" rx="1" />
+    <rect x="10.5" y="5" width="3" height="15" rx="1" />
+    <rect x="17" y="12" width="3" height="8" rx="1" />
   </svg>
 );

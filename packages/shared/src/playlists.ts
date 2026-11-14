@@ -99,6 +99,7 @@ export interface TrackLike<A> {
 
 /** Innebygde smarte lister. Lagres ikke; finnes alltid. */
 export const BUILTIN_SMART = [
+  { id: 'builtin:favorites', name: 'Favoritter', favorites: true },
   { id: 'builtin:recent', name: 'Nylig lagt til', days: 14 },
   { id: 'builtin:sets', name: 'Live-sett', query: 'sett' }
 ] as const;

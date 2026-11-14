@@ -160,3 +160,73 @@ body {
     filter: none;
   }
 }
+
+/* Equalizer-ikonet i raden som spilles */
+.gv-eq rect {
+  transform-origin: bottom;
+  transform-box: fill-box;
+  animation: gv-eq 0.9s ease-in-out infinite alternate;
+}
+.gv-eq rect:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.gv-eq rect:nth-child(3) {
+  animation-delay: -0.6s;
+}
+@keyframes gv-eq {
+  from {
+    transform: scaleY(0.35);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gv-eq rect {
+    animation: none;
+  }
+}
+
+/* Range-slidere (volum, hastighet, BPM-spenn): tynn skinne, fylt del og knott i aksent */
+.gv-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  cursor: pointer;
+  --fill: 50%;
+}
+.gv-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(to right, var(--accent) var(--fill), rgba(255, 255, 255, 0.14) var(--fill));
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.gv-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+.gv-range::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.gv-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #f5f7fa;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+.gv-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f5f7fa;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}

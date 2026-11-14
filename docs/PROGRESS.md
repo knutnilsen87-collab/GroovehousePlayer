@@ -19,7 +19,7 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 10 Del låt som fil | ✅ ferdig (web), app bygget | 5 ffmpeg-tester (FLAC bit-for-bit, AAC 256k, tags, cover, cache, WAV-lyd identisk, /drop/ 403), 4 tekst/filnavn-tester, ekte server via Tailscale (ffprobe), UI 13/13; del 9 og 11 på nytt 31/29 | «Ferdig når»: del til deg selv på WhatsApp fra mobilen (Tailscale) og på e-post fra desktop-appen. Del i Android-appen (ikke kjørt). Om navigator.share med filer virker i Edge --app-vinduet |
 | 1 pkt. 7–8 Autostart + varsel | ✅ ferdig | Oppgaven laget uten admin; server stoppet → oppgaven startet → server oppe, ingen vindu (LastTaskResult 0); AUMID satt og lest tilbake; varsel vist (exit 0); 2 enhetstester for tekst/injeksjon | «Ferdig når»: start PC-en på nytt, og bounce noe nytt fra Reason – varselet skal komme av seg selv |
 | 8 Innstillinger | ✅ ferdig | 11 nye enhetstester (validering, atomisk lagring + backup, regler, copyright-mal, forskyvning, manuell palett overlever ny ingest, offset flytter markører) + 1 i web (LUFS-mål); UI i hodeløs Edge 22/22 (alle seksjoner, lagre LUFS −12 → API → tilbake −14, ugyldig mappe avvises, kontrast rød under minimum, mobil uten sidescroll); API: ugyldig LUFS 400, Wi-Fi-endring via Tailscale 403 | «Ferdig når»: endre eksportmappe, LUFS-mål, standard artist/label og farge på én låt i Studio, start PC-en på nytt og bounce på nytt – alt skal stå seg |
-| 14 Nytt utseende | 🔨 pågår | – | – |
+| 14 Nytt utseende | 🔨 pågår (3/5) | 164 enhetstester (+21: spektrum 5, studio-hjelpere 11, favoritter/tekst/lytting 5, løkke/hastighet 2, designregel 3); desktop-dekket i hodeløs Edge 26/26 | Steg 4 (mobil + Android) og 5 (sammenligning) gjenstår |
 | 2 Markør-editor | ⏳ | – | – |
 | 4 Raskere ingest | ⏳ | – | – |
 | 3 Analyse (uten fasit) | ⏳ | – | Fasit i `fixtures/truth.json` |
@@ -81,8 +81,10 @@ Fem commits, hver med test, typecheck og sjekk i hodeløs Edge:
 - 2026-11-14: Del 9 ferdig (bcdb20b). Del 11 påbegynt: kildefil (5e7c426). Main (7862d80) merget inn.
 - 2026-11-14 02:56: `Out of Control.wav` ble skrevet av Reason under kildefil-skanningen (EBUSY, hoppet over). Ny bounce, ikke endret av Vault.
 - 2026-11-14: Del 11 ferdig (UI 29/29, del 9 31/31 på nytt). «Out of Control» (ny bounce) ingestet av watcheren og koblet til kildefil.
-- 2026-11-14: Del 12 bygget (APK 7,3 MB, signert). Keystore laget i %APPDATA%GroovehouseVaultandroidelease.jks.
+- 2026-11-14: Del 12 bygget (APK 7,3 MB, signert). Keystore laget i %APPDATA%GroovehouseVaultandroid
+elease.jks.
 - 2026-11-14: Del 10 ferdig. Master-kopier for 28 versjoner. APK bygget på nytt (7,4 MB) med Filesystem/Share.
 - 2026-11-14: Del 1 pkt. 7–8 ferdig. Planlagt oppgave og AUMID installert via vault:install. To testvarsler vist på skjermen.
 - 2026-11-14: Del 8 backend-del committet (ikke UI/ruter ennå). Brukskvoten nådd – fortsett fra «Gjenstår» i tabellen.
 - 2026-11-14: Del 8 ferdig. Tailscale-navnet byttet til «groovehouse» (lagt i groovehouse.local.json ved siden av det gamle, Serve peker på 127.0.0.1:41733, /api/health svarer 200).
+- 2026-11-14: Del 14 steg 1–3: spektrum48 og kildeformat (backfill for 28 versjoner), designsystem (gull bare i logoen), desktop-dekket med favoritter, tekst, A·B, hastighet, Hjem/DJ-verktøy/Analyse. Fant at Google Drive synkroniserer prosjektmappa (OPEN_QUESTIONS 12).

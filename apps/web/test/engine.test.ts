@@ -41,6 +41,9 @@ function fakePlugin() {
     pause: async () => void calls.push(['pause', null]),
     seekTo: async (o) => void calls.push(['seekTo', o]),
     setVolume: async (o) => void calls.push(['setVolume', o]),
+    setLoop: async (o) => void calls.push(['setLoop', o]),
+    setSpeed: async (o) => void calls.push(['setSpeed', o]),
+    setRepeat: async (o) => void calls.push(['setRepeat', o]),
     getState: async () => ({ playing: false, index: 0, positionMs: 0 }),
     addListener: (async (event: string, fn: (s: NativeState) => void) => {
       if (event === 'state') stateListener = fn;
@@ -155,6 +158,15 @@ class FakeEngine implements PlayerEngine {
   setUserVolume(v: number) {
     this.calls.push(`vol:${v}`);
   }
+  setLoop(l: { a: number; b: number } | null) {
+    this.calls.push(l ? `loop:${l.a}-${l.b}` : 'loop:off');
+  }
+  setRate(r: number) {
+    this.calls.push(`rate:${r}`);
+  }
+  setRepeat(m: string) {
+    this.calls.push(`repeat:${m}`);
+  }
   isPaused() {
     return this.paused;
   }
@@ -217,6 +229,55 @@ describe('spiller-storen mot motor-kontrakten', () => {
     usePlayer.getState().playFrom([asset('sett', { kind: 'set' })], 0);
     usePlayer.getState().setVolume(0.5);
     expect(e.calls).toEqual(['vol:1', 'load:sett@61000', 'play', 'vol:0.5']);
+  });
+});
+
+describe('A·B-løkke og hastighet (del 14)', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    const store: Record<string, string> = {};
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store[k] ?? null, setItem: (k: string, v: string) => void (store[k] = v), removeItem: (k: string) => void delete store[k] });
+  });
+
+  it('løkka festes til takter, går til motoren, og nullstilles ved ny låt; hastigheten består', async () => {
+    const { usePlayer, setEngine } = await import('../src/lib/player');
+    const e = new FakeEngine('html');
+    setEngine(e);
+    const p = () => usePlayer.getState();
+    const a120 = { ...asset('a'), manifest: { ...asset('a').manifest, bpm: 120 } } as LoadedAsset;
+    p().playFrom([a120, asset('b')], 0);
+    usePlayer.setState({ positionMs: 2100 });
+    p().setLoop(4100, 2100); // 120 BPM → 500 ms per slag
+    expect(p().loop).toEqual({ a: 2000, b: 4000 });
+    p().setLoop(2100, 4100, false); // Shift: ingen festing
+    expect(p().loop).toEqual({ a: 2100, b: 4100 });
+    p().setRate(1.234);
+    expect(p().rate).toBe(1.1);
+    p().next();
+    expect(p().loop).toBeNull();
+    expect(p().rate).toBe(1.1);
+    expect(e.calls.filter((c) => /^(loop|rate)/.test(c))).toEqual(['loop:2000-4000', 'loop:2100-4100', 'rate:1.1']);
+  });
+
+  it('native: løkka sendes til tjenesten og posisjonen interpoleres med hastighet og løkke', async () => {
+    const { NativeEngine } = await import('../src/lib/engine/native');
+    const { p, calls, emit } = fakePlugin();
+    let t = 0;
+    const eng = new NativeEngine(p, () => ({}), () => t);
+    eng.setHandlers(handlers());
+    eng.load([asset('a')], 0, 0);
+    eng.setRate(1.1);
+    eng.setLoop({ a: 10_000, b: 12_000 });
+    emit({ playing: true, index: 0, positionMs: 11_000 });
+    t = 1000; // 1,1 s spilt → 12 100 → tilbake i løkka
+    expect(eng.positionMs()).toBeCloseTo(10_100, 6);
+    eng.setLoop(null);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls.filter(([n]) => n === 'setLoop' || n === 'setSpeed').map(([n, o]) => [n, o])).toEqual([
+      ['setSpeed', { rate: 1.1 }],
+      ['setLoop', { a: 10_000, b: 12_000 }],
+      ['setLoop', { a: -1, b: -1 }]
+    ]);
   });
 });
 

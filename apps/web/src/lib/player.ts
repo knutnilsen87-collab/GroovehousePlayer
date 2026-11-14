@@ -1,7 +1,8 @@
 import { create } from 'zustand';
+import { clampRate, makeLoop, type Loop } from '@gv/shared/web';
 import { enqueue as qEnqueue, insertNext as qInsertNext, mapPositionBetweenVariants, moveAt as qMove, nextSectionStart, prevSectionStart, removeAt as qRemove, toStored, type ListenEventType, type StoredQueue } from '@gv/shared/web';
 import type { LoadedAsset } from './catalog';
-import type { PlayerEngine } from './engine/types';
+import type { PlayerEngine, RepeatMode } from './engine/types';
 
 /**
  * Spiller-storen. Selve avspillingen gjøres av en motor (del 12): <audio> på web/desktop,
@@ -77,6 +78,18 @@ interface PlayerState {
   started: boolean;
   /** Brukerens volum 0..1 (ganges med normaliseringen). */
   volume: number;
+  /** Del 14: A·B-løkke i låta som spilles (nullstilles ved ny låt). */
+  loop: Loop | null;
+  /** Del 14: hastighet 0,90–1,10 (tonehøyden bevart). Lagres ikke per låt. */
+  rate: number;
+  /** Sett løkke fra to punkter (ms). Festes til takter med mindre `snap` er false (Shift). null = av. */
+  setLoop: (x: number | null, y?: number, snap?: boolean) => void;
+  setRate: (r: number) => void;
+  /** Del 14: gjenta av → hele køen → én låt. */
+  repeat: RepeatMode;
+  cycleRepeat: () => void;
+  /** Del 14: bland resten av køen (det som spilles nå blir stående). */
+  shuffleUpcoming: () => void;
   setQueue: (q: LoadedAsset[], startIndex?: number) => void;
   /** Spill et asset fra en liste. Live-sett fortsetter der du slapp. */
   playFrom: (list: LoadedAsset[], i: number, atMs?: number) => void;
@@ -111,10 +124,13 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   positionMs: 0,
   started: false,
   volume: 1,
+  loop: null,
+  rate: 1,
+  repeat: 'off',
   queueId: 0,
   setQueue: (queue, startIndex = 0) => {
     if (sameQueue(queue, get().queue)) return;
-    set({ queue, index: startIndex, positionMs: 0, playing: false, queueId: get().queueId + 1 });
+    set({ queue, index: startIndex, positionMs: 0, playing: false, loop: null, queueId: get().queueId + 1 });
     if (queue[startIndex]) getEngine().load(queue, startIndex, null);
   },
   playFrom: (list, i, atMs) => {
@@ -128,7 +144,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
       e.play();
       return;
     }
-    set({ queue: list, index: i, positionMs: resume ?? 0, started: true, queueId: get().queueId + 1 });
+    set({ queue: list, index: i, positionMs: resume ?? 0, started: true, loop: null, queueId: get().queueId + 1 });
     e.load(list, i, resume);
     e.play();
   },
@@ -139,7 +155,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (i !== get().index || !e.hasSource()) {
       const resume = a.manifest.kind === 'set' ? savedPosition(a) : null;
       e.load(get().queue, i, resume);
-      set({ index: i, positionMs: resume ?? 0 });
+      set({ index: i, positionMs: resume ?? 0, loop: null });
     }
     e.play();
   },
@@ -183,7 +199,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     const at = mapPositionBetweenVariants(from.manifest, to.manifest, positionMs);
     const q = [...queue];
     q[index] = to;
-    set({ queue: q, positionMs: at });
+    set({ queue: q, positionMs: at, loop: null });
     const e = getEngine();
     e.load(q, index, at);
     if (playing) e.play();
@@ -191,6 +207,36 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   setVolume: (v) => {
     set({ volume: v });
     getEngine().setUserVolume(v);
+  },
+  setLoop: (x, y, snap = true) => {
+    const cur = get().queue[get().index];
+    const loop = cur && x != null && y != null ? makeLoop(x, y, cur.manifest.durationMs, cur.manifest.bpm, snap) : null;
+    set({ loop });
+    const e = getEngine();
+    e.setLoop(loop);
+    // Står spillehodet utenfor løkka, hopp til A
+    if (loop && (get().positionMs < loop.a || get().positionMs > loop.b)) get().seek(loop.a);
+  },
+  cycleRepeat: () => {
+    const repeat: RepeatMode = get().repeat === 'off' ? 'all' : get().repeat === 'all' ? 'one' : 'off';
+    set({ repeat });
+    getEngine().setRepeat(repeat);
+  },
+  shuffleUpcoming: () => {
+    const { queue, index } = get();
+    const rest = queue.slice(index + 1);
+    if (rest.length < 2) return;
+    for (let i = rest.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [rest[i], rest[j]] = [rest[j]!, rest[i]!];
+    }
+    set({ queue: [...queue.slice(0, index + 1), ...rest] });
+    getEngine().syncQueue(get().queue, index);
+  },
+  setRate: (r) => {
+    const rate = clampRate(r);
+    set({ rate });
+    getEngine().setRate(rate);
   },
   insertNext: (items) => {
     if (!items.length) return;
@@ -217,7 +263,7 @@ export const usePlayer = create<PlayerState>((set, get) => ({
   restoreQueue: (queue, index, positionMs) => {
     const a = queue[index];
     if (!a || get().queue.length) return; // spiller allerede noe – ikke overstyr
-    set({ queue, index, positionMs, playing: false, queueId: get().queueId + 1 });
+    set({ queue, index, positionMs, playing: false, loop: null, queueId: get().queueId + 1 });
     getEngine().load(queue, index, positionMs > 0 ? positionMs : null);
   }
 }));
@@ -247,6 +293,7 @@ const current = () => usePlayer.getState().queue[usePlayer.getState().index];
 
 function wire(e: PlayerEngine) {
   e.setUserVolume(usePlayer.getState().volume);
+  if (usePlayer.getState().rate !== 1) e.setRate(usePlayer.getState().rate);
   e.setHandlers({
     onPlay: () => {
       usePlayer.setState({ playing: true, started: true });
@@ -282,15 +329,19 @@ function wire(e: PlayerEngine) {
         logListen({ event: 'ended', assetId: a.manifest.id, positionMs: a.manifest.durationMs });
         savePosition(a, a.manifest.durationMs);
       }
-      const { index, queue } = usePlayer.getState();
-      if (index < queue.length - 1) usePlayer.getState().playIndex(index + 1);
+      const { index, queue, repeat } = usePlayer.getState();
+      if (repeat === 'one') {
+        usePlayer.getState().seek(0);
+        e.play();
+      } else if (index < queue.length - 1) usePlayer.getState().playIndex(index + 1);
+      else if (repeat === 'all' && queue.length) usePlayer.getState().playIndex(0);
       else usePlayer.setState({ playing: false });
     },
     onIndex: (i) => {
       // Motoren har gått videre selv (native): bare oppdater storen, ikke last på nytt.
       const prev = current();
       if (prev) logListen({ event: 'ended', assetId: prev.manifest.id, positionMs: prev.manifest.durationMs });
-      if (i >= 0 && i < usePlayer.getState().queue.length) usePlayer.setState({ index: i, positionMs: 0 });
+      if (i >= 0 && i < usePlayer.getState().queue.length) usePlayer.setState({ index: i, positionMs: 0, loop: null });
     },
     onError: (msg) => console.warn('[spiller]', msg)
   });

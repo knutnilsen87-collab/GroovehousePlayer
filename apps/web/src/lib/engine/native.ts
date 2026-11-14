@@ -34,6 +34,12 @@ export interface NativePlayerPlugin {
   pause(): Promise<void>;
   seekTo(o: { ms: number }): Promise<void>;
   setVolume(o: { volume: number }): Promise<void>;
+  /** Del 14: A·B-løkke i tjenesten (a = b = -1 slår av). Virker med skjermen av. */
+  setLoop(o: { a: number; b: number }): Promise<void>;
+  /** Del 14: hastighet med tonehøyden bevart (ExoPlayer PlaybackParameters). */
+  setSpeed(o: { rate: number }): Promise<void>;
+  /** Del 14: gjenta av / hele køen / én låt (ExoPlayer repeatMode). */
+  setRepeat(o: { mode: 'off' | 'all' | 'one' }): Promise<void>;
   getState(): Promise<NativeState & { savedPositions?: Record<string, number> }>;
   addListener(event: 'state', fn: (s: NativeState) => void): Promise<{ remove: () => Promise<void> }>;
   addListener(event: 'error', fn: (e: { message: string }) => void): Promise<{ remove: () => Promise<void> }>;
@@ -62,6 +68,8 @@ export class NativeEngine implements PlayerEngine {
   private state: NativeState = { playing: false, index: 0, positionMs: 0 };
   private stateAt = 0;
   private loaded = false;
+  private loop: { a: number; b: number } | null = null;
+  private rate = 1;
   /** Kall til pluginen går i rekkefølge (setQueue før play osv.). */
   private chain: Promise<unknown> = Promise.resolve();
 
@@ -99,6 +107,7 @@ export class NativeEngine implements PlayerEngine {
     const same = this.loaded && ids.length === this.ids.length && ids.every((x, i) => x === this.ids[i]);
     this.ids = ids;
     this.loaded = true;
+    this.loop = null; // tjenesten nullstiller løkken ved ny låt
     this.state = { ...this.state, index, positionMs: startMs ?? 0 };
     this.stateAt = this.now();
     if (same) void this.call(() => this.plugin.skipTo({ index, startMs: startMs ?? 0 }));
@@ -137,8 +146,26 @@ export class NativeEngine implements PlayerEngine {
     return this.loaded;
   }
 
-  /** Interpolerer mellom rapportene, så bølgeform og sub-bass-puls går jevnt. */
+  setLoop(loop: { a: number; b: number } | null) {
+    this.loop = loop;
+    void this.call(() => this.plugin.setLoop(loop ?? { a: -1, b: -1 }));
+  }
+
+  setRepeat(mode: 'off' | 'all' | 'one') {
+    void this.call(() => this.plugin.setRepeat({ mode }));
+  }
+
+  setRate(rate: number) {
+    this.rate = rate;
+    void this.call(() => this.plugin.setSpeed({ rate }));
+  }
+
+  /** Interpolerer mellom rapportene (med hastighet og løkke), så bølgeform og sub-bass-puls går jevnt. */
   positionMs() {
-    return this.state.playing ? this.state.positionMs + (this.now() - this.stateAt) : this.state.positionMs;
+    if (!this.state.playing) return this.state.positionMs;
+    let p = this.state.positionMs + (this.now() - this.stateAt) * this.rate;
+    const l = this.loop;
+    if (l && this.state.positionMs >= l.a && p >= l.b) p = l.a + ((p - l.a) % (l.b - l.a));
+    return p;
   }
 }

@@ -21,6 +21,9 @@ export class HtmlAudioEngine implements PlayerEngine {
   private userVolume = 1;
   private h: EngineHandlers | null = null;
   private nativeHls: boolean;
+  private loop: { a: number; b: number } | null = null;
+  private loopTimer = 0;
+  private rate = 1;
   private hlsModule: Promise<typeof import('hls.js')> | null;
 
   constructor() {
@@ -37,10 +40,16 @@ export class HtmlAudioEngine implements PlayerEngine {
     };
     a.addEventListener('loadedmetadata', applyPendingSeek);
     a.addEventListener('canplay', applyPendingSeek);
-    a.addEventListener('play', () => this.h?.onPlay());
+    a.addEventListener('play', () => {
+      this.armLoop();
+      this.h?.onPlay();
+    });
     a.addEventListener('pause', () => {
+      this.armLoop();
       if (!a.ended) this.h?.onPause();
     });
+    // Nettleseren nullstiller playbackRate ved ny kilde
+    a.addEventListener('loadedmetadata', () => this.applyRate());
     a.addEventListener('timeupdate', () => {
       if (this.pendingSeekMs != null) return; // ikke overskriv posisjonen før gjenoppta-hoppet er gjort
       this.h?.onTime(this.positionMs());
@@ -60,6 +69,7 @@ export class HtmlAudioEngine implements PlayerEngine {
     const seq = ++this.loadSeq;
     this.current = asset;
     this.ready = false;
+    this.setLoop(null);
     this.pendingSeekMs = startMs;
     this.hls?.destroy();
     this.hls = null;
@@ -119,6 +129,44 @@ export class HtmlAudioEngine implements PlayerEngine {
 
   isPaused() {
     return this.audio.paused;
+  }
+
+  setLoop(loop: { a: number; b: number } | null) {
+    this.loop = loop;
+    this.armLoop();
+  }
+
+  /** timeupdate kommer bare ~4 ganger i sekundet; løkken sjekkes hvert 10. ms mens den spiller. */
+  private armLoop() {
+    window.clearInterval(this.loopTimer);
+    this.loopTimer = 0;
+    if (!this.loop || this.audio.paused) return;
+    this.loopTimer = window.setInterval(() => {
+      const l = this.loop;
+      if (!l) return;
+      const t = this.audio.currentTime * 1000;
+      if (t >= l.b || t < l.a - 250) {
+        this.audio.currentTime = l.a / 1000;
+        this.h?.onTime(l.a);
+      }
+    }, 10);
+  }
+
+  setRepeat() {
+    /* storen håndterer gjenta ved «ended» */
+  }
+
+  setRate(rate: number) {
+    this.rate = rate;
+    this.applyRate();
+  }
+
+  private applyRate() {
+    const a = this.audio as HTMLAudioElement & { webkitPreservesPitch?: boolean; mozPreservesPitch?: boolean };
+    a.preservesPitch = true;
+    a.webkitPreservesPitch = true;
+    a.mozPreservesPitch = true;
+    a.playbackRate = this.rate;
   }
 
   hasSource() {

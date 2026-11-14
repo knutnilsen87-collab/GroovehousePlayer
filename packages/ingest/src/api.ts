@@ -10,6 +10,7 @@ import { retagSlug } from './ingest';
 import { ensureShareFile, ShareError } from './share';
 import { manualPalette, type AssetManifest, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
+import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
 import { readSources, sourceKey, sourcesFile } from './source-index';
 import { overridePath, readOverrides, type MetaFile } from './sources';
 
@@ -32,6 +33,14 @@ import { overridePath, readOverrides, type MetaFile } from './sources';
  *   GET    /api/share/:slug/:variant|main/:versjon?kind=full|preview|wav → fila (del 10, aldri fra /drop/)
  *   GET    /api/shares → { counts }   POST /api/shares { slug, variant, version, kind } (lokal logg)
  *   GET    /api/sources/:slug/:variant|main/:versjon → { fileName } – «Kildefil» (privat, aldri fra /drop/)
+ *
+ * Del 14 (samme tilgang som spillelistene, aldri fra /drop/; skriving krever JSON):
+ *   GET    /api/favorites            → { slugs, updatedAt }
+ *   PUT    /api/favorites/:slug      → { slugs, updatedAt }   DELETE /api/favorites/:slug → samme
+ *   GET    /api/lyrics/:slug         → { slug, format: "lrc"|"txt", text } | 404
+ *   PUT    /api/lyrics/:slug         { format, text } → { lyrics } (tom tekst sletter → { lyrics: null })
+ *   GET    /api/listens              → { bySlug, recent, byDay }
+ *   POST   /api/listens              { events: [{ slug, play?, ms? }] } → 204
  */
 export interface ApiOptions {
   mediaDir: string;
@@ -48,7 +57,11 @@ export function createApiHandler(opts: ApiOptions) {
   const root = findRoot(opts.mediaDir);
   // Leses per forespørsel: innstillinger fra Studio (del 8) gjelder uten omstart.
   const config = () => loadConfig(root);
-  const playlists = createPlaylistStore(path.join(opts.dataDir ?? path.join(root, 'data'), 'playlists.json'));
+  const dataDir = opts.dataDir ?? path.join(root, 'data');
+  const playlists = createPlaylistStore(path.join(dataDir, 'playlists.json'));
+  const favorites = createFavoritesStore(path.join(dataDir, 'favorites.json'));
+  const lyrics = createLyricsStore(path.join(dataDir, 'lyrics'));
+  const listens = createListenStore(path.join(dataDir, 'listens.json'));
   let version = '0.0.0';
   try {
     version = (JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string }).version ?? version;
@@ -61,6 +74,41 @@ export function createApiHandler(opts: ApiOptions) {
     if (url.pathname === '/api/playlists' || url.pathname.startsWith('/api/playlists/')) {
       await handlePlaylists(playlists, url, req, res);
       return;
+    }
+    // Del 14: favoritter, sangtekst og egne avspillinger
+    const lib = url.pathname.match(/^\/api\/(favorites|lyrics|listens)(?:\/([^/]+))?$/);
+    if (lib) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const [, what, rawSlug] = lib;
+      const slug = rawSlug ? decodeURIComponent(rawSlug) : null;
+      const write = req.method !== 'GET' && req.method !== 'HEAD';
+      if (write && !(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      try {
+        if (what === 'favorites') {
+          if (!slug && req.method === 'GET') return send(res, 200, await favorites.read());
+          if (slug && (req.method === 'PUT' || req.method === 'DELETE')) return send(res, 200, await favorites.set(slug, req.method === 'PUT'));
+        } else if (what === 'lyrics' && slug) {
+          if (req.method === 'GET') {
+            const l = await lyrics.get(slug);
+            return l ? send(res, 200, l) : send(res, 404, { error: 'ingen tekst' });
+          }
+          if (req.method === 'PUT') {
+            const body = (await readJson(req, 400_000)) as { format?: unknown; text?: unknown };
+            return send(res, 200, { lyrics: await lyrics.put(slug, body.format, body.text) });
+          }
+        } else if (what === 'listens' && !slug) {
+          if (req.method === 'GET') return send(res, 200, await listens.read());
+          if (req.method === 'POST') {
+            await listens.add(((await readJson(req)) as { events?: unknown }).events);
+            res.statusCode = 204;
+            return void res.end();
+          }
+        }
+        return send(res, 405, { error: 'method not allowed' });
+      } catch (err) {
+        if (err instanceof LibraryError) return send(res, err.status, { error: err.message });
+        return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+      }
     }
     // Del 10: del en låt som fil. Aldri fra lyttersiden.
     const sh = url.pathname.match(/^\/api\/share\/([a-z0-9][a-z0-9-]{0,120})\/([a-z0-9][a-z0-9-]{0,120})\/v?(\d{1,4})$/);

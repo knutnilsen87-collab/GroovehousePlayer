@@ -1,7 +1,8 @@
 import type { Palette } from '@gv/shared/web';
 
 /** Viser coveret, eller et rolig vinyl-motiv i palettens farger når asset mangler cover. */
-export function CoverArt({ src, palette, title, size, rounded = 14 }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number }) {
+export function CoverArt({ src, palette, title, size, rounded = 14, fluid = false }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; /** Fyll bredden (kvadratisk), del 14-kortet. */ fluid?: boolean }) {
+  const dims = fluid ? { width: '100%', height: 'auto', aspectRatio: '1 / 1' } : { width: size, height: size };
   if (src) {
     return (
       <img
@@ -10,7 +11,7 @@ export function CoverArt({ src, palette, title, size, rounded = 14 }: { src: str
         width={size}
         height={size}
         className="block object-cover shadow-[0_30px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.06]"
-        style={{ width: size, height: size, borderRadius: rounded }}
+        style={{ ...dims, borderRadius: rounded }}
       />
     );
   }
@@ -20,8 +21,7 @@ export function CoverArt({ src, palette, title, size, rounded = 14 }: { src: str
       aria-label={`Cover mangler: ${title}`}
       className="relative overflow-hidden ring-1 ring-white/[0.06]"
       style={{
-        width: size,
-        height: size,
+        ...dims,
         borderRadius: rounded,
         background: `repeating-radial-gradient(circle at 50% 50%, rgba(255,255,255,0.05) 0 1px, transparent 2px 6px), #0B0D12`
       }}

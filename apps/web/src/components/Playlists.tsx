@@ -28,6 +28,7 @@ import { useTouchReorder } from '../lib/useTouchReorder';
 import { lockOptions, lockValue, type VersionCtx } from '../lib/versions';
 import { useUi, type ExtraAction } from '../lib/ui';
 import { serverBase } from '../lib/connection';
+import { useFavorites } from '../lib/library';
 import { CoverArt } from './CoverArt';
 import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
 
@@ -119,12 +120,19 @@ export interface ListView {
   keys: string[];
 }
 
-const BUILTIN_COLORS: Record<string, string> = { 'builtin:recent': 'neon-cyan', 'builtin:sets': 'neon-violet' };
+const BUILTIN_COLORS: Record<string, string> = { 'builtin:favorites': 'hot-pink', 'builtin:recent': 'neon-cyan', 'builtin:sets': 'ultraviolet' };
+const BUILTIN_SUB: Record<string, string> = { 'builtin:favorites': 'Smart · hjertede låter', 'builtin:recent': 'Smart · siste 14 dager', 'builtin:sets': 'Smart · alle live-sett' };
+
+/** Del 14: «Favoritter» – låtene med hjerte, sist hjertede først (hovedvarianten). */
+function favoriteAssets(tracks: Track[]): LoadedAsset[] {
+  const bySlug = new Map(tracks.map((t) => [t.slug, t.main]));
+  return useFavorites.getState().slugs.flatMap((s) => bySlug.get(s) ?? []);
+}
 
 export function buildListView(id: string, playlists: Playlist[], tracks: Track[], vctx?: VersionCtx): ListView | null {
   if (isBuiltin(id)) {
     const b = BUILTIN_SMART.find((x) => x.id === id)!;
-    const assets = smartListAssets(tracks, 'days' in b ? { days: b.days } : { query: b.query });
+    const assets = 'favorites' in b ? favoriteAssets(tracks) : smartListAssets(tracks, 'days' in b ? { days: b.days } : { query: b.query });
     return { id, name: b.name, kind: 'builtin', color: colorById(BUILTIN_COLORS[id]), playlist: null, rows: [], assets, keys: assets.map((a) => a.manifest.slug) };
   }
   const p = playlists.find((x) => x.id === id);
@@ -398,6 +406,7 @@ export function PlaylistsOverview({ tracks, onOpen, vctx }: { tracks: Track[]; o
   const error = usePlaylists((s) => s.error);
   const nowList = useNowList((s) => s.listId);
   const [creating, setCreating] = useState(false);
+  useFavorites((s) => s.slugs); // tegn på nytt når et hjerte endres
   const builtins = BUILTIN_SMART.map((b) => buildListView(b.id, playlists, tracks)!);
   const smart = playlists.filter((p) => p.kind === 'smart').sort((a, b) => a.name.localeCompare(b.name, 'nb'));
   const manual = playlists.filter((p) => p.kind === 'manual').sort((a, b) => (b.usedAt ?? b.createdAt).localeCompare(a.usedAt ?? a.createdAt));
@@ -435,7 +444,7 @@ export function PlaylistsOverview({ tracks, onOpen, vctx }: { tracks: Track[]; o
       {creating && <NewListForm onDone={(p) => (setCreating(false), p && onOpen(p.id))} />}
       {error && <p className="text-sm text-[#FF8A7A]">Fikk ikke hentet spillelistene: {error}</p>}
       <ul className="m-0 list-none p-0">
-        {builtins.map((v) => smartRow(v, v.kind === 'builtin' && v.id === 'builtin:recent' ? 'Smart · siste 14 dager' : 'Smart · alle live-sett'))}
+        {builtins.map((v) => smartRow(v, BUILTIN_SUB[v.id] ?? 'Smart'))}
         {smart.map((p) => smartRow(buildListView(p.id, playlists, tracks)!, `Smart · «${p.query}»`))}
       </ul>
       <div className="my-3 border-t border-white/[0.06]" />
@@ -577,6 +586,7 @@ const isDesktop = () => window.matchMedia('(min-width: 1024px)').matches;
 export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: string; tracks: Track[]; onBack: () => void; onClosed: () => void; vctx?: VersionCtx }) {
   const playlists = usePlaylists((s) => s.playlists);
   const loaded = usePlaylists((s) => s.loaded);
+  useFavorites((s) => s.slugs); // «Favoritter» oppdateres når et hjerte endres
   const v = buildListView(id, playlists, tracks, vctx);
   const nowList = useNowList((s) => s.listId);
   const nowKey = useNowList((s) => s.currentKey);

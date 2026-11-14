@@ -4,6 +4,7 @@ import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
 import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, StudioIcon, UploadIcon } from '../components/Icons';
 import { AssetLook } from '../components/AssetLook';
+import { LyricsEditor } from '../components/LyricsEditor';
 import { loadPlaybackSettings } from '../lib/settings';
 import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
@@ -672,6 +673,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
             }}
           />
           <AssetLook key={`${m.id}-${m.palette.primary}-${m.liveOffsetMs ?? 0}`} a={a} onSaved={onSaved} />
+          <LyricsEditor a={a} />
         </>
       )}
       <Waveform peaks={a.analysis?.peaks ?? []} bars={120} height={40} progress={0} active markers={m.markers.filter((k) => k.kind === 'drop').map((k) => ({ pct: k.startMs / m.durationMs, label: 'DROP' }))} />

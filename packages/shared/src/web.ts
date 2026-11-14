@@ -8,3 +8,4 @@ export * from './titles';
 export * from './playlists';
 export * from './queue';
 export * from './share';
+export * from './studio';
