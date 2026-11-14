@@ -276,7 +276,21 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
               onPlay={play}
               onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
               onSwipeRight={(t) => {
-                // Mobil: sveip til høyre = legg til i sist brukte liste (med angre). Ingen liste ennå → arket.
+                // Mobil: sveip til høyre = legg sist i køen (med angre).
+                const a = shownAsset(t);
+                const player = usePlayer.getState();
+                player.enqueue([a]);
+                const at = usePlayer.getState().queue.length - 1;
+                useToast.getState().show(`Lagt i køen: ${a.manifest.title}`, {
+                  label: 'Angre',
+                  run: () => {
+                    const q = usePlayer.getState().queue;
+                    if (q[at]?.manifest.id === a.manifest.id && at !== usePlayer.getState().index) usePlayer.getState().removeFromQueue(at);
+                  }
+                });
+              }}
+              onSwipeLeft={(t) => {
+                // Mobil: sveip til venstre = legg til i sist brukte spilleliste (med angre). Ingen liste ennå → arket.
                 const target = mostRecentTarget(usePlaylists.getState().playlists);
                 if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
                 else openSheet([shownAsset(t)]);
@@ -664,13 +678,14 @@ function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedAsset; o
 
 /**
  * Mobil: kompakt liste, én tommel. ⋯ = låthandlinger (del 11).
- * Hold inne = velgemodus. Sveip til høyre = legg til i sist brukte spilleliste (med angre).
+ * Hold inne = velgemodus. Sveip til høyre = legg i køen, sveip til venstre = legg til i sist brukte spilleliste (begge med angre).
  */
 function TrackList({
   tracks,
   onPlay,
   onMore,
   onSwipeRight,
+  onSwipeLeft,
   selectMode,
   selected,
   onLongPress,
@@ -680,6 +695,7 @@ function TrackList({
   onPlay: (t: Track) => void;
   onMore: (t: Track) => void;
   onSwipeRight: (t: Track) => void;
+  onSwipeLeft: (t: Track) => void;
   selectMode: boolean;
   selected: string[];
   onLongPress: (t: Track) => void;
@@ -729,10 +745,10 @@ function TrackList({
                 const dx = tt.clientX - p.x;
                 const dy = tt.clientY - p.y;
                 if (Math.abs(dx) > 10 || Math.abs(dy) > 10) cancelPress();
-                // Sveip til høyre (tydelig vannrett): raden følger fingeren
-                if (!selectMode && (p.swiping || (dx > 12 && dx > Math.abs(dy) * 1.5))) {
+                // Sveip (tydelig vannrett, begge veier): raden følger fingeren
+                if (!selectMode && (p.swiping || (Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5))) {
                   p.swiping = true;
-                  p.dx = Math.max(0, dx);
+                  p.dx = dx;
                   setSwipe({ slug: t.slug, dx: p.dx });
                 }
               }}
@@ -743,6 +759,9 @@ function TrackList({
                   if (p.dx > 90) {
                     navigator.vibrate?.(10);
                     onSwipeRight(t);
+                  } else if (p.dx < -90) {
+                    navigator.vibrate?.(10);
+                    onSwipeLeft(t);
                   }
                   p.fired = true; // ikke spill låta på klikket som følger
                   setSwipe(null);
@@ -753,8 +772,13 @@ function TrackList({
               className={`relative flex min-h-[64px] min-w-0 flex-1 select-none items-center gap-3 rounded-xl px-1.5 text-left [-webkit-touch-callout:none] active:bg-white/[0.05] ${isSel ? 'bg-white/[0.07]' : ''}`}
               style={{ ...(paletteToCssVars(m.palette) as CSSProperties), ...(swipe?.slug === t.slug ? { transform: `translateX(${swipe.dx}px)`, background: '#15181F' } : {}) }}
             >
-              {swipe?.slug === t.slug && (
+              {swipe?.slug === t.slug && swipe.dx > 0 && (
                 <span aria-hidden="true" className="absolute inset-y-0 right-full flex items-center whitespace-nowrap pr-3 text-xs font-semibold text-gold" style={{ opacity: Math.min(1, swipe.dx / 90) }}>
+                  + Køen
+                </span>
+              )}
+              {swipe?.slug === t.slug && swipe.dx < 0 && (
+                <span aria-hidden="true" className="absolute inset-y-0 left-full flex items-center whitespace-nowrap pl-3 text-xs font-semibold text-gold" style={{ opacity: Math.min(1, -swipe.dx / 90) }}>
                   + Sist brukte liste
                 </span>
               )}

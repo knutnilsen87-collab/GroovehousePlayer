@@ -60,6 +60,8 @@ Knuts svar gjelder: «Del…» vises deaktivert («kommer») til del 10 · «Kil
 5. Side `/studio/innstillinger`.
 6. Tester: validering, atomisk skriving, manuell palett overlever ny ingest, forskyvning flytter markørene.
 
+**Endret etter ønske fra Knut (2026-11-14):** i katalogen på mobil er sveip høyre = legg i køen, sveip venstre = legg til i sist brukte spilleliste (begge med angre). Erstatter «sveip høyre = sist brukte liste» fra del 11.
+
 ## Logg
 
 - 2026-11-14: Del 9 ferdig (bcdb20b). Del 11 påbegynt: kildefil (5e7c426). Main (7862d80) merget inn.
