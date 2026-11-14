@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Groovehouse Vault: alltid mørk (#07080B), også statuslinje og navigasjonslinje. -->
+    <color name="gv_obsidian">#07080B</color>
+
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/gv_obsidian</item>
+        <item name="colorPrimaryDark">@color/gv_obsidian</item>
+        <item name="colorAccent">#F0C030</item>
+        <item name="android:windowBackground">@color/gv_obsidian</item>
+        <item name="android:statusBarColor">@color/gv_obsidian</item>
+        <item name="android:navigationBarColor">@color/gv_obsidian</item>
+    </style>
+
+    <style name="AppTheme.NoActionBar" parent="AppTheme">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:background">@null</item>
+    </style>
+
+    <!-- Oppstart (Android 12+ SplashScreen-API): mørk bakgrunn med merket, så over til appen. -->
+    <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/gv_obsidian</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
+        <item name="android:background">@drawable/splash</item>
+    </style>
+</resources>

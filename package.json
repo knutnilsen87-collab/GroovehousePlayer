@@ -16,6 +16,8 @@
     "vault:install": "pnpm --filter @gv/server vault install",
     "vault:uninstall": "pnpm --filter @gv/server vault uninstall",
     "vault:lan": "pnpm --filter @gv/server vault lan",
-    "vault:remote": "pnpm --filter @gv/server vault remote"
+    "vault:remote": "pnpm --filter @gv/server vault remote",
+    "android:build": "pnpm --filter @gv/server exec node --import tsx ../android/scripts/android.ts build",
+    "android:install": "pnpm --filter @gv/server exec node --import tsx ../android/scripts/android.ts install"
   }
 }

@@ -1,0 +1,17 @@
+{
+  "appId": "no.groovehouse.vault",
+  "appName": "Groovehouse Vault",
+  "webDir": "../web/dist",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": { "launchShowDuration": 0 }
+  }
+}

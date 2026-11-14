@@ -101,6 +101,23 @@ Lagres av serveren på PC-en i `data/playlists.json` (gitignored, atomisk skrivi
 - **Info → Kildefil:** originalfilnavnet fra eksportmappa. Det lagres privat i `data/sources.json` (gitignored) og vises bare i Info og i Studio, aldri i delte filer, tags eller noe lyttersiden ser. Låter som ble ingestet før dette, kobles med `pnpm gh-ingest --index-sources` (leser bare eksportmappa, matcher på hash).
 - **Køen:** «Spill neste» setter låta rett etter den som spilles, «Legg til i køen» legger den bakerst. I køvisningen: hold inne og dra for å flytte (dra og slipp på desktop), sveip for å fjerne. Låta som spilles står fast. Køen lagres i nettleseren og legges tilbake pauset etter omstart. En ny liste eller låt fra katalogen erstatter køen som før.
 
+## Android-app (APK)
+
+Samme spiller som på web, pakket med Capacitor (`apps/android`), men avspillingen eies av en Android-tjeneste med **Media3/ExoPlayer**. Musikken fortsetter med skjermen av og i andre apper, og styres fra varselet, låseskjermen, Bluetooth og bilen. Varselet har også **Neste seksjon**. Neste låt i køen starter selv om appen sover.
+
+```powershell
+pnpm android:build     # web-bygg → Capacitor → signert APK i dist\android\
+pnpm android:install   # installerer via adb (USB-feilsøking på)
+```
+
+- **Koble til:** første gang skriver du Vault-adressen (Tailscale, bare HTTPS) og PIN-en (den samme som for Wi-Fi-modus). Appen får et **enhetstoken**. Det og adressen lagres kryptert med Android Keystore. Adressen ligger aldri i koden eller i git, og byggeskriptet stopper hvis den finnes i bygget.
+- **Tilgang på serveren:** Tailscale-identiteten holder som før. Tokenet er et ekstra lag. Enheter står i `data/devices.json` (bare hash av tokenet). Liste: `GET /api/devices`. Trekk tilbake: `DELETE /api/devices/<id>`, og da må appen kobles til på nytt. CORS gis bare til appen (`https://localhost`).
+- **Er PC-en av:** «Får ikke kontakt med Vault på PC-en» med «Prøv igjen».
+- **Tilbake-knappen** lukker ark, menyer og fullskjerm først. Går du ut av appen, fortsetter musikken.
+- **Signering:** `%APPDATA%\GroovehouseVault\android\release.jks`, med passordet i Windows Credential Manager (`GroovehouseVault/android-keystore`). **Ta backup av begge.** Samme nøkkel må brukes for alle oppdateringer, ellers må appen avinstalleres først.
+- **Samsung:** sett appen til «Ubegrenset» under Innstillinger → Apper → Groovehouse Vault → Batteri, ellers kan batterisparingen stoppe avspillingen.
+- **USB-feilsøking (S22):** Innstillinger → Om telefonen → Programvareinformasjon → trykk 7 ganger på «Versjonsnummer». Så Utvikleralternativer → «USB-feilsøking», koble til og trykk «Tillat».
+
 ## Prøv hele kjeden
 
 ```powershell

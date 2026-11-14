@@ -9,4 +9,7 @@ _(ingen ennå)_
 ## Valgt (kan endres)
 
 1. **Master som FLAC (del 10):** Vault lagrer en tapsfri kopi som `media/<slug>/<variant>/v<N>/master.flac`. Alle 25 filer i REASONDONE er 16-bit/44,1 kHz PCM, så FLAC er bit-for-bit lik lyden. «Original WAV» lages fra FLAC-en: samme samples, men ikke byte-identisk fil (header/ekstra chunks skrives på nytt). Er en framtidig eksport 32-bit flyttall (FLAC tåler ikke det), lagres den som WAV i stedet.
-2. **Fixtures uten kildefil:** `blue-fire` og `live-sett-demo` kommer fra `fixtures/`, ikke REASONDONE, og har derfor ingen «Kildefil».
+2. **Enhetstoken er et ekstra lag (del 12):** over Tailscale slipper appen inn på Tailscale-identiteten alene, som nettleseren. Tokenet godtas også, kan trekkes tilbake (da sier appen fra), og kreves ved paring med PIN. Vil du at appen *må* ha gyldig token selv via Tailscale, er det én linje i `server.ts`.
+3. **Tillatelser i APK-en (del 12):** spesifikasjonen sier bare INTERNET, FOREGROUND_SERVICE(_MEDIA_PLAYBACK) og POST_NOTIFICATIONS. Media3/AndroidX legger selv til `ACCESS_NETWORK_STATE`, `WAKE_LOCK` og en intern AndroidX-tillatelse (ingen av dem gir dialog). Jeg har latt dem stå, fordi fjerning kan få Media3 til å krasje og ikke kan testes uten telefon. `WAKE_LOCK` hjelper dessuten avspilling med skjermen av. Si fra om de skal fjernes.
+4. **QR-paring (del 12, valgfritt):** ikke bygget. Paring skjer med adresse + PIN.
+5. **Fixtures uten kildefil:** `blue-fire` og `live-sett-demo` kommer fra `fixtures/`, ikke REASONDONE, og har derfor ingen «Kildefil».

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Groovehouse Vault</string>
+    <string name="title_activity_main">Groovehouse Vault</string>
+    <string name="package_name">no.groovehouse.vault</string>
+    <string name="custom_url_scheme">no.groovehouse.vault</string>
+</resources>

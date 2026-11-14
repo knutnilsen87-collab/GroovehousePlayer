@@ -244,7 +244,7 @@ describe('eget cover (pkt. 14)', () => {
     p = ((await (await put(img, p.updatedAt)).json()) as { playlist: Playlist }).playlist;
     expect((await call('DELETE', `/api/playlists/${p.id}`, { updatedAt: p.updatedAt })).status).toBe(204);
     expect(existsSync(path.join(dir, p.cover!))).toBe(false);
-  });
+  }, 20_000); // flere ekte bildebehandlinger med sharp – tar tid når maskinen er opptatt
 });
 
 describe('eldre versjoner blir liggende (pkt. 13)', () => {

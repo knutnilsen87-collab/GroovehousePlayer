@@ -1,0 +1,156 @@
+package no.groovehouse.vault
+
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import androidx.annotation.OptIn
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.session.CommandButton
+import androidx.media3.session.DefaultMediaNotificationProvider
+import androidx.media3.session.MediaSession
+import androidx.media3.session.MediaSessionService
+import androidx.media3.session.SessionCommand
+import androidx.media3.session.SessionResult
+import com.google.common.collect.ImmutableList
+import com.google.common.util.concurrent.Futures
+import com.google.common.util.concurrent.ListenableFuture
+import org.json.JSONObject
+
+/**
+ * Del 12: tjenesten i forgrunnen som eier avspillingen (Media3). Køen ligger her, så neste låt
+ * starter også når skjermen er av og JavaScript ikke kjører. Varsel med cover, låseskjerm,
+ * Bluetooth-knapper og bil får kontrollene gratis via MediaSession; lydfokus (samtaler) og
+ * «hodetelefoner dratt ut» håndteres av ExoPlayer.
+ */
+@OptIn(UnstableApi::class)
+class PlaybackService : MediaSessionService() {
+    private var session: MediaSession? = null
+    private val main = Handler(Looper.getMainLooper())
+
+    override fun onCreate() {
+        super.onCreate()
+        val http = DefaultHttpDataSource.Factory()
+            .setAllowCrossProtocolRedirects(false)
+            .setUserAgent("GroovehouseVault/Android")
+        Queue.http = http
+        val player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(this).setDataSourceFactory(http))
+            .setAudioAttributes(
+                AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(),
+                /* handleAudioFocus = */ true
+            )
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+        player.addListener(object : Player.Listener {
+            override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                applyVolume(player)
+                savePosition(player)
+            }
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (!isPlaying) savePosition(player)
+            }
+        })
+        Queue.player = player
+
+        val nextSection = CommandButton.Builder(CommandButton.ICON_SKIP_FORWARD)
+            .setDisplayName("Neste seksjon")
+            .setSessionCommand(SessionCommand(ACTION_NEXT_SECTION, Bundle.EMPTY))
+            .build()
+        val open = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        session = MediaSession.Builder(this, player)
+            .setSessionActivity(open)
+            .setCallback(object : MediaSession.Callback {
+                override fun onConnect(session: MediaSession, controller: MediaSession.ControllerInfo): MediaSession.ConnectionResult =
+                    MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                        .setAvailableSessionCommands(
+                            MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                                .add(SessionCommand(ACTION_NEXT_SECTION, Bundle.EMPTY)).build()
+                        )
+                        .build()
+
+                override fun onCustomCommand(session: MediaSession, controller: MediaSession.ControllerInfo, customCommand: SessionCommand, args: Bundle): ListenableFuture<SessionResult> {
+                    if (customCommand.customAction == ACTION_NEXT_SECTION) nextSection(player)
+                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                }
+            })
+            .setMediaButtonPreferences(ImmutableList.of(nextSection))
+            .build()
+        setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat_vault) })
+
+        // Fortsett-posisjon (live-sett) lagres fra native-siden også, hvert 5. sekund mens det spilles.
+        main.post(object : Runnable {
+            override fun run() {
+                if (player.isPlaying) savePosition(player)
+                main.postDelayed(this, 5000)
+            }
+        })
+    }
+
+    override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
+
+    /** Appen sveipet bort fra «nylige»: fortsett hvis noe spilles, ellers stopp tjenesten. */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val p = session?.player
+        if (p == null || !p.playWhenReady || p.mediaItemCount == 0) stopSelf()
+    }
+
+    override fun onDestroy() {
+        main.removeCallbacksAndMessages(null)
+        session?.run {
+            player.release()
+            release()
+        }
+        session = null
+        Queue.player = null
+        super.onDestroy()
+    }
+
+    private fun nextSection(player: Player) {
+        val id = player.currentMediaItem?.mediaId ?: return
+        val pos = player.currentPosition
+        val next = Queue.sections[id]?.firstOrNull { it > pos + 500 } ?: return
+        player.seekTo(next)
+    }
+
+    private fun applyVolume(player: Player) {
+        val gain = Queue.gains[player.currentMediaItem?.mediaId] ?: 1f
+        player.volume = (gain * Queue.userVolume).coerceIn(0f, 1f)
+    }
+
+    private fun savePosition(player: Player) {
+        val key = Queue.resumeKeys[player.currentMediaItem?.mediaId] ?: return
+        val prefs = getSharedPreferences(PREFS_POSITIONS, Context.MODE_PRIVATE)
+        val all = JSONObject(prefs.getString("positions", "{}") ?: "{}")
+        all.put(key, player.currentPosition)
+        prefs.edit().putString("positions", all.toString()).apply()
+    }
+
+    companion object {
+        const val ACTION_NEXT_SECTION = "gv.NEXT_SECTION"
+        const val PREFS_POSITIONS = "gv_positions"
+    }
+}
+
+/** Delt tilstand mellom tjenesten og pluginen (samme prosess). */
+@OptIn(UnstableApi::class)
+object Queue {
+    var player: ExoPlayer? = null
+    var http: DefaultHttpDataSource.Factory? = null
+    val gains = HashMap<String, Float>()
+    val sections = HashMap<String, List<Long>>()
+    val resumeKeys = HashMap<String, String>()
+    var userVolume = 1f
+}
