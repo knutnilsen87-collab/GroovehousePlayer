@@ -57,7 +57,8 @@ export function nativeHash() {
   const h = createHash('sha256');
   const add = (abs) => {
     h.update(path.relative(ROOT, abs).replace(/\\/g, '/'));
-    h.update(readFileSync(abs));
+    // Tekstfiler uten hensyn til linjeskift (git kan sjekke ut med CRLF), binærfiler som de er
+    h.update(/\.(kt|java|xml|gradle|json|properties)$/.test(abs) ? readFileSync(abs, 'utf8').replace(/\r\n/g, '\n') : readFileSync(abs));
   };
   for (const dir of [path.join(g, 'app', 'src', 'main', 'java'), path.join(g, 'app', 'src', 'main', 'res')]) if (existsSync(dir)) for (const f of walk(dir)) add(path.join(dir, f));
   for (const f of ['app/src/main/AndroidManifest.xml', 'app/build.gradle', 'build.gradle', 'variables.gradle', 'capacitor.settings.gradle', 'app/capacitor.build.gradle']) {
