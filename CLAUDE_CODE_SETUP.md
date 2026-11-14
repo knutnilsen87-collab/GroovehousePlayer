@@ -351,7 +351,7 @@ Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailsca
 - Utløpt lenke: en vennlig side med «Be om ny tilgang», som sender Knut et varsel. Lytteren skriver ikke noe annet enn eventuelt navnet sitt.
 - Ingen kode eller PIN som standard. En valgfri 4-sifret kode per drop finnes bare for særlig sensitive drops, og skrives da i samme melding som lenken.
 - Alt dette kjører i skyen (Worker + R2), helt atskilt fra PC-en. Tailscale og PC-adressen brukes bare av Knut.
-- **Domene: `listen.groovehouserecords.com`** (Knut eier `groovehouserecords.com`). Lenker ser slik ut: `listen.groovehouserecords.com/d/<token>`. Worker-ruter krever at DNS-sonen ligger i Cloudflare (gratisplan). Før nameserverne flyttes, kopier **alle** eksisterende DNS-poster (nettside, e-post/MX, SPF/DKIM, verifiseringer) og vis Knut lista. Nettside og e-post på domenet skal ikke falle ut. Inntil DNS er på plass: `*.workers.dev`.
+- **Domene: `listen.groovehouserecords.com`** (Knut eier `groovehouserecords.com`). Lenker ser slik ut: `listen.groovehouserecords.com/d/<token>`. Worker-ruter krever at DNS-sonen ligger i Cloudflare (gratisplan). Før nameserverne flyttes, kopier **alle** eksisterende DNS-poster (nettside, e-post/MX, SPF/DKIM, verifiseringer) og vis Knut lista. Nettside og e-post på domenet skal ikke falle ut. Domenet er registrert hos GoDaddy og har ingen nettside. Sjekk likevel om det finnes MX-poster eller e-postvideresending før flytting. Inntil DNS er på plass: `*.workers.dev`.
 
 **Flyt**
 1. **Samle:** en spilleliste (del 9) er utgangspunktet. «Gjør om til drop» på lista, eller velg låter i velgemodus/flervalg og velg **Opprett drop (3 låter)**.
