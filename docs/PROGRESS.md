@@ -3,7 +3,9 @@
 Arbeidslogg for `setup/del-0` (alt pushes hit, ingenting merges til `main`). Les denne først hvis arbeidet blir avbrutt.
 Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut står i `docs/OPEN_QUESTIONS.md`.
 
-**Rekkefølge (Knut, 2026-11-14):** 9 → 11 → 12 → 10 → 1 pkt. 7–8 → 8 → 2 → 4 → 3. Del 5 (Supabase) hoppes over (ingen nøkler i `.env`).
+**Rekkefølge (Knut, 2026-11-14):** 9 → 11 → 12 → 10 → 1 pkt. 7–8 → 8 → **14 (nytt utseende)** → 2 → 4 → 3 → 13 (deling med lenker, ikke i denne runden).
+
+**Designregel endret (Knut, 2026-11-14):** coveret styrer alle farger, gull bare i logoen. Erstatter «gullet er rammen». Del 5 (Supabase) hoppes over (ingen nøkler i `.env`).
 
 **Faste regler:** REASONDONE kun lesing · ingen hemmeligheter/PIN/Tailscale-adresse i git (`git grep -i "ts.net"` før push) · aldri Funnel · ingen musikk til skyen · ingen admin/brannmur · ikke essentia.js.
 
@@ -17,7 +19,8 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 10 Del låt som fil | ✅ ferdig (web), app bygget | 5 ffmpeg-tester (FLAC bit-for-bit, AAC 256k, tags, cover, cache, WAV-lyd identisk, /drop/ 403), 4 tekst/filnavn-tester, ekte server via Tailscale (ffprobe), UI 13/13; del 9 og 11 på nytt 31/29 | «Ferdig når»: del til deg selv på WhatsApp fra mobilen (Tailscale) og på e-post fra desktop-appen. Del i Android-appen (ikke kjørt). Om navigator.share med filer virker i Edge --app-vinduet |
 | 1 pkt. 7–8 Autostart + varsel | ✅ ferdig | Oppgaven laget uten admin; server stoppet → oppgaven startet → server oppe, ingen vindu (LastTaskResult 0); AUMID satt og lest tilbake; varsel vist (exit 0); 2 enhetstester for tekst/injeksjon | «Ferdig når»: start PC-en på nytt, og bounce noe nytt fra Reason – varselet skal komme av seg selv |
 | 8 Innstillinger | ✅ ferdig | 11 nye enhetstester (validering, atomisk lagring + backup, regler, copyright-mal, forskyvning, manuell palett overlever ny ingest, offset flytter markører) + 1 i web (LUFS-mål); UI i hodeløs Edge 22/22 (alle seksjoner, lagre LUFS −12 → API → tilbake −14, ugyldig mappe avvises, kontrast rød under minimum, mobil uten sidescroll); API: ugyldig LUFS 400, Wi-Fi-endring via Tailscale 403 | «Ferdig når»: endre eksportmappe, LUFS-mål, standard artist/label og farge på én låt i Studio, start PC-en på nytt og bounce på nytt – alt skal stå seg |
-| 2 Markør-editor | 🔨 neste | – | – |
+| 14 Nytt utseende | 🔨 pågår | – | – |
+| 2 Markør-editor | ⏳ | – | – |
 | 4 Raskere ingest | ⏳ | – | – |
 | 3 Analyse (uten fasit) | ⏳ | – | Fasit i `fixtures/truth.json` |
 | 5 Supabase | ⏭ hoppet over | – | Krever Supabase-prosjekt og nøkler i `.env` |
@@ -63,6 +66,15 @@ Knuts svar gjelder: «Del…» vises deaktivert («kommer») til del 10 · «Kil
 **Endret etter ønske fra Knut (2026-11-14):** i katalogen på mobil er sveip høyre = legg i køen, sveip venstre = legg til i sist brukte spilleliste (begge med angre). Erstatter «sveip høyre = sist brukte liste» fra del 11.
 
 **Ikonpakke for spillelister (2026-11-14):** de ti ikonene fra Knut kan velges per liste («⋯ → Ikon …»), lagres som `icon` på lista (validert mot kjente id-er). Rekkefølge: eget cover → ikon → mosaikk. UI-test 9/9.
+
+## Del 14 – Nytt utseende «High-End Studio» (plan)
+
+Fem commits, hver med test, typecheck og sjekk i hodeløs Edge:
+1. **Analyse:** `spectrum48` (48 log-bånd 20 Hz–20 kHz, 20 bilder/s, Uint8) fra `master.flac` i 44,1 kHz, og kildeformat («WAV 24-bit / 48 kHz») i manifestet. Analyseversjon økes, `gh-ingest backfill` fyller inn for alle eksisterende versjoner uten ny HLS-koding. Spekteret lagres som egen binærfil ved siden av `analysis.json` (lastes ved behov), så lange sett ikke gjør `analysis.json` på flere MB.
+2. **Designsystem:** Satoshi + JetBrains Mono selvhostet (woff2 + lisenser), tokens for glass/kant/glød fra `--accent`, gull fjernet fra alt unntatt logoen (spiller, Studio, lister, ark, drop-siden).
+3. **Desktop:** ny sidemeny (Hjem, Bibliotek, Spillelister, Live-sett, DJ-verktøy, Analyse, Vault, Innstillinger), cover-kort, Spilles nå-panel med faner (Spilles nå · Kø · Tekst · Kreditering), stor bølgeform med ms-tider, transport, volum/A·B/hastighet, høyre kolonne (Låtinfo, Bølgeform-zoom, Spektrum) og ny låttabell. Favoritter (`data/favorites.json` + smart liste), tekst (`data/lyrics/<slug>.lrc|.txt`, redigeres i Studio), kreditering.
+4. **Mobil + Android:** fullskjermspiller i ny stil, sveipbare kort, segmentert fanekontroll; native `setLoop` og `setSpeed` i NativePlayer (ExoPlayer `PlaybackParameters`).
+5. **Nye sider:** Hjem, DJ-verktøy (Camelot-hjul, BPM-filter, «Passer etter denne»), Analyse (lokal lyttelogg). Skjermbilder 1536×1024 og 390×844 med blått og rødt cover side om side med referansen i `docs/design/compare/`.
 
 ## Logg
 

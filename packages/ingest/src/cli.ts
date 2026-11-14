@@ -7,6 +7,7 @@ import { findSuno, formatTime, type AssetManifest } from '@gv/shared';
 import { findRoot, loadConfig, loadDotEnv } from './config';
 import { ingestFolder, ingestRelease, sha256File, type IngestResult, type StepStatus } from './ingest';
 import { backfillMasters } from './share';
+import { backfillAnalysis } from './spectrum';
 import { indexSources, readSources, sourcesFile } from './source-index';
 import { readOverrides, scanFlat, type ReleaseSource } from './sources';
 
@@ -20,6 +21,7 @@ gh-ingest --backlog [<eksportmappe>] [--skip <slug,slug>] [--yes] [--force]
   --backlog      Ingest alt som ligger i den flate eksportmappa (standard: GH_EXPORT_DIR).
   --index-sources Koble allerede ingestede låter til kildefila (hash, kun lesing) → data/sources.json
   --backfill-masters Lag Vaults egen master-kopi (FLAC) for låter ingestet før del 10 (kun lesing i eksportmappa)
+  --backfill-analysis Fyll inn spektrum (48 bånd) og kildeformat for låter ingestet før del 14 (fra master.flac i media/)
                  Viser lista først. Eksportmappa leses bare – ingenting flyttes eller endres.
   --skip <slugs> Hopp over disse (kommaseparert), f.eks. --skip midnight-rendezvous
   --yes          Start uten å spørre (backlog)
@@ -70,6 +72,23 @@ async function main() {
     for (const k of r.missing) console.log(`  ! ${k}: fant ingen fil med samme hash (endret eller flyttet etter ingest?)`);
     for (const s of r.skipped) console.log(`  ↷ ${s.fileName}: kunne ikke leses (${s.reason}) – hoppet over`);
     console.log(`\n${r.matched.length} koblet, ${r.missing.length} uten treff, ${r.scanned} filer lest. Lagret i data/sources.json (gitignored).`);
+    return;
+  }
+
+  if (args.includes('--backfill-analysis')) {
+    // Del 14: spektrum48 og kildeformat for eldre versjoner, fra Vaults egen master i media/.
+    const sources = (await readSources(sourcesFile(mediaDir))).entries;
+    const r = await backfillAnalysis({
+      mediaDir,
+      sources,
+      force,
+      onItem: (key, status, detail) => {
+        if (status === 'done') console.log(`  ✓ ${key}  ${detail}`);
+        else if (status === 'nomaster') console.log(`  ! ${key}: mangler master.flac (kjør --backfill-masters først)`);
+      }
+    });
+    console.log(`
+${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten master.`);
     return;
   }
 

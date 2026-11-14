@@ -18,7 +18,9 @@ const TYPES: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
-  '.webp': 'image/webp'
+  '.webp': 'image/webp',
+  // Del 14: spektrum48 (rå Uint8)
+  '.bin': 'application/octet-stream'
 };
 
 export function createMediaHandler(mediaDir: string) {

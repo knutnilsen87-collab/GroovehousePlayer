@@ -3,6 +3,7 @@ import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
+  ANALYSIS_VERSION,
   findSuno,
   GOLD_FALLBACK,
   scrubSuno,
@@ -22,6 +23,7 @@ import { probe, probeTags } from './ffmpeg';
 import { liveLogToMarkers } from './livelog';
 import { estimateKey, estimateTempo, segmentStructure } from './music';
 import { findMaster, makeMasterCopy } from './share';
+import { analyzeSpectrum48, probeSourceFormat, SPECTRUM48_FILE } from './spectrum';
 import { recordSources, relativeToExport, sourceKey, sourcesFile } from './source-index';
 import { readOverrides, releaseFromFolder, type MasterSource, type MetaFile, type ReleaseSource } from './sources';
 
@@ -236,9 +238,17 @@ async function ingestOne(
     report('probe', 'ok', `${(info.durationMs / 1000).toFixed(1)} s · ${info.sampleRate} Hz · ${info.channels} kanaler`);
 
     report('analyse', 'start');
-    const { analysis, firstTransientMs, onset, chroma } = await analyze(master.path, info.durationMs);
+    // Del 14: spektrum i 44,1 kHz (48 bånd, 20 bilder/s) i parallell med hovedanalysen
+    const [{ analysis, firstTransientMs, onset, chroma }, spec48, sourceFormat] = await Promise.all([
+      analyze(master.path, info.durationMs),
+      analyzeSpectrum48(master.path, info.durationMs),
+      probeSourceFormat(master.path, master.fileName)
+    ]);
+    analysis.version = ANALYSIS_VERSION;
+    analysis.spectrum48 = spec48.info;
+    await writeFile(path.join(work, SPECTRUM48_FILE), spec48.data);
     await writeFile(path.join(work, 'analysis.json'), JSON.stringify(analysis));
-    report('analyse', 'ok', `bølgeform i 3 bånd · sub-bass 50 ms · ${analysis.spectrum.frames.length} spektrumrammer`);
+    report('analyse', 'ok', `bølgeform i 3 bånd · sub-bass 50 ms · spektrum 48 bånd × ${spec48.info.frames} · ${sourceFormat.label}`);
 
     const tempo = resolveTempo(meta.bpm, master.bpmHint, estimateTempo(onset, RATE / ONSET_HOP), report);
     const key = meta.camelot ? { name: meta.camelot, camelot: meta.camelot, confidence: 1 } : estimateKey(chroma);
@@ -318,6 +328,7 @@ async function ingestOne(
       durationMs: info.durationMs,
       sampleRate: info.sampleRate,
       channels: info.channels,
+      sourceFormat,
       bpm: tempo?.bpm ?? null,
       bpmConfidence: tempo?.confidence ?? null,
       key,

@@ -48,6 +48,30 @@ export interface MusicalKey {
   confidence: number;
 }
 
+/** Del 14: formatet til kildefila, f.eks. «WAV 24-bit / 48 kHz». */
+export interface SourceFormat {
+  /** WAV, AIFF, FLAC … (null = ukjent, f.eks. når kildefila ikke er kjent lenger) */
+  container: string | null;
+  bitDepth: number | null;
+  float: boolean;
+  sampleRate: number;
+  label: string;
+}
+
+/** Del 14: 48 log-bånd, Uint8 per bånd og ramme, i egen binærfil ved siden av analysis.json. */
+export interface Spectrum48Info {
+  bands: number;
+  fps: number;
+  minHz: number;
+  maxHz: number;
+  frames: number;
+  /** Filnavn i versjonsmappa (rå Uint8, frames × bands). */
+  file: string;
+}
+
+/** Øk når analysen får nye felt; `gh-ingest --backfill-analysis` fyller inn for eldre versjoner. */
+export const ANALYSIS_VERSION = 2;
+
 export interface AssetManifest {
   schema: 1;
   id: string;
@@ -82,6 +106,8 @@ export interface AssetManifest {
   durationMs: number;
   sampleRate: number;
   channels: number;
+  /** Del 14: kildeformatet («WAV 24-bit / 48 kHz»). Strømmes uansett som AAC 256 kbps. */
+  sourceFormat?: SourceFormat;
   bpm: number | null;
   bpmConfidence: number | null;
   key: MusicalKey | null;
@@ -107,6 +133,8 @@ export interface AssetManifest {
 
 export interface Analysis {
   schema: 1;
+  /** Mangler = 1. Se ANALYSIS_VERSION. */
+  version?: number;
   durationMs: number;
   /** Maks absoluttverdi per bøtte, 0..1. Brukes til bølgeformen. */
   peaks: number[];
@@ -118,6 +146,8 @@ export interface Analysis {
   bands3: { low: number[]; mid: number[]; high: number[] };
   /** Sub-bass-konvolutt (< 80 Hz) med 50 ms oppløsning, Uint8 (0–255) som base64. Driver sub-bass-gløden. */
   sub: { frameMs: number; b64: string };
+  /** Del 14 (versjon 2): spektrum til «Spektrum (Hz)»-panelet. */
+  spectrum48?: Spectrum48Info;
 }
 
 export interface CatalogIndex {
