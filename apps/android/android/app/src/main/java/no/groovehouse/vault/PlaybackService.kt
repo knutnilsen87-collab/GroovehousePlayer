@@ -14,6 +14,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.PlayerMessage
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
@@ -50,11 +51,15 @@ class PlaybackService : MediaSessionService() {
                 /* handleAudioFocus = */ true
             )
             .setHandleAudioBecomingNoisy(true)
+            // Del 14: hold CPU og Wi-Fi våkne mens det strømmes (HLS over Tailscale med skjermen av)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
         player.addListener(object : Player.Listener {
             override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                 applyVolume(player)
                 savePosition(player)
+                // A·B-løkka gjelder bare låta den ble satt i (gjenta én låt beholder den)
+                if (reason != Player.MEDIA_ITEM_TRANSITION_REASON_REPEAT) Queue.clearLoop()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (!isPlaying) savePosition(player)
@@ -153,4 +158,29 @@ object Queue {
     val sections = HashMap<String, List<Long>>()
     val resumeKeys = HashMap<String, String>()
     var userVolume = 1f
+
+    // ---------------------------------------------------------------- Del 14: A·B-løkke i tjenesten
+    private var loopMessage: PlayerMessage? = null
+
+    /**
+     * Når avspillingen når B, hopp til A. Gjøres med en PlayerMessage på posisjon B i låta som spilles,
+     * så den treffer presist og virker med skjermen av og JavaScript stoppet. Må kalles på hovedtråden.
+     */
+    fun setLoop(a: Long, b: Long) {
+        clearLoop()
+        val p = player ?: return
+        if (a < 0 || b <= a) return
+        val index = p.currentMediaItemIndex
+        loopMessage = p.createMessage { _, _ -> p.seekTo(index, a) }
+            .setLooper(Looper.getMainLooper())
+            .setPosition(index, b)
+            .setDeleteAfterDelivery(false)
+            .send()
+        if (p.currentPosition < a || p.currentPosition > b) p.seekTo(a)
+    }
+
+    fun clearLoop() {
+        loopMessage?.cancel()
+        loopMessage = null
+    }
 }

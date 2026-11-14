@@ -197,6 +197,33 @@ class NativePlayerPlugin : Plugin() {
         withController(call) { c -> applyVolume(c) }
     }
 
+    // ---------------------------------------------------------------- Del 14
+
+    /** A·B-løkke (a = b = -1 slår av). Selve løkka går i tjenesten (Queue.setLoop). */
+    @PluginMethod
+    fun setLoop(call: PluginCall) {
+        val a = (call.getDouble("a") ?: -1.0).toLong()
+        val b = (call.getDouble("b") ?: -1.0).toLong()
+        withController(call) { _ -> if (a < 0 || b <= a) Queue.clearLoop() else Queue.setLoop(a, b) }
+    }
+
+    /** Hastighet 0,90–1,10 med tonehøyden bevart (PlaybackParameters, pitch 1,0). */
+    @PluginMethod
+    fun setSpeed(call: PluginCall) {
+        val rate = (call.getDouble("rate") ?: 1.0).toFloat().coerceIn(0.9f, 1.1f)
+        withController(call) { c -> c.setPlaybackSpeed(rate) }
+    }
+
+    @PluginMethod
+    fun setRepeat(call: PluginCall) {
+        val mode = when (call.getString("mode")) {
+            "all" -> Player.REPEAT_MODE_ALL
+            "one" -> Player.REPEAT_MODE_ONE
+            else -> Player.REPEAT_MODE_OFF
+        }
+        withController(call) { c -> c.repeatMode = mode }
+    }
+
     @PluginMethod
     fun getState(call: PluginCall) {
         main.post {

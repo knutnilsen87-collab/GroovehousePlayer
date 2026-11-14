@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { formatTime, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf } from '@gv/shared/web';
+import { formatTime, keyShort, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverCard, NowPanel, SideTabs, SpectrumPanel, TrackInfoPanel, ZoomPanel } from '../components/Deck';
+import { FullPlayer } from '../components/MobilePlayer';
 import { BottomNav, Sidebar, type View } from '../components/Nav';
 import { sortTracks, StudioTable, VariantSelect, type Sort } from '../components/StudioTable';
 import { startListenReporting, useFavorites } from '../lib/library';
@@ -27,6 +28,9 @@ import { UnreachableScreen } from './Connect';
 
 type Filter = 'all' | 'track' | 'set';
 
+/** Del 14: direkte lenke til en visning, f.eks. /?vis=bibliotek. */
+const VIEW_PARAM: Record<string, View> = { hjem: 'home', bibliotek: 'library', lister: 'playlists', sett: 'sets', dj: 'dj', analyse: 'stats' };
+
 /**
  * Din egen spiller. Mobil: én tommel – bunnmeny, flytende mini-spiller, fullskjerm ved trykk.
  * Desktop (del 14 «High-End Studio»): sidemeny, dekket (cover, Spilles nå, låtinfo/zoom/spektrum) og
@@ -35,7 +39,8 @@ type Filter = 'all' | 'track' | 'set';
 export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = {}) {
   const { assets, index: catalogIndex, loading, error: catalogError, reload } = useCatalog();
   const tracks = useMemo(() => groupTracks(assets), [assets]);
-  const [view, setView] = useState<View>('home');
+  // Startvisning fra lenken (/?vis=bibliotek), ellers Hjem
+  const [view, setView] = useState<View>(() => VIEW_PARAM[new URLSearchParams(location.search).get('vis') ?? ''] ?? 'home');
   const [sort, setSort] = useState<Sort>({ key: 'none', dir: 1 });
   const [filter, setFilter] = useState<Filter>('all');
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -501,7 +506,7 @@ function TrackList({
         const isCur = cur?.manifest.slug === t.slug;
         const a = isCur ? cur! : t.main;
         const m = a.manifest;
-        const meta = [isCur && m.variant ? variantName(a) : null, m.kind === 'set' ? 'Live-sett' : null, m.bpm ? `${m.bpm} BPM` : null, m.key?.camelot, t.variants.length > 1 ? `${t.variants.length} varianter` : null]
+        const meta = [isCur && m.variant ? variantName(a) : null, m.kind === 'set' ? 'Live-sett' : null, m.bpm ? `${Math.round(m.bpm)} BPM` : null, m.key ? `${keyShort(m.key.name)} ${m.key.camelot}` : null, t.variants.length > 1 ? `${t.variants.length} varianter` : null]
           .filter(Boolean)
           .join(' · ');
         const isSel = selected.includes(t.slug);
@@ -570,9 +575,9 @@ function TrackList({
                   {isCur && playing ? '▶ ' : ''}
                   {m.title}
                 </span>
-                <span className="truncate text-xs text-muted">{meta}</span>
+                <span className="truncate font-mono text-[11px] text-muted">{meta}</span>
               </span>
-              <span className="tabular text-xs text-muted">{formatTime(m.durationMs)}</span>
+              <span className="font-mono text-[11px] text-muted">{formatTime(m.durationMs)}</span>
             </button>
             {!selectMode && (
               <button type="button" onClick={() => onMore(t)} aria-label={`Flere valg for ${m.title}`} className="flex h-12 w-11 flex-none items-center justify-center rounded-full text-muted active:bg-white/[0.06]">
@@ -800,7 +805,7 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
   const hold = useRef<{ timer: number; fired: boolean; x: number; y: number } | null>(null);
   return (
     <div
-      className="fixed inset-x-3 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 overflow-hidden rounded-2xl border border-white/[0.08] bg-[rgba(14,16,21,0.92)] shadow-[0_12px_40px_rgba(0,0,0,0.5)] backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-3 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 overflow-hidden rounded-2xl border border-accent/30 bg-[rgba(12,14,19,0.97)] shadow-[0_12px_40px_rgba(0,0,0,0.5),0_0_24px_var(--glow-2)] lg:hidden"
       onTouchStart={(e) => {
         const t = e.touches[0];
         startX.current = t?.clientX ?? null;
@@ -859,72 +864,12 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
             <NowLabel cur={cur} />
           </span>
         </button>
-        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent text-on-accent">
+        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} className="gv-neon-soft flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 border-accent text-accent">
           {playing ? <PauseIcon width={18} height={18} /> : <PlayIcon width={18} height={18} className="ml-0.5" />}
         </button>
       </div>
       <div className="px-2 pb-1.5">
         <SpectralWaveform analysis={cur.analysis} durationMs={m.durationMs} progress={positionMs / m.durationMs} active={started} height={14} barPx={2} />
-      </div>
-    </div>
-  );
-}
-
-/** Mobil: fullskjerm. Cover øverst, bølgeform med deler i midten, store kontroller nederst. */
-function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cur: LoadedAsset; track?: Track; tracks: Track[]; onClose: () => void; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: () => void }) {
-  const { positionMs, started, seek, switchVariant } = usePlayer();
-  const m = cur.manifest;
-  const now = sectionAt(m.markers, positionMs);
-  const single = m.kind === 'set' && now?.refSlug ? tracks.find((x) => x.slug === now.refSlug && x.main.manifest.kind === 'track') : undefined;
-  return (
-    <div role="dialog" aria-modal="true" aria-label={`Spiller: ${m.title}`} className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-obsidian px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] lg:hidden">
-      <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[30%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, var(--glow), var(--glow-2) 55%, transparent)', opacity: 'calc(0.6 + var(--sub, 0) * 0.4)' }} />
-      <div className="relative flex items-center justify-between">
-        <button type="button" onClick={onClose} aria-label="Lukk spilleren" className="flex h-11 w-11 items-center justify-center rounded-full text-soft">
-          <ChevronDownIcon width={26} height={26} />
-        </button>
-        <span className="text-[10px] font-semibold tracking-[2px] text-muted">{m.kind === 'set' ? 'LIVE-SETT' : 'SPILLES NÅ'}</span>
-        <button type="button" onClick={onMore} aria-label="Valg for låta som spilles" className="flex h-11 w-11 items-center justify-center rounded-full text-soft">
-          <MoreIcon width={22} height={22} />
-        </button>
-      </div>
-      <div className="relative mt-4 flex justify-center">
-        <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={Math.round(Math.min(window.innerWidth - 48, window.innerHeight * 0.44))} rounded={16} />
-      </div>
-      <div className="relative mt-6 flex flex-col gap-1">
-        <h2 className="m-0 font-display text-[28px] font-semibold uppercase leading-tight tracking-[1px] text-ink-strong">{m.title}</h2>
-        <span className="text-[13px] text-muted">{[m.artist, m.bpm ? `${m.bpm} BPM` : null, m.key?.camelot].filter(Boolean).join(' · ')}</span>
-      </div>
-      {track && track.variants.length > 1 && (
-        <div role="group" aria-label="Variant" className="relative mt-3 flex flex-wrap gap-1.5">
-          {track.variants.map((v) => (
-            <button
-              key={v.manifest.id}
-              type="button"
-              aria-pressed={v.manifest.id === m.id}
-              onClick={() => switchVariant(v)}
-              className={`h-9 rounded-full px-3.5 text-xs font-semibold ${v.manifest.id === m.id ? 'bg-white/[0.12] text-ink-strong' : 'border border-white/10 text-muted'}`}
-            >
-              {variantName(v)}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="relative mt-5">
-        <SpectralWaveform analysis={cur.analysis} durationMs={m.durationMs} progress={positionMs / m.durationMs} active={started} height={64} markers={m.markers} showLabels onSeek={(r) => seek(r * m.durationMs)} />
-        <div className="tabular mt-1.5 flex justify-between text-[11px] text-muted">
-          <span>{formatTime(positionMs)}</span>
-          {now?.label && <span className="font-semibold text-accent">{now.label}</span>}
-          <span>{formatTime(m.durationMs)}</span>
-        </div>
-      </div>
-      {single && (
-        <button type="button" onClick={() => onPlay(single)} className="relative mt-3 h-10 self-start rounded-full border border-white/15 px-4 text-xs text-ink">
-          Gå til enkeltlåt: {single.main.manifest.title} →
-        </button>
-      )}
-      <div className="relative mt-auto pt-6">
-        <TransportButtons size="lg" />
       </div>
     </div>
   );
