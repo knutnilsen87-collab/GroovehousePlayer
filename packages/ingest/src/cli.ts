@@ -6,6 +6,7 @@ import { createInterface } from 'node:readline/promises';
 import { findSuno, formatTime, type AssetManifest } from '@gv/shared';
 import { findRoot, loadConfig, loadDotEnv } from './config';
 import { ingestFolder, ingestRelease, sha256File, type IngestResult, type StepStatus } from './ingest';
+import { indexSources } from './source-index';
 import { readOverrides, scanFlat, type ReleaseSource } from './sources';
 
 const HELP = `
@@ -16,6 +17,7 @@ gh-ingest --backlog [<eksportmappe>] [--skip <slug,slug>] [--yes] [--force]
                  live_log.json og meta.json
   <fil>          Én lydfil i en flat eksportmappe (cover = samme navn .png/.jpg)
   --backlog      Ingest alt som ligger i den flate eksportmappa (standard: GH_EXPORT_DIR).
+  --index-sources Koble allerede ingestede låter til kildefila (hash, kun lesing) → data/sources.json
                  Viser lista først. Eksportmappa leses bare – ingenting flyttes eller endres.
   --skip <slugs> Hopp over disse (kommaseparert), f.eks. --skip midnight-rendezvous
   --yes          Start uten å spørre (backlog)
@@ -55,6 +57,19 @@ async function main() {
   const force = args.includes('--force');
   const t0 = Date.now();
   let results: IngestResult[] = [];
+
+  if (args.includes('--index-sources')) {
+    // Engangskjøring: koble ingestede versjoner til kildefila i eksportmappa via hash (kun lesing der).
+    const dir = path.resolve(base, target ?? process.env.GH_EXPORT_DIR ?? '');
+    if (!target && !process.env.GH_EXPORT_DIR) throw new Error('Mangler eksportmappe: sett GH_EXPORT_DIR i .env eller oppgi mappa');
+    console.log(`Leser ${dir} (kun lesing) og matcher på hash …`);
+    const r = await indexSources({ exportDir: dir, mediaDir, force, onFile: (n) => process.stdout.write(`  · ${n}\n`) });
+    for (const m of r.matched) console.log(`  ✓ ${m.key}  ←  ${m.fileName}`);
+    for (const k of r.missing) console.log(`  ! ${k}: fant ingen fil med samme hash (endret eller flyttet etter ingest?)`);
+    for (const s of r.skipped) console.log(`  ↷ ${s.fileName}: kunne ikke leses (${s.reason}) – hoppet over`);
+    console.log(`\n${r.matched.length} koblet, ${r.missing.length} uten treff, ${r.scanned} filer lest. Lagret i data/sources.json (gitignored).`);
+    return;
+  }
 
   if (args.includes('--backlog')) {
     const dir = path.resolve(base, target ?? process.env.GH_EXPORT_DIR ?? '');

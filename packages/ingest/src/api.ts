@@ -8,6 +8,7 @@ import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
 import { retagSlug } from './ingest';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
+import { readSources, sourceKey, sourcesFile } from './source-index';
 import { overridePath, readOverrides, type MetaFile } from './sources';
 
 /**
@@ -26,6 +27,7 @@ import { overridePath, readOverrides, type MetaFile } from './sources';
  *   PUT    /api/playlists/:id/cover?updatedAt=…  (bilde som body) → { playlist } | 409
  *   DELETE /api/playlists/:id/cover  { updatedAt } → { playlist } (tilbake til mosaikk)
  *   GET    /api/playlist-covers/:fil.jpg → coveret (uten EXIF)
+ *   GET    /api/sources/:slug/:variant|main/:versjon → { fileName } – «Kildefil» (privat, aldri fra /drop/)
  */
 export interface ApiOptions {
   mediaDir: string;
@@ -54,6 +56,14 @@ export function createApiHandler(opts: ApiOptions) {
     if (url.pathname === '/api/playlists' || url.pathname.startsWith('/api/playlists/')) {
       await handlePlaylists(playlists, url, req, res);
       return;
+    }
+    const src = url.pathname.match(/^\/api\/sources\/([a-z0-9][a-z0-9-]{0,120})\/([a-z0-9][a-z0-9-]{0,120})\/v?(\d{1,4})$/);
+    if (src && req.method === 'GET') {
+      // «Kildefil» (del 11): bare for Info og Studio. Aldri for lyttersiden, og bare filnavnet – ikke stien.
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const variant = src[2] === 'main' ? null : src[2]!;
+      const rec = (await readSources(sourcesFile(opts.mediaDir, opts.dataDir))).entries[sourceKey(src[1]!, variant, Number(src[3]))];
+      return rec ? send(res, 200, { fileName: rec.fileName }) : send(res, 404, { error: 'ukjent kildefil' });
     }
     if (url.pathname.startsWith('/api/playlist-covers/') && (req.method === 'GET' || req.method === 'HEAD')) {
       await serveCover(playlists, url, res);
@@ -104,6 +114,16 @@ export function createApiHandler(opts: ApiOptions) {
       return send(res, 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err) });
     }
   };
+}
+
+/** Kommer forespørselen fra lyttersiden (/drop/...)? Da skal private ting (kildefil, deling) aldri svare. */
+export function isFromDrop(req: IncomingMessage): boolean {
+  const ref = String(req.headers.referer ?? '');
+  try {
+    return ref !== '' && new URL(ref).pathname.startsWith('/drop/');
+  } catch {
+    return false;
+  }
 }
 
 const COVER_TYPES = /^image\/(jpeg|png|webp|avif|gif|tiff)$/;

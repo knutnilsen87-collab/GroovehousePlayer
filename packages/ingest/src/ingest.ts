@@ -20,6 +20,7 @@ import { encodeHls, encodePreview, measureLoudness, retagPreview, type EmbedTags
 import { probe, probeTags } from './ffmpeg';
 import { liveLogToMarkers } from './livelog';
 import { estimateKey, estimateTempo, segmentStructure } from './music';
+import { recordSources, relativeToExport, sourceKey, sourcesFile } from './source-index';
 import { readOverrides, releaseFromFolder, type MasterSource, type MetaFile, type ReleaseSource } from './sources';
 
 const SET_THRESHOLD_MS = 20 * 60 * 1000;
@@ -196,6 +197,11 @@ async function ingestOne(
   const sha = await sha256File(master.path);
   const coverSha = release.coverPath ? await sha256File(release.coverPath) : null;
   report('hash', 'ok', sha.slice(0, 12));
+  // Kildefil (privat, data/sources.json): bare til «Kildefil» i Info og Studio, aldri i manifest/tags/deling.
+  const noteSource = () =>
+    recordSources(sourcesFile(opts.mediaDir), {
+      [sourceKey(master.slug, master.variant, master.version)]: { fileName: master.fileName, relPath: relativeToExport(master.path, process.env.GH_EXPORT_DIR), sha256: sha, recordedAt: new Date().toISOString() }
+    }).catch((err) => report('kildefil', 'warn', `klarte ikke å lagre kildefil: ${err instanceof Error ? err.message : err}`));
 
   const outDir = path.join(path.resolve(opts.mediaDir), master.slug, master.variant ?? 'main', `v${master.version}`);
   const manifestPath = path.join(outDir, 'manifest.json');
@@ -205,10 +211,12 @@ async function ingestOne(
       if (tagsDiffer(existing, resolved) || !existing.sourceMeta) {
         const updated = await retagOne(outDir, { ...existing, sourceMeta }, resolved);
         report('tags', 'ok', 'samme lyd og cover – oppdaterte bare tags og manifest');
+        await noteSource();
         return { status: 'retagged', manifest: updated, outDir, suno, warnings: [] };
       }
       report('alt', 'skip', 'samme master og cover er allerede prosessert (bruk --force for å kjøre på nytt)');
       await updateCatalog(opts.mediaDir, existing);
+      await noteSource();
       return { status: 'unchanged', manifest: existing, outDir, suno, warnings: [] };
     }
   }
@@ -313,6 +321,7 @@ async function ingestOne(
     await swapDir(work, outDir);
     await updateCatalog(opts.mediaDir, manifest);
     report('katalog', 'ok', 'media/index.json oppdatert');
+    await noteSource();
     return { status: 'ingested', manifest, outDir, suno, warnings: [] };
   } catch (err) {
     await rm(work, { recursive: true, force: true });
