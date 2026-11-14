@@ -22,8 +22,8 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 14 Nytt utseende | ✅ ferdig | 164 enhetstester (+26); desktop-dekket 26/26, mobil 13/13; regresjon del 8/9/10/11, sveip, ikoner grønne; APK bygget; sammenligning i `docs/design/compare/` | «Ferdig når»: blått cover på desktop, bytt til rødt, og spill med skjermen på i Android-appen (spektrum i takt). A·B og hastighet med skjermen av på S22 |
 | 15 App-oppdatering | ✅ bygget (ikke kjørt på telefon) | 15 nye tester (regler 5, bunt/zip/API/token 3, oppdaterer i appen 4, skysynk 3); APK 51 med oppdatereren publisert; ny release uten native endring lager ingen APK | «Ferdig når»: installer `distndroid\groovehouse-vault-0.1.0.apk` (kode 51) for hånd én siste gang; deretter endring i web → lukk/åpne appen; ny native kode → «Oppdater» |
 | 2 Markør-editor | ✅ ferdig | 6 enhetstester (sammenslåing, slettede forslag, overføring til ny versjon, validering, takt) + 4 ende-til-ende med ffmpeg (flytt Drop 1 → --force står seg, også på fixtures/blue-fire; _v2 får ubekreftede forslag; validering); UI på ekte låt 14/14 (tastatur, dra, navn, slett, dobbeltklikk, lagre, spilleren) | «Ferdig når»: flytt Drop 1 på en ekte låt i Studio, kjør `pnpm gh-ingest --force` på den, og se at flyttingen står seg |
-| 4 Raskere ingest | 🔨 neste | – | – |
-| 3 Analyse (uten fasit) | ⏳ | – | Fasit i `fixtures/truth.json` |
+| 4 Raskere ingest | ✅ ferdig | Målt før/etter (`pnpm ingest:bench`): 10 min 10,6 → 6,4 s, blue-fire 8,5 → 4,8 s, live-sett-demo 5,5 → 3,7 s; 3 nye tester (vekting, 21-min sett med stigende prosent og fil som fjernes, korte låter uten fremdrift); Studio-kortet 3/3; alle ingest-tester grønne | Se fremdriften neste gang et langt sett bounces | – | – |
+| 3 Analyse (uten fasit) | 🔨 neste | – | Fasit i `fixtures/truth.json` |
 | 5 Supabase | ⏭ hoppet over | – | Krever Supabase-prosjekt og nøkler i `.env` |
 
 ## Del 11 – «⋯»-meny (plan)
@@ -93,3 +93,4 @@ elease.jks.
 - 2026-11-14: Del 14 ferdig: sammenligningsbilder (blått/rødt, desktop/mobil) i docs/design/compare/.
 - 2026-11-14: Del 15 (fra main) bygget: egen oppdaterer (Capacitor serverBasePath + Kotlin-plugin, ingen ny avhengighet), `pnpm android:release`, /api/app/* bak token, Enheter i Studio. Fargeløse cover → cyan #01E6FC (Knut), 18 låter fargelagt på nytt. Advarsel for synkronisert skymappe. Del 8 sjekket punkt for punkt: alt er ferdig (UI + backend), «står seg etter omstart» verifisert på nytt.
 - 2026-11-14: Del 2 ferdig: markør-editor i Studio, markers.json som overlever --force, overføring til ny versjon.
+- 2026-11-14: Del 4 ferdig: parallell ingest og fremdrift for lange sett. Tallene står i README.

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Analysis, AssetManifest, CatalogIndex } from '@gv/shared/web';
 import { serverBase } from './connection';
 
@@ -112,6 +112,42 @@ export function useIngestLog(tick = 0): IngestLogEntry[] {
     };
   }, [tick]);
   return entries;
+}
+
+/** Del 4: fremdrift for lange sett som ingestes nå (media/ingest-progress.json, finnes bare underveis). */
+export interface IngestProgress {
+  slug: string;
+  variant: string | null;
+  version: number;
+  title: string;
+  percent: number;
+  updatedAt: string;
+}
+export function useIngestProgress(onDone?: () => void): IngestProgress | null {
+  const [p, setP] = useState<IngestProgress | null>(null);
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    let alive = true;
+    let had = false;
+    const poll = async () => {
+      const r = await fetch(`${MEDIA}/ingest-progress.json`, { cache: 'no-store' }).catch(() => null);
+      const j = r?.ok ? ((await r.json().catch(() => null)) as IngestProgress | null) : null;
+      // Gammel fil (ingest avbrutt): ikke vis den
+      const fresh = j && Date.now() - Date.parse(j.updatedAt) < 30_000 ? j : null;
+      if (!alive) return;
+      setP(fresh);
+      if (had && !fresh) done.current?.();
+      had = !!fresh;
+    };
+    void poll();
+    const t = window.setInterval(() => void poll(), 1500);
+    return () => {
+      alive = false;
+      window.clearInterval(t);
+    };
+  }, []);
+  return p;
 }
 
 /** Siste logglinje for en bestemt versjon (der ingest faktisk kjørte, ikke «uendret»). */

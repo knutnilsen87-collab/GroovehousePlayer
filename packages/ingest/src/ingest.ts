@@ -34,7 +34,7 @@ import { readOverrides, releaseFromFolder, type MasterSource, type MetaFile, typ
 /** Et BPM-hint fra filnavnet godtas hvis analysen er innenfor ± dette. */
 const BPM_HINT_TOLERANCE = 2;
 
-export type StepStatus = 'start' | 'ok' | 'skip' | 'warn';
+export type StepStatus = 'start' | 'ok' | 'skip' | 'warn' | 'progress';
 export type StepReporter = (step: string, status: StepStatus, detail?: string) => void;
 
 export interface IngestOptions {
@@ -241,19 +241,48 @@ async function ingestOne(
     const info = await probe(master.path);
     report('probe', 'ok', `${(info.durationMs / 1000).toFixed(1)} s · ${info.sampleRate} Hz · ${info.channels} kanaler`);
 
-    report('analyse', 'start');
-    // Del 14: spektrum i 44,1 kHz (48 bånd, 20 bilder/s) i parallell med hovedanalysen
-    const [{ analysis, firstTransientMs, onset, chroma }, spec48, sourceFormat] = await Promise.all([
-      analyze(master.path, info.durationMs),
-      analyzeSpectrum48(master.path, info.durationMs),
-      probeSourceFormat(master.path, master.fileName)
-    ]);
-    analysis.version = ANALYSIS_VERSION;
-    analysis.spectrum48 = spec48.info;
-    await writeFile(path.join(work, SPECTRUM48_FILE), spec48.data);
-    await writeFile(path.join(work, 'analysis.json'), JSON.stringify(analysis));
-    report('analyse', 'ok', `bølgeform i 3 bånd · sub-bass 50 ms · spektrum 48 bånd × ${spec48.info.frames} · ${sourceFormat.label}`);
+    // Del 4: alt som bare leser masteren, kjører samtidig: analyse (+ spektrum og format), LUFS,
+    // HLS, cover og Vaults master-kopi. Tempo, toneart, struktur og preview venter bare på analysen.
+    const long = info.durationMs >= PROGRESS_MIN_MS;
+    const prog = { analyse: 0, spektrum: 0, hls: 0, lufs: 0, master: 0 };
+    const stopProgress = long ? startProgress(opts.mediaDir, master, prog, report) : () => Promise.resolve();
+    const timed = <T>(step: string, fn: () => Promise<T>, done: (v: T) => string, key?: keyof typeof prog): Promise<T> => {
+      report(step, 'start');
+      return fn().then((v) => {
+        if (key) prog[key] = 1;
+        report(step, 'ok', done(v));
+        return v;
+      });
+    };
 
+    const analysisP = timed(
+      'analyse',
+      () =>
+        Promise.all([
+          analyze(master.path, info.durationMs, { onProgress: (f) => (prog.analyse = f) }),
+          analyzeSpectrum48(master.path, info.durationMs, (f) => (prog.spektrum = f)),
+          probeSourceFormat(master.path, master.fileName)
+        ]).then(async ([a, spec48, sourceFormat]) => {
+          a.analysis.version = ANALYSIS_VERSION;
+          a.analysis.spectrum48 = spec48.info;
+          await writeFile(path.join(work, SPECTRUM48_FILE), spec48.data);
+          await writeFile(path.join(work, 'analysis.json'), JSON.stringify(a.analysis));
+          prog.spektrum = 1;
+          return { ...a, spec48, sourceFormat };
+        }),
+      (r) => `bølgeform i 3 bånd · sub-bass 50 ms · spektrum 48 bånd × ${r.spec48.info.frames} · ${r.sourceFormat.label}`,
+      'analyse'
+    );
+    const loudnessP = timed('lufs', () => measureLoudness(master.path, cfg.audio.targetLufs), (l) => `${l.integratedLufs} LUFS · gain ${l.playbackGainDb >= 0 ? '+' : ''}${l.playbackGainDb} dB`, 'lufs');
+    const hlsP = timed('hls', () => encodeHls(master.path, work, (ms) => (prog.hls = Math.min(1, ms / info.durationMs))), () => 'AAC 256k · 6 s segmenter · kildetags fjernet', 'hls');
+    // Del 10: Vaults egen tapsfrie kopi av masteren (FLAC), så deling ikke avhenger av at fila
+    // fortsatt ligger i eksportmappa, og aldri lages fra HLS. Kilden leses bare.
+    const masterP = timed('master', () => makeMasterCopy(master.path, work), (f) => path.basename(f), 'master');
+    const coverP = release.coverPath ? timed('palett', () => processCover(release.coverPath!, work, cfg.colors), (c) => `${c.palette.primary} / ${c.palette.secondary} (${c.palette.source}) · cover uten EXIF/XMP/C2PA`) : Promise.resolve(null);
+    // Ingen ubehandlede avvisninger mens vi venter på analysen: feil fanges i Promise.all under
+    for (const p of [loudnessP, hlsP, masterP, coverP]) p.catch(() => {});
+
+    const { analysis, firstTransientMs, onset, chroma, sourceFormat } = await analysisP;
     const tempo = resolveTempo(meta.bpm, master.bpmHint, estimateTempo(onset, RATE / ONSET_HOP), report);
     const key = meta.camelot ? { name: meta.camelot, camelot: meta.camelot, confidence: 1 } : estimateKey(chroma);
     report(
@@ -261,37 +290,6 @@ async function ingestOne(
       tempo ? 'ok' : 'warn',
       `${tempo ? `${tempo.bpm} BPM (${pct(tempo.confidence)})` : 'fant ikke tempo'} · ${key ? `${key.camelot} ${key.name} (${pct(key.confidence)})` : 'fant ikke toneart'}`
     );
-
-    report('lufs', 'start');
-    const loudness = await measureLoudness(master.path, cfg.audio.targetLufs);
-    report('lufs', 'ok', `${loudness.integratedLufs} LUFS · gain ${loudness.playbackGainDb >= 0 ? '+' : ''}${loudness.playbackGainDb} dB`);
-
-    report('hls', 'start');
-    const hls = await encodeHls(master.path, work);
-    report('hls', 'ok', 'AAC 256k · 6 s segmenter · kildetags fjernet');
-
-    let palette: Palette = { ...FALLBACK_PALETTE };
-    let cover: string | null = null;
-    let coverThumb: string | null = null;
-    if (release.coverPath) {
-      report('palett', 'start');
-      const c = await processCover(release.coverPath, work, cfg.colors);
-      palette = c.palette;
-      cover = c.cover;
-      coverThumb = c.coverThumb;
-      report('palett', 'ok', `${palette.primary} / ${palette.secondary} (${palette.source}) · cover uten EXIF/XMP/C2PA`);
-    } else {
-      report('palett', 'warn', release.origin === 'flat' ? `ingen «${master.titleFromFile}.png/jpg» ved siden av lydfila – bruker gull` : 'ingen cover.png/jpg – bruker gull. Legg til cover og kjør på nytt.');
-    }
-
-    // Del 8: manuell farge fra Studio vinner over coveret
-    if (meta.palette) {
-      const mp = manualPalette(meta.palette.primary, meta.palette.secondary, 0);
-      if (mp.ok) {
-        palette = mp.palette;
-        report('palett', 'ok', `${palette.primary} / ${palette.secondary} (valgt i Studio)`);
-      }
-    }
 
     const rule = matchRule(cfg, path.basename(master.path));
     const kind: AssetKind = meta.kind ?? rule?.kind ?? (liveLog || info.durationMs >= cfg.ingest.setThresholdMinutes * 60_000 ? 'set' : 'track');
@@ -322,11 +320,35 @@ async function ingestOne(
       }
     }
 
-    report('preview', 'start');
     const firstDrop = markers.find((m) => m.kind === 'drop');
     const previewStart = firstDrop ? Math.max(0, firstDrop.startMs - 4000) : info.durationMs * 0.25;
-    const preview = await encodePreview(master.path, work, previewStart, info.durationMs, embedTags(resolved));
-    report('preview', 'ok', `30 s fra ${(previewStart / 1000).toFixed(1)} s · egne tags`);
+    const previewP = timed('preview', () => encodePreview(master.path, work, previewStart, info.durationMs, embedTags(resolved)), () => `30 s fra ${(previewStart / 1000).toFixed(1)} s · egne tags`);
+
+    let loudness, hls, preview, coverRes;
+    try {
+      [loudness, hls, preview, coverRes] = await Promise.all([loudnessP, hlsP, previewP, coverP, masterP]);
+    } finally {
+      await stopProgress();
+    }
+
+    let palette: Palette = { ...FALLBACK_PALETTE };
+    let cover: string | null = null;
+    let coverThumb: string | null = null;
+    if (coverRes) {
+      palette = coverRes.palette;
+      cover = coverRes.cover;
+      coverThumb = coverRes.coverThumb;
+    } else {
+      report('palett', 'warn', release.origin === 'flat' ? `ingen «${master.titleFromFile}.png/jpg» ved siden av lydfila – bruker standardfargen (cyan)` : 'ingen cover.png/jpg – bruker standardfargen (cyan). Legg til cover og kjør på nytt.');
+    }
+    // Del 8: manuell farge fra Studio vinner over coveret
+    if (meta.palette) {
+      const mp = manualPalette(meta.palette.primary, meta.palette.secondary, 0);
+      if (mp.ok) {
+        palette = mp.palette;
+        report('palett', 'ok', `${palette.primary} / ${palette.secondary} (valgt i Studio)`);
+      }
+    }
 
     const manifest: AssetManifest = {
       schema: 1,
@@ -363,12 +385,6 @@ async function ingestOne(
       createdAt: new Date().toISOString()
     };
     await writeFile(path.join(work, 'manifest.json'), JSON.stringify(manifest, null, 2));
-
-    // Del 10: Vaults egen tapsfrie kopi av masteren (FLAC), så deling ikke avhenger av at fila
-    // fortsatt ligger i eksportmappa, og aldri lages fra HLS. Kilden leses bare.
-    report('master', 'start');
-    const masterCopy = await makeMasterCopy(master.path, work);
-    report('master', 'ok', path.basename(masterCopy));
 
     await swapDir(work, outDir);
     await updateCatalog(opts.mediaDir, manifest);
@@ -520,6 +536,53 @@ export async function updateCatalog(mediaDir: string, m: AssetManifest): Promise
   idx.assets.sort((a, b) => a.slug.localeCompare(b.slug) || (a.variant ?? '').localeCompare(b.variant ?? '') || b.version - a.version);
   idx.updatedAt = new Date().toISOString();
   await writeFile(file, JSON.stringify(idx, null, 2));
+}
+
+// ---------------------------------------------------------------- Del 4: fremdrift for lange filer
+
+/** Sett over 20 minutter viser fremdrift i prosent (terminal og Studio). */
+export const PROGRESS_MIN_MS = 20 * 60_000;
+export const PROGRESS_FILE = 'ingest-progress.json';
+/** Vekting av de parallelle stegene (HLS tar lengst tid). */
+const WEIGHTS = { analyse: 0.3, spektrum: 0.15, hls: 0.4, lufs: 0.1, master: 0.05 };
+
+export interface IngestProgress {
+  slug: string;
+  variant: string | null;
+  version: number;
+  title: string;
+  percent: number;
+  updatedAt: string;
+}
+
+export function progressPercent(p: Record<keyof typeof WEIGHTS, number>): number {
+  let sum = 0;
+  for (const [k, w] of Object.entries(WEIGHTS)) sum += w * Math.min(1, Math.max(0, p[k as keyof typeof WEIGHTS] ?? 0));
+  return Math.min(99, Math.floor(sum * 100));
+}
+
+/** Melder fremdrift hvert sekund (rapport + media/ingest-progress.json). Returnerer stopp-funksjon. */
+function startProgress(mediaDir: string, master: MasterSource, prog: Record<keyof typeof WEIGHTS, number>, report: StepReporter): () => Promise<void> {
+  const file = path.join(path.resolve(mediaDir), PROGRESS_FILE);
+  let last = -1;
+  const tick = () => {
+    const percent = progressPercent(prog);
+    if (percent === last) return;
+    last = percent;
+    report('fremdrift', 'progress', `${percent} %`);
+    const body: IngestProgress = { slug: master.slug, variant: master.variant, version: master.version, title: master.titleFromFile, percent, updatedAt: new Date().toISOString() };
+    void writeFile(`${file}.tmp`, JSON.stringify(body))
+      .then(() => rename(`${file}.tmp`, file))
+      .catch(() => {});
+  };
+  tick();
+  const t = setInterval(tick, 1000);
+  return async () => {
+    clearInterval(t);
+    report('fremdrift', 'progress', '100 %');
+    await new Promise((r) => setTimeout(r, 50));
+    await rm(file, { force: true }).catch(() => {});
+  };
 }
 
 export interface IngestLogEntry {

@@ -45,8 +45,16 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
   let lastEvent: WatcherStatus['lastEvent'] = null;
   const event = (text: string) => (lastEvent = { at: new Date().toISOString(), text });
 
+  let lastTen = -1;
   const say = (step: string, status: StepStatus, detail?: string) => {
     if (status === 'start') return;
+    // Del 4: lange sett – loggen får hver 10. prosent (Studio leser alt fra media/ingest-progress.json)
+    if (status === 'progress') {
+      const ten = Math.floor(parseInt(detail ?? '0', 10) / 10);
+      if (ten === lastTen) return;
+      lastTen = ten;
+      return log(`  ⏳ ${step.padEnd(10)} ${detail ?? ''}`);
+    }
     log(`  ${status === 'ok' ? '✓' : status === 'warn' ? '!' : '↷'} ${step.padEnd(10)} ${detail ?? ''}`);
   };
 

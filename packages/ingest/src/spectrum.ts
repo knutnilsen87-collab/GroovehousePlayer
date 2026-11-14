@@ -113,7 +113,7 @@ function powToDb(pow: Float64Array, out = new Float64Array(SPECTRUM48.bands)): F
  * Strømmer masteren fra ffmpeg (mono, 44,1 kHz) og lager Uint8-rammene.
  * Normalisert mot 99,5-persentilen over hele låta, gulv 60 dB under.
  */
-export function analyzeSpectrum48(file: string, durationMs: number): Promise<{ data: Buffer; info: Spectrum48Info }> {
+export function analyzeSpectrum48(file: string, durationMs: number, onProgress?: (fraction: number) => void): Promise<{ data: Buffer; info: Spectrum48Info }> {
   const total = Math.max(1, Math.round((durationMs / 1000) * SR));
   const nFrames = Math.max(1, Math.ceil(total / HOP));
   const db = new Float32Array(nFrames * SPECTRUM48.bands);
@@ -143,6 +143,7 @@ export function analyzeSpectrum48(file: string, durationMs: number): Promise<{ d
     p.stderr.on('data', (d) => (stderr += d.toString()));
     p.on('error', (e) => reject(new Error(`Fant ikke ffmpeg: ${e.message}`)));
     p.stdout.on('data', (chunk: Buffer) => {
+      onProgress?.(Math.min(1, i / total));
       const buf = carry ? Buffer.concat([carry, chunk]) : chunk;
       const usable = buf.length - (buf.length % 4);
       carry = usable < buf.length ? buf.subarray(usable) : null;

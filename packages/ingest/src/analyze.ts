@@ -31,7 +31,7 @@ function lpCoef(fc: number): number {
  * i ett pass, uten å holde fila i minnet (viktig for 2-timers sett):
  * bølgeform, 3-bånds bølgeform, energikurve, spektrum, sub-bass-konvolutt, onset og kroma.
  */
-export function analyze(file: string, durationMs: number, opts: { peaks?: number; energy?: number } = {}): Promise<AnalysisResult> {
+export function analyze(file: string, durationMs: number, opts: { peaks?: number; energy?: number; onProgress?: (fraction: number) => void } = {}): Promise<AnalysisResult> {
   const nPeaks = opts.peaks ?? 2000;
   const nEnergy = opts.energy ?? 1000;
   const totalSamples = Math.max(1, Math.round((durationMs / 1000) * RATE));
@@ -76,6 +76,7 @@ export function analyze(file: string, durationMs: number, opts: { peaks?: number
     p.on('error', (e) => reject(new Error(`Fant ikke ffmpeg: ${e.message}`)));
 
     p.stdout.on('data', (chunk: Buffer) => {
+      opts.onProgress?.(Math.min(1, i / totalSamples));
       const buf = carry ? Buffer.concat([carry, chunk]) : chunk;
       const usable = buf.length - (buf.length % 4);
       carry = usable < buf.length ? buf.subarray(usable) : null;

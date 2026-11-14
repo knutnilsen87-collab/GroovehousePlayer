@@ -33,11 +33,12 @@ function tagArgs(t: EmbedTags): string[] {
 /** Målnivå ved avspilling. Masteren endres aldri; vi lagrer bare en gain. */
 export const TARGET_LUFS = -14;
 
-export async function encodeHls(input: string, outDir: string): Promise<string> {
+export async function encodeHls(input: string, outDir: string, onProgress?: (ms: number) => void): Promise<string> {
   const hlsDir = path.join(outDir, 'hls');
   await mkdir(hlsDir, { recursive: true });
   await run(FFMPEG, [
     '-v', 'error', '-y',
+    ...(onProgress ? ['-progress', 'pipe:1', '-nostats'] : []),
     '-i', input,
     ...STRIP,
     '-metadata', `service_provider=${ENCODER_NAME}`,
@@ -48,7 +49,7 @@ export async function encodeHls(input: string, outDir: string): Promise<string> 
     '-hls_playlist_type', 'vod',
     '-hls_segment_filename', path.join(hlsDir, 'seg_%05d.ts'),
     path.join(hlsDir, 'index.m3u8')
-  ]);
+  ], { onProgress });
   return 'hls/index.m3u8';
 }
 

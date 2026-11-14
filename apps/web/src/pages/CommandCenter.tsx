@@ -9,7 +9,7 @@ import { MarkerEditor } from '../components/MarkerEditor';
 import { loadPlaybackSettings } from '../lib/settings';
 import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
-import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, useCatalog, useIngestLog, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
+import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, useCatalog, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
@@ -52,7 +52,7 @@ export function CommandCenter() {
         ) : loading ? (
           <p className="text-muted">Laster katalog…</p>
         ) : view === 'drops' ? (
-          <DropsView assets={assets} log={log} />
+          <DropsView assets={assets} log={log} onRefresh={refresh} />
         ) : view === 'mobile' ? (
           <MobileView />
         ) : (
@@ -184,7 +184,7 @@ function MobileView() {
 
 // ---------------------------------------------------------------- Drops
 
-function DropsView({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEntry[] }) {
+function DropsView({ assets, log, onRefresh }: { assets: LoadedAsset[]; log: IngestLogEntry[]; onRefresh?: () => void }) {
   const [dropSlug, setDropSlug] = useState(SEED_DROPS[0]!.slug);
   const drop = SEED_DROPS.find((d) => d.slug === dropSlug)!;
 
@@ -203,7 +203,11 @@ function DropsView({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEntry
         </button>
       </header>
 
-      <IngestStrip assets={assets} log={log} />
+      <IngestStrip
+        assets={assets}
+        log={log}
+        onDone={onRefresh}
+      />
 
       <section className="flex flex-wrap items-start gap-5">
         <div className="flex max-w-[360px] flex-[1_1_280px] flex-col gap-2.5">
@@ -218,7 +222,9 @@ function DropsView({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEntry
   );
 }
 
-function IngestStrip({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEntry[] }) {
+function IngestStrip({ assets, log, onDone }: { assets: LoadedAsset[]; log: IngestLogEntry[]; onDone?: () => void }) {
+  // Del 4: lange sett viser prosent mens de ingestes
+  const progress = useIngestProgress(onDone);
   const recent = [...assets].sort((a, b) => b.manifest.createdAt.localeCompare(a.manifest.createdAt)).slice(0, 2);
   return (
     <section aria-label="Ingest" className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
@@ -227,6 +233,16 @@ function IngestStrip({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEnt
         <span className="text-sm font-semibold">{t.dropzone}</span>
         <span className="text-xs text-muted">{t.dropzoneHint}</span>
       </div>
+      {progress && (
+        <div role="status" aria-label={`Ingester ${progress.title}`} className="flex min-h-32 flex-col justify-center gap-2 rounded-2xl border border-accent/40 bg-accent/[0.05] p-4">
+          <span className="gv-label">Ingester nå</span>
+          <span className="truncate text-sm font-semibold text-ink-strong">{progress.title}</span>
+          <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent}>
+            <div className="gv-neon h-full rounded-full bg-accent transition-[width] duration-700" style={{ width: `${progress.percent}%` }} />
+          </div>
+          <span className="font-mono text-xs text-soft">{progress.percent} % · HLS, analyse og LUFS kjører samtidig</span>
+        </div>
+      )}
       {recent.map((a) => (
         <IngestCard key={a.manifest.id} a={a} entry={lastLogFor(log, a)} />
       ))}

@@ -31,9 +31,21 @@ gh-ingest --backlog [<eksportmappe>] [--skip <slug,slug>] [--yes] [--force]
   --upload       (fase 2) Last opp til R2 og registrer i Supabase
 `;
 
-const ICON: Record<StepStatus, string> = { start: '…', ok: '✓', skip: '↷', warn: '!' };
+const ICON: Record<StepStatus, string> = { start: '…', ok: '✓', skip: '↷', warn: '!', progress: '⏳' };
+/** Del 4: fremdrift for lange sett på samme linje i terminalen (\r), ellers én linje per steg. */
+let progressLine = false;
 const report = (step: string, status: StepStatus, detail?: string) => {
   if (status === 'start') return;
+  if (status === 'progress') {
+    if (process.stdout.isTTY) process.stdout.write(`\r  ${ICON.progress} ${'fremdrift'.padEnd(10)} ${detail ?? ''}   `);
+    else console.log(`  ${ICON.progress} fremdrift  ${detail ?? ''}`);
+    progressLine = !!process.stdout.isTTY;
+    return;
+  }
+  if (progressLine) {
+    process.stdout.write('\n');
+    progressLine = false;
+  }
   const line = `  ${ICON[status]} ${step.padEnd(10)} ${detail ?? ''}`;
   if (step === 'SUNO') console.log(`\x1b[33;1m${line}\x1b[0m`);
   else console.log(line);

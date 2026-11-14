@@ -10,12 +10,22 @@ export interface RunResult {
   stderr: string;
 }
 
-export function run(cmd: string, args: string[], opts: { allowFail?: boolean } = {}): Promise<RunResult> {
+/**
+ * Del 4: `onProgress(ms)` får posisjonen ffmpeg har kommet til (fra `-progress pipe:1`, som kalleren
+ * legger inn i argumentene). Uten callback: som før.
+ */
+export function run(cmd: string, args: string[], opts: { allowFail?: boolean; onProgress?: (ms: number) => void } = {}): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     const p = spawn(cmd, args, { windowsHide: true });
     let stdout = '';
     let stderr = '';
-    p.stdout.on('data', (d) => (stdout += d.toString()));
+    p.stdout.on('data', (d) => {
+      const s = d.toString();
+      if (opts.onProgress) {
+        const m = s.match(/out_time_us=(\d+)/g);
+        if (m) opts.onProgress(Number(m[m.length - 1]!.slice(12)) / 1000);
+      } else stdout += s;
+    });
     p.stderr.on('data', (d) => (stderr += d.toString()));
     p.on('error', (err) => {
       reject(new Error(`Fant ikke "${cmd}". Er ffmpeg installert og på PATH? (${err.message})`));
