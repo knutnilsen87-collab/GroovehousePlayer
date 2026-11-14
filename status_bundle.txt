@@ -57,17 +57,18 @@ current_state:
   state_summary: >
     Alt arbeid samles på setup/del-0 (ikke merget til main). Plan og status per del: docs/PROGRESS.md; spørsmål: docs/OPEN_QUESTIONS.md.
     Ferdig: del 9, 11, 12, 10, 1 pkt. 7–8, 8, 15 (appen oppdaterer seg selv), 14 (nytt utseende), 2 (markør-editor),
-    4 (parallell ingest, målt 10,6 → 6,4 s) og 3 så langt det går uten fasit (eval:analysis, syntetisk BPM 12/16 → 16/16).
-    205 enhetstester grønne. Fargeløse cover og standard = cyan #01E6FC; gull bare i logoen. Advarsel ved skysynkronisert prosjektmappe.
+    4 (parallell ingest, målt 10,6 → 6,4 s), 3 så langt det går uten fasit (eval:analysis, syntetisk BPM 12/16 → 16/16),
+    16 (utkast holdt atskilt, album- og settplaner) og 17 (settbygger med rekordbox XML/M3U, tre forslag på under 0,3 s).
+    234 enhetstester grønne. Fargeløse cover og standard = cyan #01E6FC; gull bare i logoen. Advarsel ved skysynkronisert prosjektmappe.
     APK med oppdatereren: dist/android/groovehouse-vault-0.1.0.apk (versionCode 51), også publisert i data/app/apk.
     Ikke verifisert: alt på telefon/bil (ingen emulator), autostart etter ekte omstart, «Ferdig når» for del 2/14/15 på Knuts utstyr.
   recommended_next_action: >
-    Vent på fasit i fixtures/truth.json (del 3) og Knuts tester på telefon. Del 13 (deling med lenker) og del 5 (Supabase) er ikke i denne runden.
+    Vent på fasit i fixtures/truth.json (del 3), valg av utkastmappe (del 16) og Knuts tester på telefon og i rekordbox (del 17). Del 13 (deling med lenker) og del 5 (Supabase) er ikke i denne runden.
   active_blockers:
     - "Del 3: fasit for 5–10 låter i fixtures/truth.json (avgjør Krumhansl eller EDMA)."
     - "Del 5 krever Supabase-prosjekt og nøkler i .env."
     - 'Google Drive synkroniserer F:\prosjekter_MAIN (Knut tar dette selv).'
-  last_verified_at: "2026-11-14T17:05:00+01:00"
+  last_verified_at: "2026-11-14T20:45:00+01:00"
 
 # ============================================================
 # TASK AND SCOPE / OPPGAVE OG AVGRENSNING

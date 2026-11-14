@@ -414,6 +414,7 @@ async function ingestOne(
       palette,
       markers,
       ...(kind === 'set' && meta.liveOffsetMs ? { liveOffsetMs: meta.liveOffsetMs } : {}),
+      ...(typeof meta.energy === 'number' ? { energy: meta.energy } : {}),
       performedAt: meta.performedAt ?? null,
       venue: resolved.venue,
       files: { hls, analysis: 'analysis.json', preview, cover, coverThumb },
@@ -484,6 +485,9 @@ async function retagOne(outDir: string, m: AssetManifest, r: ResolvedMeta, overr
   } else if (m.palette.source === 'manual') {
     updated.palette = m.files.cover ? await paletteFrom(path.join(outDir, m.files.cover), cfg.colors) : { ...FALLBACK_PALETTE };
   }
+  // Del 17: energi for settbyggeren
+  if (typeof overrides.energy === 'number') updated.energy = overrides.energy;
+  else delete updated.energy;
   // Del 8: live-sett – flytt markørene med endringen i forskyvning
   if (m.kind === 'set') {
     const delta = (overrides.liveOffsetMs ?? 0) - (m.liveOffsetMs ?? 0);

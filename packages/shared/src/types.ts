@@ -125,6 +125,8 @@ export interface AssetManifest {
   markers: AssetMarker[];
   /** Live-sett: manuell forskyvning av markørene (ms) fra Studio, i tillegg til sync-klikket. */
   liveOffsetMs?: number;
+  /** Del 17: Knuts overstyring av energiscoren (1–10) for settbyggeren. Mangler = fra analysen. */
+  energy?: number;
   performedAt: string | null;
   venue: string | null;
   files: {

@@ -15,6 +15,7 @@ import { ChevronDownIcon, MoreIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, Sea
 import { SpectralWaveform } from '../components/SpectralWaveform';
 import { assetUrl, groupTracks, loadVersion, useCatalog, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
 import { savedPosition, storedQueue, usePlayer } from '../lib/player';
+import { SetBuilder } from '../components/SetBuilder';
 import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, useToast } from '../lib/playlists';
 import { useSubBass } from '../lib/useSubBass';
 import { useVersionCtx } from '../lib/versions';
@@ -348,7 +349,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                 ) : (
                   <PlaylistsOverview tracks={tracks} onOpen={openList} vctx={vctx} />
                 ))}
-              {view === 'sets' && <SetsView sets={visible} tracks={tracks} onPlay={play} />}
+              {view === 'sets' && <SetsView sets={visible} tracks={tracks} onPlay={play} onOpenList={openList} />}
               {view === 'dj' && (
                 <>
                   <div className="flex justify-end">
@@ -617,13 +618,71 @@ function TrackList({
 
 // ---------------------------------------------------------------- Live-sett
 
-function SetsView({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void }) {
+type SetsTab = 'recorded' | 'planned' | 'build';
+const SETS_TABS: Array<[SetsTab, string]> = [
+  ['recorded', 'Innspilte sett'],
+  ['planned', 'Planlagte sett'],
+  ['build', 'Lag sett']
+];
+
+/** Live-sett (del 17): innspilte sett, planlagte sett (Sett-planer fra del 16) og settbyggeren – holdt atskilt. */
+function SetsView({ sets, tracks, onPlay, onOpenList }: { sets: Track[]; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onOpenList: (id: string) => void }) {
+  const [tab, setTab] = useState<SetsTab>(() => {
+    try {
+      return (localStorage.getItem('gv.setsTab') as SetsTab) || 'recorded';
+    } catch {
+      return 'recorded';
+    }
+  });
+  const pick = (t: SetsTab) => {
+    setTab(t);
+    try {
+      localStorage.setItem('gv.setsTab', t);
+    } catch {
+      /* uten lagring */
+    }
+  };
+  const allLists = usePlaylists((s) => s.playlists);
+  const plans = useMemo(() => allLists.filter((p) => p.plan === 'set'), [allLists]);
+  const assets = useMemo(() => tracks.flatMap((t) => t.variants), [tracks]);
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="m-0 font-display text-[30px] font-semibold uppercase tracking-[1.5px] text-ink-strong">Live-sett</h1>
+      <div role="tablist" aria-label="Live-sett" className="flex flex-wrap gap-2">
+        {SETS_TABS.map(([k, label]) => (
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pick(k)} className={`h-9 rounded-full px-4 text-sm ${tab === k ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : 'border border-white/10 text-soft hover:text-ink'}`}>
+            {label}
+            {k === 'planned' && plans.length > 0 ? ` (${plans.length})` : ''}
+          </button>
+        ))}
+      </div>
+      {tab === 'recorded' && <RecordedSets sets={sets} tracks={tracks} onPlay={onPlay} />}
+      {tab === 'planned' &&
+        (plans.length === 0 ? (
+          <p className="text-sm text-muted">Ingen planlagte sett ennå. Lag et under «Lag sett», eller merk en spilleliste som Sett-plan.</p>
+        ) : (
+          <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Planlagte sett">
+            {plans.map((p) => (
+              <li key={p.id}>
+                <button type="button" onClick={() => onOpenList(p.id)} className="gv-panel flex w-full items-center gap-3 px-4 py-3 text-left hover:border-accent/50">
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-strong">{p.name}</span>
+                  <span className="font-mono text-[11px] text-muted">{p.entries.length} låter</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ))}
+      {tab === 'build' && <SetBuilder assets={assets} />}
+    </div>
+  );
+}
+
+function RecordedSets({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void }) {
   const { queue, index, positionMs } = usePlayer();
   const cur = queue[index];
   if (sets.length === 0) return <p className="text-sm text-muted">Ingen live-sett ennå. Legg et sett med live_log.json i eksportmappa.</p>;
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="m-0 font-display text-[30px] font-semibold uppercase tracking-[1.5px] text-ink-strong">Live-sett</h1>
       {sets.map((t) => {
         const a = cur?.manifest.slug === t.slug ? cur : t.main;
         const m = a.manifest;

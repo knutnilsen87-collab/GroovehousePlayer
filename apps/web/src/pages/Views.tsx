@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { BUILTIN_SMART, isDraft, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
+import { SetBuilder } from '../components/SetBuilder';
 import { assetUrl, type LoadedAsset, type Track } from '../lib/catalog';
 import { fetchListens, type ListenLog } from '../lib/library';
 import { savedPosition, usePlayer } from '../lib/player';
@@ -296,6 +297,14 @@ export function DjView({ tracks, onPlay }: { tracks: Track[]; onPlay: PlayFn }) 
           </Panel>
         </div>
       </div>
+      <details className="gv-panel group p-4" data-testid="dj-setbuilder">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-ink-strong">
+          Settbygger <span className="font-normal text-muted">– tre forslag etter Camelot, tempo og energikurve (lagres under Live-sett → Planlagte sett)</span>
+        </summary>
+        <div className="mt-4">
+          <SetBuilder assets={tracks.flatMap((t) => t.variants)} />
+        </div>
+      </details>
       <Panel title={`Låter (${filtered.length})`}>
         <ul className="m-0 grid list-none gap-x-6 p-0 md:grid-cols-2">
           {filtered.map((t) => (

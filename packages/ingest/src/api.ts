@@ -13,6 +13,7 @@ import { DRAFT_BASE, manualPalette, statusOf, validateMarkers, versionName, type
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
 import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
+import { addLearn, m3u, readLearn, recordedPairs, rekordboxXml, resolveItems, type ExportItem } from './sets';
 import { readSources, sourceKey, sourcesFile } from './source-index';
 import { overridePath, readOverrides, type MetaFile } from './sources';
 
@@ -82,6 +83,46 @@ export function createApiHandler(opts: ApiOptions) {
       await handlePlaylists(playlists, url, req, res);
       return;
     }
+    // Del 17: settbyggeren – eksport (rekordbox XML / M3U) og læring
+    if (url.pathname === '/api/sets/export' && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      const body = (await readJson(req, 200_000).catch(() => ({}))) as { format?: unknown; name?: unknown; items?: unknown };
+      if (body.format !== 'rekordbox' && body.format !== 'm3u') return send(res, 400, { error: 'format må være rekordbox eller m3u' });
+      if (!Array.isArray(body.items) || !body.items.length || body.items.length > 300) return send(res, 400, { error: 'items mangler (maks 300)' });
+      const name = (typeof body.name === 'string' && body.name.trim() ? body.name.trim() : 'Groovehouse-sett').slice(0, 100);
+      try {
+        const items = await resolveItems(opts.mediaDir, config().exportDir, body.items as ExportItem[]);
+        const text = body.format === 'rekordbox' ? rekordboxXml(name, items) : m3u(name, items);
+        const file = `${name.replace(/[\/:*?"<>|]/g, '_')}.${body.format === 'rekordbox' ? 'xml' : 'm3u8'}`;
+        res.statusCode = 200;
+        res.setHeader('Content-Type', body.format === 'rekordbox' ? 'application/xml; charset=utf-8' : 'audio/x-mpegurl; charset=utf-8');
+        res.setHeader('Content-Disposition', contentDisposition(file));
+        res.setHeader('Cache-Control', 'no-store');
+        return void res.end(text);
+      } catch (err) {
+        return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+    if (url.pathname === '/api/sets/learn') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const file = path.join(dataDir, 'setbuilder.json');
+      if (req.method === 'GET') return send(res, 200, { events: (await readLearn(file)).events, knownPairs: await recordedPairs(opts.mediaDir) });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      if (req.method === 'POST') {
+        try {
+          return send(res, 200, { count: (await addLearn(file, ((await readJson(req)) as { event?: unknown }).event)).events.length });
+        } catch (err) {
+          return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+        }
+      }
+      if (req.method === 'DELETE') {
+        await writeJsonAtomic(file, { schema: 1, events: [] });
+        return send(res, 200, { count: 0 });
+      }
+      return send(res, 405, { error: 'method not allowed' });
+    }
+
     // Del 16: «Importer som utkast» – fila legges i data/drafts-inbox/, og utkast-watcheren ingester den
     if (url.pathname === '/api/drafts/import' && req.method === 'POST') {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
@@ -271,6 +312,13 @@ export function createApiHandler(opts: ApiOptions) {
           if (!mp.ok) return send(res, 400, { error: mp.error, contrast: mp.contrast });
           next.palette = { primary: mp.palette.primary, secondary: mp.palette.secondary };
         }
+      }
+      // Del 17: energi for settbyggeren (1–10, null = fra analysen)
+      if (body.energy !== undefined) {
+        const v = body.energy;
+        if (v === null) delete next.energy;
+        else if (typeof v !== 'number' || !Number.isFinite(v) || v < 1 || v > 10) return send(res, 400, { error: 'energi må være 1–10' });
+        else next.energy = Math.round(v * 10) / 10;
       }
       if (body.liveOffsetMs !== undefined) {
         const v = body.liveOffsetMs;

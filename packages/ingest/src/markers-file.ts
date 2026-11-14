@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { readdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AssetManifest, MarkersFile } from '@gv/shared';
 
@@ -18,6 +18,7 @@ export async function readMarkersFile(versionDir: string): Promise<MarkersFile |
 }
 
 export async function writeJsonAtomic(file: string, data: unknown): Promise<void> {
+  await mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
   await writeFile(tmp, JSON.stringify(data, null, 2));
   for (let n = 0; ; n++) {

@@ -32,6 +32,8 @@ export interface MetaFile {
   palette?: { primary: string; secondary: string };
   /** Del 8: live-sett – flytt markørene så mange ms (±10 000, steg på 50). */
   liveOffsetMs?: number;
+  /** Del 17: energiscore for settbyggeren (1–10), overstyrt i Studio. */
+  energy?: number;
 }
 
 export interface MasterSource {
