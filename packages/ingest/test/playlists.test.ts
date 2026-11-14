@@ -186,6 +186,21 @@ describe('farger på lister', () => {
     expect(r.json.playlist.color).toBe(ids[5]);
     expect((await call('POST', '/api/playlists', { name: 'Ugyldig', color: 'gull' })).status).toBe(400);
   });
+
+  it('ikon fra ikonpakka kan settes og fjernes, men bare kjente ikoner', async () => {
+    const { PLAYLIST_ICONS } = await import('@gv/shared');
+    expect(PLAYLIST_ICONS).toHaveLength(10);
+    const a = (await call('POST', '/api/playlists', { name: 'Ikon A' })).json.playlist;
+    expect(a.icon).toBeUndefined();
+    expect((await call('PATCH', `/api/playlists/${a.id}`, { updatedAt: a.updatedAt, icon: '../../etc/passwd' })).status).toBe(400);
+    const r = await call('PATCH', `/api/playlists/${a.id}`, { updatedAt: a.updatedAt, icon: '06-night-drive' });
+    expect(r.status).toBe(200);
+    expect(r.json.playlist.icon).toBe('06-night-drive');
+    const off = await call('PATCH', `/api/playlists/${a.id}`, { updatedAt: r.json.playlist.updatedAt, icon: null });
+    expect(off.json.playlist.icon).toBeUndefined();
+    const b = (await call('POST', '/api/playlists', { name: 'Ikon B', icon: '09-favorites' })).json.playlist;
+    expect(b.icon).toBe('09-favorites');
+  });
 });
 
 describe('eget cover (pkt. 14)', () => {

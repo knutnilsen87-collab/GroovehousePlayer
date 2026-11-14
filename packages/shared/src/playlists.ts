@@ -33,6 +33,8 @@ export interface Playlist {
   color: string;
   /** Eget cover (filnavn i data/playlist-covers/, uten EXIF), ellers null = mosaikk. Thumb: samme navn med _300. */
   cover: string | null;
+  /** Ferdig ikon fra Groovehouse-ikonpakka (id i PLAYLIST_ICONS). Eget cover vinner over ikonet. */
+  icon?: string | null;
   /** Palett fra eget cover, med samme kontrastlås som låtcoverne (brukes av drop-siden i delingsfasen). */
   coverPalette?: Palette | null;
   createdAt: string;
@@ -210,6 +212,21 @@ export function addTargets(playlists: Playlist[]): { recent: Playlist[]; rest: P
 
 
 export const colorById = (id: string | null | undefined): PlaylistColor => PLAYLIST_COLORS.find((c) => c.id === id) ?? PLAYLIST_COLORS[0]!;
+/** Ikonpakka (assets/brand/Playlists): bilder i /playlist-icons/<id>.webp og <id>_160.webp. */
+export const PLAYLIST_ICONS = [
+  { id: '01-groovehouse-house', name: 'Groovehouse House' },
+  { id: '02-deep-house', name: 'Deep House' },
+  { id: '03-tech-house', name: 'Tech House' },
+  { id: '04-soulful-vocals', name: 'Soulful / Vocals' },
+  { id: '05-club-bangers', name: 'Club Bangers' },
+  { id: '06-night-drive', name: 'Night Drive' },
+  { id: '07-chill-lounge', name: 'Chill / Lounge' },
+  { id: '08-live-dj-sets', name: 'Live DJ Sets' },
+  { id: '09-favorites', name: 'Favorites' },
+  { id: '10-rooftop-sunrise', name: 'Rooftop / Sunrise' }
+] as const;
+export const isPlaylistIcon = (id: unknown): id is string => typeof id === 'string' && PLAYLIST_ICONS.some((i) => i.id === id);
+
 export const isPlaylistColor = (id: unknown): id is string => typeof id === 'string' && PLAYLIST_COLORS.some((c) => c.id === id);
 
 /** Ny liste: tilfeldig farge som ingen annen liste bruker, om mulig. */

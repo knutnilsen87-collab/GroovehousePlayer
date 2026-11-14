@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { copyFile, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { isPlaylistColor, pickColor, PLAYLIST_LIMITS, type Palette, type Playlist, type PlaylistEntry, type PlaylistsFile } from '@gv/shared';
+import { isPlaylistColor, isPlaylistIcon, pickColor, PLAYLIST_LIMITS, type Palette, type Playlist, type PlaylistEntry, type PlaylistsFile } from '@gv/shared';
 
 /**
  * Spillelistene i data/playlists.json (gitignored). Én skriver om gangen (kø), atomisk skriving
@@ -31,6 +31,7 @@ export interface CreateInput {
   query?: string | null;
   entries?: EntryInput[];
   color?: string;
+  icon?: string | null;
 }
 
 export interface PatchInput {
@@ -43,6 +44,8 @@ export interface PatchInput {
   add?: EntryInput[];
   query?: string;
   color?: string;
+  /** Ikon fra ikonpakka, null = ingen. */
+  icon?: string | null;
 }
 
 /** Coverfilene til en liste: «<navn>.jpg» og thumb «<navn>_300.jpg» i data/playlist-covers/. */
@@ -123,6 +126,11 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
     if (!isPlaylistColor(v)) throw new PlaylistError(400, 'ukjent farge');
     return v;
   };
+  const icon = (v: unknown) => {
+    if (v === null) return null;
+    if (!isPlaylistIcon(v)) throw new PlaylistError(400, 'ukjent ikon');
+    return v;
+  };
   const checkSize = (n: number) => {
     if (n > PLAYLIST_LIMITS.entries) throw new PlaylistError(400, 'for mange låter i lista');
   };
@@ -148,6 +156,7 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
           query: kind === 'smart' ? query(input.query) : null,
           color: input.color !== undefined ? color(input.color) : pickColor(data.playlists.map((x) => x.color)),
           cover: null,
+          ...(input.icon !== undefined && input.icon !== null ? { icon: icon(input.icon) } : {}),
           createdAt: at,
           updatedAt: at,
           usedAt: entries.length ? at : null
@@ -168,6 +177,11 @@ export function createPlaylistStore(file: string, now: () => Date = () => new Da
         const next: Playlist = { ...cur, updatedAt: at };
         if (input.name !== undefined) next.name = name(input.name);
         if (input.color !== undefined) next.color = color(input.color);
+        if (input.icon !== undefined) {
+          const ic = icon(input.icon);
+          if (ic) next.icon = ic;
+          else delete next.icon;
+        }
         if (cur.kind === 'smart') {
           if (input.entries !== undefined || input.add !== undefined) throw new PlaylistError(400, 'smarte lister kan ikke sorteres eller fylles manuelt');
           if (input.query !== undefined) next.query = query(input.query);

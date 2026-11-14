@@ -10,7 +10,7 @@ import {
   neonCore,
   neonGlow,
   PLAYLIST_COLOR_GROUPS,
-  PLAYLIST_COLORS,
+  PLAYLIST_COLORS, PLAYLIST_ICONS,
   playableEntries,
   playlistStats,
   resolveEntries,
@@ -72,9 +72,24 @@ export function Mosaic({ assets, size, color, rounded = 10 }: { assets: LoadedAs
   );
 }
 
-/** Eget cover hvis lista har det (pkt. 14), ellers mosaikken. Tynn kant i listefargen uansett. */
+/** Bilde fra ikonpakka (public/playlist-icons): 160 px i lister og ark, 512 px ellers. */
+export const playlistIconUrl = (icon: string, size: number) => `/playlist-icons/${icon}${size <= 160 ? '_160' : ''}.webp`;
+
+/** Eget cover hvis lista har det (pkt. 14), ellers ikon fra ikonpakka, ellers mosaikken. Tynn kant i listefargen uansett. */
 export function ListCover({ v, size, rounded = 10 }: { v: ListView; size: number; rounded?: number }) {
   const cover = v.playlist?.cover;
+  const icon = v.playlist?.icon;
+  if (!cover && icon)
+    return (
+      <img
+        src={playlistIconUrl(icon, size)}
+        alt={`Ikon: ${v.name}`}
+        width={size}
+        height={size}
+        className="block flex-none object-cover"
+        style={{ width: size, height: size, borderRadius: rounded }}
+      />
+    );
   if (!cover) return <Mosaic assets={v.assets} size={size} color={v.color} rounded={rounded} />;
   const file = size <= 300 ? cover.replace(/\.jpg$/, '_300.jpg') : cover;
   return (
@@ -283,6 +298,49 @@ export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose
 
 const SheetHeading = ({ children }: { children: ReactNode }) => <h3 className="m-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[1.5px] text-muted">{children}</h3>;
 
+// ---------------------------------------------------------------- Ikonvelger (Groovehouse-ikonpakka)
+
+export function IconPicker({ value, hasCover, onPick, onClose }: { value: string | null; hasCover: boolean; onPick: (id: string | null) => void; onClose: () => void }) {
+  return createPortal(
+    <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label="Velg ikon" className="fixed inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[12vh] lg:w-[560px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="m-0 text-base font-semibold text-ink-strong">Velg ikon</h2>
+          <button type="button" onClick={onClose} className="h-10 rounded-full px-3 text-sm text-muted hover:text-ink">
+            Lukk
+          </button>
+        </div>
+        {hasCover && <p className="m-0 mb-3 text-xs text-muted">Lista har eget cover. Det vises foran ikonet til du fjerner coveret.</p>}
+        <div role="radiogroup" aria-label="Ikoner" className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {PLAYLIST_ICONS.map((ic) => (
+            <button
+              key={ic.id}
+              type="button"
+              role="radio"
+              aria-checked={ic.id === value}
+              onClick={() => onPick(ic.id)}
+              className={`flex flex-col items-center gap-1.5 rounded-xl p-1.5 text-[11px] text-champagne hover:bg-white/[0.05] ${ic.id === value ? 'bg-white/[0.08] ring-2 ring-gold/70' : ''}`}
+            >
+              <img src={playlistIconUrl(ic.id, 160)} alt="" width={80} height={80} className="h-20 w-20" loading="lazy" />
+              <span className="text-center leading-tight">{ic.name}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={!value}
+          onClick={() => onPick(null)}
+          className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-xl border text-sm ${!value ? 'border-gold/60 text-ink-strong' : 'border-white/10 text-muted hover:text-ink'}`}
+        >
+          Uten ikon (coverne til låtene)
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 // ---------------------------------------------------------------- Fargevelger
 
 export function ColorPicker({ value, onPick, onClose }: { value: string; onPick: (id: string) => void; onClose: () => void }) {
@@ -347,9 +405,13 @@ export function PlaylistsOverview({ tracks, onOpen, vctx }: { tracks: Track[]; o
   const smartRow = (v: ListView, sub: string) => (
     <li key={v.id}>
       <button type="button" onClick={() => onOpen(v.id)} className="flex min-h-[60px] w-full items-center gap-3 rounded-xl px-1.5 text-left active:bg-white/[0.05] lg:hover:bg-white/[0.03]">
-        <span className="flex h-12 w-12 flex-none items-center justify-center rounded-[10px] bg-white/[0.04]" style={{ color: v.color.primary, boxShadow: `0 0 0 1px ${v.color.primary}55` }}>
-          <BoltIcon width={20} height={20} />
-        </span>
+        {v.playlist?.icon ? (
+          <ListCover v={v} size={48} rounded={10} />
+        ) : (
+          <span className="flex h-12 w-12 flex-none items-center justify-center rounded-[10px] bg-white/[0.04]" style={{ color: v.color.primary, boxShadow: `0 0 0 1px ${v.color.primary}55` }}>
+            <BoltIcon width={20} height={20} />
+          </span>
+        )}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[15px] font-semibold text-ink-strong">{v.name}</span>
           <span className="truncate text-xs text-muted">{sub}</span>
@@ -522,6 +584,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
   const [menu, setMenu] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [pickingIcon, setPickingIcon] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [resumeKey, setResumeKey] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -582,7 +645,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
         Spillelister
       </button>
       <header className="relative flex flex-col gap-4 sm:flex-row sm:items-end">
-        {v.kind === 'manual' ? (
+        {v.kind === 'manual' || v.playlist?.icon ? (
           <span className={`relative block ${uploading ? 'opacity-50' : ''}`}>
             <ListCover v={v} size={168} rounded={14} />
             {uploading && <span className="absolute inset-0 flex items-center justify-center text-xs text-ink-strong">Laster opp …</span>}
@@ -637,6 +700,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
                       [
                         ['Gi nytt navn', () => setRenaming(true)],
                         ['Farge', () => setPicking(true)],
+                        [v.playlist?.icon ? 'Bytt ikon …' : 'Ikon …', () => setPickingIcon(true)],
                         ...(v.kind === 'manual'
                           ? ([
                               [v.playlist?.cover ? 'Bytt cover …' : 'Eget cover …', () => coverInput.current?.click()],
@@ -694,6 +758,17 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
             Slett
           </button>
         </div>
+      )}
+      {pickingIcon && v.playlist && (
+        <IconPicker
+          value={v.playlist.icon ?? null}
+          hasCover={!!v.playlist.cover}
+          onClose={() => setPickingIcon(false)}
+          onPick={(icon) => {
+            setPickingIcon(false);
+            void usePlaylists.getState().setIcon(id, icon).catch(toastError);
+          }}
+        />
       )}
       {picking && v.playlist && (
         <ColorPicker

@@ -62,6 +62,8 @@ Knuts svar gjelder: «Del…» vises deaktivert («kommer») til del 10 · «Kil
 
 **Endret etter ønske fra Knut (2026-11-14):** i katalogen på mobil er sveip høyre = legg i køen, sveip venstre = legg til i sist brukte spilleliste (begge med angre). Erstatter «sveip høyre = sist brukte liste» fra del 11.
 
+**Ikonpakke for spillelister (2026-11-14):** de ti ikonene fra Knut kan velges per liste («⋯ → Ikon …»), lagres som `icon` på lista (validert mot kjente id-er). Rekkefølge: eget cover → ikon → mosaikk. UI-test 9/9.
+
 ## Logg
 
 - 2026-11-14: Del 9 ferdig (bcdb20b). Del 11 påbegynt: kildefil (5e7c426). Main (7862d80) merget inn.

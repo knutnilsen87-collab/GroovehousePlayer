@@ -1,0 +1,26 @@
+GROOVEHOUSE RECORDS - IKONPAKKE FOR SPILLELISTER
+================================================
+10 ikoner i det samme gull-/svarte designet.
+
+MAPPER
+PNG_original_1254px: original-PNG 1254 x 1254 med transparente hjorner.
+PNG_512px: PNG 512 x 512 for spillelistebilder i app, mobil og web.
+ICO_Windows: egne Windows .ico-filer med 16/24/32/48/64/128/256 px i hver fil.
+FORHANDSVISNING.jpg: oversikt over alle ikonene.
+
+BRUK
+Groovehouse Player / Android / iPhone / web: bruk filer fra PNG_512px.
+Windows-mapper, snarveier og .exe: bruk .ico fra ICO_Windows.
+Ved sma ikonstorrelser mister detaljrike ikoner noe skarphet.
+
+IKONER
+01-groovehouse-house = Groovehouse House
+02-deep-house = Deep House
+03-tech-house = Tech House
+04-soulful-vocals = Soulful / Vocals
+05-club-bangers = Club Bangers
+06-night-drive = Night Drive
+07-chill-lounge = Chill / Lounge
+08-live-dj-sets = Live DJ Sets
+09-favorites = Favorites
+10-rooftop-sunrise = Rooftop / Sunrise

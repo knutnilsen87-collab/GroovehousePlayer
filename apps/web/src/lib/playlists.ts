@@ -17,7 +17,7 @@ export interface AddItem {
   version?: number | null;
 }
 
-type PatchBody = { name?: string; entries?: PlaylistEntry[]; add?: AddItem[]; query?: string; color?: string };
+type PatchBody = { name?: string; entries?: PlaylistEntry[]; add?: AddItem[]; query?: string; color?: string; icon?: string | null };
 
 class ApiError extends Error {
   constructor(
@@ -63,6 +63,8 @@ interface State {
   /** Lås oppføringen: variant (null = hovedvarianten) og versjon (null = følg nyeste). */
   setLock: (id: string, entryId: string, variant: string | null, version: number | null) => Promise<Playlist>;
   setColor: (id: string, color: string) => Promise<Playlist>;
+  /** Ikon fra ikonpakka (null = ingen, da vises eget cover eller mosaikken). */
+  setIcon: (id: string, icon: string | null) => Promise<Playlist>;
   /** Eget cover (pkt. 14). Ved 409 prøves det på nytt med den ferske lista. */
   setCover: (id: string, file: Blob) => Promise<Playlist>;
   removeCover: (id: string) => Promise<Playlist>;
@@ -150,7 +152,7 @@ export const usePlaylists = create<State>((set, get) => {
       return playlist;
     },
     restore: async (p) => {
-      const body = p.kind === 'smart' ? { name: p.name, kind: 'smart', query: p.query, color: p.color } : { name: p.name, entries: p.entries, color: p.color };
+      const body = p.kind === 'smart' ? { name: p.name, kind: 'smart', query: p.query, color: p.color, icon: p.icon ?? null } : { name: p.name, entries: p.entries, color: p.color, icon: p.icon ?? null };
       const { playlist } = await api<{ playlist: Playlist }>('POST', '/api/playlists', body);
       replace(playlist);
       return playlist;
@@ -192,6 +194,7 @@ export const usePlaylists = create<State>((set, get) => {
       return mutate(id, (p) => ({ entries: change(p) }), (p) => ({ ...p, entries: change(p) }));
     },
     setColor: (id, color) => mutate(id, (p) => (p.color === color ? null : { color }), (p) => ({ ...p, color })),
+    setIcon: (id, icon) => mutate(id, (p) => ((p.icon ?? null) === icon ? null : { icon }), (p) => ({ ...p, icon })),
     setCover: (id, file) => coverRequest(id, (p) => fetch(`/api/playlists/${encodeURIComponent(id)}/cover?updatedAt=${encodeURIComponent(p.updatedAt)}`, { method: 'PUT', headers: { 'Content-Type': file.type || 'image/jpeg' }, body: file })),
     removeCover: (id) => coverRequest(id, (p) => fetch(`/api/playlists/${encodeURIComponent(id)}/cover`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updatedAt: p.updatedAt }) })),
     remove: async (id) => {
