@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 14 (nytt utseende)** → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → del 2 → del 4 → del 3 → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -337,6 +337,37 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 **Tester:** enhetstester for `PlayerEngine`-kontrakten (begge motorer), tokenpåkrevd på API og media, CORS kun for app-opprinnelsen, og at adressen ikke finnes i bygget/git (`git grep` etter `.ts.net`).
 
 **Ferdig når:** Knut installerer APK-en på S22, kobler til via Tailscale, starter en spilleliste, låser skjermen og bytter til en annen app. Musikken fortsetter i 15 minutter med flere låtskifter, kan pauses og hoppes fra låseskjermen og fra Bluetooth i bilen, og «⋯ → Del…» sender fila til WhatsApp.
+
+## Del 15 – Oppdatering av Android-appen
+
+Mål: Knut skal ikke måtte bygge og sende APK-er for hånd hver gang noe endres. Endringer i grensesnittet kommer automatisk. Endringer i den native delen gir et «Oppdater»-varsel i appen, og da holder ett trykk.
+
+**To typer oppdatering**
+1. **Grensesnitt (web-bunten):** nesten alt Knut ser er web-koden i `apps/web` (del 9, 11 og 14 osv.). Den oppdateres uten ny APK.
+   - Ved oppstart og når appen kommer i forgrunnen, spør appen `GET /api/app/bundle` → `{ version, sha256, size, minNative }`.
+   - Er versjonen nyere og `minNative` ≤ appens versionCode: last ned zip-en, sjekk sha256, og bruk den **ved neste oppstart**. Aldri bytt mens musikk spilles.
+   - **Automatisk tilbakerulling:** starter ikke den nye bunten riktig (appen melder «klar» innen 10 s), brukes den forrige.
+   - Bruk en selvhostet oppdaterer, f.eks. `@capgo/capacitor-updater` i manuell modus, eller en enkel egen løsning. Sjekk lisensen, og spør hvis den er sterk copyleft.
+2. **Native (APK):** endringer i Kotlin/Media3, tillatelser eller Capacitor-plugins krever ny APK.
+   - Appen spør `GET /api/app/apk/latest` → `{ versionCode, versionName, sha256, size, notes }`.
+   - Er versionCode høyere, vis et diskret banner: «Ny app-versjon – Oppdater».
+   - Ved trykk: last ned APK-en til appens cache, sjekk sha256, og åpne Androids installasjonsdialog (FileProvider + `REQUEST_INSTALL_PACKAGES`).
+   - Første gang ber Android Knut tillate «Installer ukjente apper» for Groovehouse Vault. Forklar det i en kort tekst før dialogen.
+
+**Publisering fra PC-en**
+3. `pnpm android:release` gjør tre ting:
+   - Bygger web-bunten og legger den i `data/app/bundle/<versjon>.zip`.
+   - Bygger APK-en hvis den native koden er endret siden sist (sjekk hash av `apps/android/android/` og pluginene), og legger den i `data/app/apk/`.
+   - Oppdaterer `data/app/manifest.json`.
+
+   `vault:install` og bygg av web-appen kaller bunt-steget automatisk, så grensesnittet på mobilen alltid følger PC-en.
+4. **versionCode skal aldri gå ned.** Bruk en teller i `%LOCALAPPDATA%\GroovehouseVault\android\build-counter` (maks av teller + 1 og antall commits), ikke bare `git rev-list --count`. Ellers kan et bygg fra en annen gren gi lavere kode, og Android nekter å installere.
+5. Endepunktene ligger bak samme tilgang som resten (Tailscale + enhetstoken) og er aldri tilgjengelige fra `/drop/` eller del 13.
+6. **Studio → Innstillinger → Enheter:** vis hvilken app- og bunt-versjon hver tilkoblet enhet kjører (appen sender det i en header), og hva som er nyeste.
+
+**Tester:** versjonssammenligning og `minNative`-regelen, sha256-feil avviser, tilbakerulling ved ødelagt bunt, ingen bytte under avspilling, versionCode-telleren, og at endepunktene krever token.
+
+**Ferdig når:** Knut installerer APK-en med oppdatereren én gang for hånd. Etter det endrer Claude Code noe synlig i web-appen, og Knut ser endringen på telefonen etter å ha lukket og åpnet appen, uten å røre en APK. En endring i native kode gir «Oppdater»-banneret, og ett trykk pluss Androids bekreftelse installerer den.
 
 ## Del 14 – Nytt utseende: «High-End Studio»
 
