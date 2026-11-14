@@ -10,3 +10,4 @@ export * from './queue';
 export * from './share';
 export * from './studio';
 export * from './appupdate';
+export * from './markers';

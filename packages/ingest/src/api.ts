@@ -8,9 +8,10 @@ import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
 import { retagSlug } from './ingest';
 import { ensureShareFile, ShareError } from './share';
-import { manualPalette, type AssetManifest, type ShareKind } from '@gv/shared';
+import { manualPalette, validateMarkers, type AssetManifest, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
+import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
 import { readSources, sourceKey, sourcesFile } from './source-index';
 import { overridePath, readOverrides, type MetaFile } from './sources';
 
@@ -41,6 +42,11 @@ import { overridePath, readOverrides, type MetaFile } from './sources';
  *   PUT    /api/lyrics/:slug         { format, text } → { lyrics } (tom tekst sletter → { lyrics: null })
  *   GET    /api/listens              → { bySlug, recent, byDay }
  *   POST   /api/listens              { events: [{ slug, play?, ms? }] } → 204
+ *
+ * Del 2 (markør-editoren i Studio):
+ *   GET    /api/assets/:slug/:variant|main/:versjon/markers → { markers, dismissed, edited }
+ *   POST   /api/assets/:slug/:variant|main/:versjon/markers { markers, dismissed? } → { manifest }
+ *          Lagres i markers.json (overlever --force) og i manifest.json (spilleren bruker dem med en gang).
  */
 export interface ApiOptions {
   mediaDir: string;
@@ -75,6 +81,35 @@ export function createApiHandler(opts: ApiOptions) {
       await handlePlaylists(playlists, url, req, res);
       return;
     }
+    // Del 2: strukturmarkører per versjon
+    const mk = url.pathname.match(/^\/api\/assets\/([a-z0-9][a-z0-9-]{0,120})\/([a-z0-9][a-z0-9-]{0,120})\/v?(\d{1,4})\/markers$/);
+    if (mk) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const dir = path.join(opts.mediaDir, mk[1]!, mk[2]!, `v${Number(mk[3])}`);
+      const manifestFile = path.join(dir, 'manifest.json');
+      if (!existsSync(manifestFile)) return send(res, 404, { error: 'ukjent låt eller versjon' });
+      const manifest = JSON.parse(await readFile(manifestFile, 'utf8')) as AssetManifest;
+      if (req.method === 'GET') {
+        const f = await readMarkersFile(dir);
+        return send(res, 200, { markers: manifest.markers, dismissed: f?.dismissed ?? [], edited: !!f });
+      }
+      if (req.method !== 'POST') return send(res, 405, { error: 'method not allowed' });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      let body: { markers?: unknown; dismissed?: unknown };
+      try {
+        body = (await readJson(req, 200_000)) as typeof body;
+      } catch (err) {
+        return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+      }
+      const v = validateMarkers(body.markers, manifest.durationMs);
+      if (!v.ok) return send(res, 400, { error: v.error });
+      const dismissed = Array.isArray(body.dismissed) ? [...new Set(body.dismissed.filter((d): d is string => typeof d === 'string' && d.length <= 60))].slice(0, 200) : [];
+      await writeMarkersFile(dir, { schema: 1, updatedAt: new Date().toISOString(), markers: v.markers, dismissed });
+      const next: AssetManifest = { ...manifest, markers: v.markers };
+      await writeJsonAtomic(manifestFile, next);
+      return send(res, 200, { manifest: next });
+    }
+
     // Del 14: favoritter, sangtekst og egne avspillinger
     const lib = url.pathname.match(/^\/api\/(favorites|lyrics|listens)(?:\/([^/]+))?$/);
     if (lib) {

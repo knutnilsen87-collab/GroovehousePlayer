@@ -4,7 +4,10 @@ import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promise
 import path from 'node:path';
 import {
   ANALYSIS_VERSION,
+  carryMarkers,
   findSuno,
+  isKept,
+  mergeMarkers,
   FALLBACK_PALETTE,
   scrubSuno,
   titleFromSlug,
@@ -24,6 +27,7 @@ import { liveLogToMarkers } from './livelog';
 import { estimateKey, estimateTempo, segmentStructure } from './music';
 import { findMaster, makeMasterCopy } from './share';
 import { analyzeSpectrum48, probeSourceFormat, SPECTRUM48_FILE } from './spectrum';
+import { previousEdited, readMarkersFile, writeMarkersFile } from './markers-file';
 import { recordSources, relativeToExport, sourceKey, sourcesFile } from './source-index';
 import { readOverrides, releaseFromFolder, type MasterSource, type MetaFile, type ReleaseSource } from './sources';
 
@@ -303,6 +307,21 @@ async function ingestOne(
       report('struktur', labels.length ? 'ok' : 'warn', labels.length ? `${labels.join(' → ')} (forslag)` : 'fant ingen tydelig struktur');
     }
 
+    // Del 2: Knuts rettelser fra Studio (markers.json) overlever ny ingest av samme versjon (--force).
+    // Ny versjon: foreslå markørene fra forrige rettede versjon, som ubekreftede.
+    const edited = await readMarkersFile(outDir);
+    if (edited) {
+      markers = mergeMarkers(markers, edited);
+      await writeMarkersFile(work, edited);
+      report('markører', 'ok', `${edited.markers.filter(isKept).length} rettet i Studio beholdt`);
+    } else {
+      const prev = await previousEdited(opts.mediaDir, master.slug, master.variant, master.version);
+      if (prev) {
+        markers = carryMarkers({ markers: prev.manifest.markers, durationMs: prev.manifest.durationMs }, { markers, durationMs: info.durationMs });
+        report('markører', 'warn', `overført fra v${prev.manifest.version} som ubekreftede – sjekk dem i Studio`);
+      }
+    }
+
     report('preview', 'start');
     const firstDrop = markers.find((m) => m.kind === 'drop');
     const previewStart = firstDrop ? Math.max(0, firstDrop.startMs - 4000) : info.durationMs * 0.25;
@@ -417,7 +436,12 @@ async function retagOne(outDir: string, m: AssetManifest, r: ResolvedMeta, overr
   // Del 8: live-sett – flytt markørene med endringen i forskyvning
   if (m.kind === 'set') {
     const delta = (overrides.liveOffsetMs ?? 0) - (m.liveOffsetMs ?? 0);
-    if (delta) updated.markers = shiftMarkers(m.markers, delta, m.durationMs);
+    if (delta) {
+      updated.markers = shiftMarkers(m.markers, delta, m.durationMs);
+      // Del 2: rettelsene i markers.json flyttes likt, så de står seg ved ny ingest
+      const edited = await readMarkersFile(outDir);
+      if (edited) await writeMarkersFile(outDir, { ...edited, markers: shiftMarkers(edited.markers, delta, m.durationMs) });
+    }
     delete updated.liveOffsetMs;
     if (overrides.liveOffsetMs) updated.liveOffsetMs = overrides.liveOffsetMs;
   }

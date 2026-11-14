@@ -5,6 +5,7 @@ import { CoverArt } from '../components/CoverArt';
 import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, StudioIcon, UploadIcon } from '../components/Icons';
 import { AssetLook } from '../components/AssetLook';
 import { LyricsEditor } from '../components/LyricsEditor';
+import { MarkerEditor } from '../components/MarkerEditor';
 import { loadPlaybackSettings } from '../lib/settings';
 import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
@@ -606,6 +607,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
     if (focused) rowRef.current?.scrollIntoView({ block: 'center' });
   }, [focused]);
   const [editing, setEditing] = useState(false);
+  const [markersOpen, setMarkersOpen] = useState(false);
   const vars = paletteToCssVars(m.palette) as CSSProperties;
   const chapters = m.markers.filter((k) => k.kind === 'chapter' || k.kind === 'highlight');
   return (
@@ -648,8 +650,16 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
         <span className="flex items-center gap-1.5 text-[11px] text-muted">
           <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.primary }} />
           <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.secondary }} />
-          {m.palette.source === 'fallback' ? 'gull (fallback)' : `${m.palette.primary}${m.palette.source === 'manual' ? ' (valgt)' : ''}`}
+          {m.palette.source === 'fallback' ? 'standard (cyan)' : `${m.palette.primary}${m.palette.source === 'manual' ? ' (valgt)' : ''}`}
         </span>
+        <button
+          type="button"
+          onClick={() => setMarkersOpen((o) => !o)}
+          aria-expanded={markersOpen}
+          className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50"
+        >
+          {markersOpen ? 'Lukk markører' : `Markører${m.markers.some((k) => !k.confirmed) ? ' ·' : ''}`}
+        </button>
         <button
           type="button"
           onClick={() => setEditing((e) => !e)}
@@ -676,8 +686,16 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
           <LyricsEditor a={a} />
         </>
       )}
-      <Waveform peaks={a.analysis?.peaks ?? []} bars={120} height={40} progress={0} active markers={m.markers.filter((k) => k.kind === 'drop').map((k) => ({ pct: k.startMs / m.durationMs, label: 'DROP' }))} />
-      {chapters.length > 0 && (
+      {markersOpen && (
+        <MarkerEditor
+          key={`${m.id}-${m.markers.map((k) => `${k.label}${k.startMs}${k.confirmed}`).join('|')}`}
+          a={a}
+          onSaved={onSaved}
+          onPlayAt={(ms) => usePlayer.getState().playFrom([a], 0, ms)}
+        />
+      )}
+      {!markersOpen && <Waveform peaks={a.analysis?.peaks ?? []} bars={120} height={40} progress={0} active markers={m.markers.filter((k) => k.kind === 'drop').map((k) => ({ pct: k.startMs / m.durationMs, label: 'DROP' }))} />}
+      {!markersOpen && chapters.length > 0 && (
         <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
           {chapters.map((c) => (
             <li key={`${c.kind}-${c.startMs}`} className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-[11px]">

@@ -21,8 +21,8 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 8 Innstillinger | ✅ ferdig | 11 nye enhetstester (validering, atomisk lagring + backup, regler, copyright-mal, forskyvning, manuell palett overlever ny ingest, offset flytter markører) + 1 i web (LUFS-mål); UI i hodeløs Edge 22/22 (alle seksjoner, lagre LUFS −12 → API → tilbake −14, ugyldig mappe avvises, kontrast rød under minimum, mobil uten sidescroll); API: ugyldig LUFS 400, Wi-Fi-endring via Tailscale 403 | «Ferdig når»: endre eksportmappe, LUFS-mål, standard artist/label og farge på én låt i Studio, start PC-en på nytt og bounce på nytt – alt skal stå seg |
 | 14 Nytt utseende | ✅ ferdig | 164 enhetstester (+26); desktop-dekket 26/26, mobil 13/13; regresjon del 8/9/10/11, sveip, ikoner grønne; APK bygget; sammenligning i `docs/design/compare/` | «Ferdig når»: blått cover på desktop, bytt til rødt, og spill med skjermen på i Android-appen (spektrum i takt). A·B og hastighet med skjermen av på S22 |
 | 15 App-oppdatering | ✅ bygget (ikke kjørt på telefon) | 15 nye tester (regler 5, bunt/zip/API/token 3, oppdaterer i appen 4, skysynk 3); APK 51 med oppdatereren publisert; ny release uten native endring lager ingen APK | «Ferdig når»: installer `distndroid\groovehouse-vault-0.1.0.apk` (kode 51) for hånd én siste gang; deretter endring i web → lukk/åpne appen; ny native kode → «Oppdater» |
-| 2 Markør-editor | 🔨 neste | – | – |
-| 4 Raskere ingest | ⏳ | – | – |
+| 2 Markør-editor | ✅ ferdig | 6 enhetstester (sammenslåing, slettede forslag, overføring til ny versjon, validering, takt) + 4 ende-til-ende med ffmpeg (flytt Drop 1 → --force står seg, også på fixtures/blue-fire; _v2 får ubekreftede forslag; validering); UI på ekte låt 14/14 (tastatur, dra, navn, slett, dobbeltklikk, lagre, spilleren) | «Ferdig når»: flytt Drop 1 på en ekte låt i Studio, kjør `pnpm gh-ingest --force` på den, og se at flyttingen står seg |
+| 4 Raskere ingest | 🔨 neste | – | – |
 | 3 Analyse (uten fasit) | ⏳ | – | Fasit i `fixtures/truth.json` |
 | 5 Supabase | ⏭ hoppet over | – | Krever Supabase-prosjekt og nøkler i `.env` |
 
@@ -92,3 +92,4 @@ elease.jks.
 - 2026-11-14: Del 14 steg 4: fullskjermspiller på mobil/app i ny stil, native A·B-løkke (PlayerMessage), hastighet og gjenta i Media3-tjenesten, WAKE_MODE_NETWORK. `/?vis=bibliotek` m.fl. som direkte lenke til en visning. UI-testene rydder nå lytteloggen (testdata fjernet fra data/listens.json).
 - 2026-11-14: Del 14 ferdig: sammenligningsbilder (blått/rødt, desktop/mobil) i docs/design/compare/.
 - 2026-11-14: Del 15 (fra main) bygget: egen oppdaterer (Capacitor serverBasePath + Kotlin-plugin, ingen ny avhengighet), `pnpm android:release`, /api/app/* bak token, Enheter i Studio. Fargeløse cover → cyan #01E6FC (Knut), 18 låter fargelagt på nytt. Advarsel for synkronisert skymappe. Del 8 sjekket punkt for punkt: alt er ferdig (UI + backend), «står seg etter omstart» verifisert på nytt.
+- 2026-11-14: Del 2 ferdig: markør-editor i Studio, markers.json som overlever --force, overføring til ny versjon.
