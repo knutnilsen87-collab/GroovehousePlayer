@@ -251,7 +251,7 @@ Filene havner i `media/<slug>/<variant eller main>/v<N>/` og serveres under `/me
 ## Beslutninger som er bygget inn
 
 - **Ingen Web Audio API.** Avspilling via `<audio>` (native HLS i Safari, hls.js lastes bare i andre nettlesere) + Media Session. Visualisering fra `analysis.json`.
-- **Gullet er rammen, coveret er innholdet.** Aksentfarger kommer kun fra `assets.palette` via CSS-variablene `--accent`, `--accent-2`, `--glow`. Paletten velger mest *levende* farge og løftes til ≥ 4.5:1 mot `#07080B`. Fargeløst cover → gull.
+- **Coveret styrer fargene, gull bare i logoen** (endret 2026-11-14, se del 14 i CLAUDE_CODE_SETUP.md). Aksentfarger kommer kun fra `assets.palette` via CSS-variablene `--accent`, `--accent-2`, `--glow`. Paletten velger mest *levende* farge og løftes til ≥ 4.5:1 mot `#07080B`. Fargeløst cover → gull.
 - **Volumnormalisering:** målnivå −14 LUFS via `audio.volume`. Det kan bare dempe; stille spor spilles på full styrke. iOS ignorerer `audio.volume` – der gjelder telefonens volumknapper.
 - **Ingen Web Audio på mobil.** På desktop (Tauri) kan Web Audio brukes senere, f.eks. til automix i takt.
 - **DROP-markør** foreslås fra energianalysen og lagres som `source: "analysis", confirmed: false`.
