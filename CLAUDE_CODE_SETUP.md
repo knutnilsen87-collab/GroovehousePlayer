@@ -344,6 +344,15 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 
 Dette krever invitasjonstokens, R2 og Supabase og bygges i en egen fase. Tailscale-adressen virker bare for Knuts egne enheter og kan **ikke** brukes til å sende lenker til andre. Tailscale Funnel (offentlig) skal ikke brukes til uutgitt musikk. Teksten under er designet å bygge videre på.
 
+**Krav til lytteren (låst av Knut):** Mottakeren skal **aldri** trenge Tailscale, en app, en konto, et passord eller en adresse å skrive.
+- Ett trykk på lenken i WhatsApp/SMS/e-post, og låta spiller i nettleseren innen et par sekunder. Lenken gir forhåndsvisning med cover og tittel.
+- Lenken *er* tilgangen (personlig token per mottaker). Enheten huskes stille med en informasjonskapsel, så den virker igjen neste gang uten noe ekstra.
+- Enhetsgrensen (f.eks. 2 enheter) håndheves stille. Prøver en tredje enhet å åpne lenken, vises «Denne lenken er personlig – be Knut om en egen», ikke en innloggingsside.
+- Utløpt lenke: en vennlig side med «Be om ny tilgang», som sender Knut et varsel. Lytteren skriver ikke noe annet enn eventuelt navnet sitt.
+- Ingen kode eller PIN som standard. En valgfri 4-sifret kode per drop finnes bare for særlig sensitive drops, og skrives da i samme melding som lenken.
+- Alt dette kjører i skyen (Worker + R2), helt atskilt fra PC-en. Tailscale og PC-adressen brukes bare av Knut.
+- Domene: en kort, pen adresse (f.eks. `listen.<Knuts domene>`). Spør Knut hvilket domene. Inntil da: `*.workers.dev`.
+
 **Flyt**
 1. **Samle:** en spilleliste (del 9) er utgangspunktet. «Gjør om til drop» på lista, eller velg låter i velgemodus/flervalg og velg **Opprett drop (3 låter)**.
 2. **Konfigurere:**
