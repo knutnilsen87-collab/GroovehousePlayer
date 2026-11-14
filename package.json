@@ -19,6 +19,7 @@
     "vault:remote": "pnpm --filter @gv/server vault remote",
     "android:build": "pnpm --filter @gv/server exec node --import tsx ../android/scripts/android.ts build",
     "android:install": "pnpm --filter @gv/server exec node --import tsx ../android/scripts/android.ts install",
+    "android:release": "pnpm --filter @gv/server exec node --import tsx ../android/scripts/android.ts release",
     "vault:autostart": "pnpm --filter @gv/server vault autostart"
   }
 }

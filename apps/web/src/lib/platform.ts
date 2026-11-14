@@ -1,5 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { authHeaders, serverBase, setConnection } from './connection';
+import { authHeaders, clientHeaders, serverBase, setConnection } from './connection';
 import { HtmlAudioEngine } from './engine/html';
 import { NativeEngine, type NativePlayerPlugin } from './engine/native';
 import { mergeSavedPositions, setEngineFactory } from './player';
@@ -27,7 +27,7 @@ if (isApp && typeof window !== 'undefined') {
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     if (typeof input === 'string' && (input.startsWith('/api/') || input.startsWith('/media/'))) {
       const headers = new Headers(init?.headers);
-      for (const [k, v] of Object.entries(authHeaders())) if (!headers.has(k)) headers.set(k, v);
+      for (const [k, v] of Object.entries({ ...authHeaders(), ...clientHeaders() })) if (!headers.has(k)) headers.set(k, v);
       return original(serverBase() + input, { ...init, headers });
     }
     return original(input, init);

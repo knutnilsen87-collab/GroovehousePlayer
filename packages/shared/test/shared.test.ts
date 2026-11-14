@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { choosePalette, contrastOnObsidian } from '../src/palette';
-import { GOLD_FALLBACK } from '../src/theme';
+import { FALLBACK_PALETTE } from '../src/theme';
 import { parseMasterName, slugify, titleFromSlug, formatTime } from '../src/naming';
 import { computeCoverage } from '../src/coverage';
 
@@ -24,13 +24,14 @@ describe('choosePalette', () => {
     expect(contrastOnObsidian(p.primary)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('faller tilbake til gull for fargeløse cover', () => {
+  it('faller tilbake til standardfargen cyan (ikke gull) for fargeløse cover', () => {
     const p = choosePalette([
       { hex: '#111111', population: 1 },
       { hex: '#888888', population: 0.5 },
       { hex: '#eeeeee', population: 0.2 }
     ]);
-    expect(p).toEqual(GOLD_FALLBACK);
+    expect(p).toEqual(FALLBACK_PALETTE);
+    expect(p.primary).toBe('#01E6FC');
   });
 
   it('gir sekundærfarge og lesbar tekstfarge', () => {

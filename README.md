@@ -51,7 +51,7 @@ pnpm vault:server      # serveren i forgrunnen (feilsøking)
 - **Kategorisering:** grense for live-sett (standard 20 min) og filnavnregler med `*` (f.eks. `* (Live *)` → sett, `*Club*` → variant `club`), med forhåndsvisning på filene i eksportmappa.
 - **Lyd:** målnivå −16 til −11 LUFS (standard −14). Spilleren demper bare, løfter aldri. Gjelder med en gang, også for låter som alt er ingestet.
 - **Metadata:** standard artist, label, copyright-mal (`℗ {år} {label}`) og ord som fjernes fra titler, med forhåndsvisning.
-- **Farger:** minste kontrast (3–7, standard 4.5:1) og gull for fargeløse cover. «Bruk på alle låter nå» regner ut fargene på nytt fra lagret cover (låter med egen farge røres ikke).
+- **Farger:** minste kontrast (3–7, standard 4.5:1) og om fargeløse cover skal få standardfargen cyan (`#01E6FC`, fra referansebildet). «Bruk på alle låter nå» regner ut fargene på nytt fra lagret cover (låter med egen farge røres ikke).
 - **Tilgang:** Wi-Fi-modus av/på og ny PIN (bare fra PC-en), Tailscale-status med QR. PIN og hasher vises aldri.
 - **Drops:** standarder lagres nå, men har ingen effekt før delingsfasen.
 - **Per låt (Arkiv → Rediger):** egen primær-/sekundærfarge med kontrastmåling og forhåndsvisning, og for live-sett en forskyvning (±10 s, steg 50 ms) med «spill fra markør». Lagres i `media/<slug>/meta.json` og overlever ny ingest.
@@ -130,6 +130,8 @@ Lagres av serveren på PC-en i `data/playlists.json` (gitignored, atomisk skrivi
 - **Nytt utseende «High-End Studio» (del 14):** Satoshi (UI) og JetBrains Mono (data), selvhostet i `apps/web/public/fonts/` med lisensene. Glasspaneler, neon-glød og alle aksenter fra coveret (`--accent`), gull bare i logoen. Desktop: sidemeny (Hjem, Bibliotek, Spillelister, Live-sett, DJ-verktøy, Analyse, Vault, Innstillinger), dekket øverst på Hjem og Bibliotek (cover-kort, Spilles nå med faner Spilles nå · Kø · Tekst · Kreditering, stor bølgeform med ms-tider, transport med bland/gjenta, volum, A·B-løkke, hastighet 0,90–1,10), høyre kolonne med Låtinfo, Bølgeform-zoom (±8 s, hjul/klyp 2–30 s, takt-rutenett) og Spektrum (Hz), og låttabellen (sorterbar BPM, toneart, LUFS, hjerte, «⋯»). 1024–1279 px: høyre kolonne blir faner.
 - **Favoritter, tekst og egne avspillinger (del 14):** hjertet lagres i `data/favorites.json` og gir smartlista «Favoritter». Sangtekst i `data/lyrics/<slug>.lrc|.txt`, redigeres i Studio (Rediger på låta; Ctrl+Enter setter tidsstempel fra spillehodet mens låta spilles). Egne avspillinger logges i `data/listens.json` og vises under Analyse og «Nylig spilt» på Hjem. Samme tilgangsregler som spillelistene.
 - **A·B-løkke:** knappen (A her → B her → av) eller dra i bølgeformen. Fester seg til takter; hold Shift for å slå det av. Hastigheten beholder tonehøyden og lagres ikke per låt.
+- **Oppdatering av Android-appen (del 15):** `pnpm android:release` bygger web-bunten til `data/app/bundle/`, bygger ny APK til `data/app/apk/` bare når den native koden er endret, og oppdaterer `data/app/manifest.json`. Hvert web-bygg (også `vault:install`) lager bunten automatisk. Appen sjekker ved oppstart og når den kommer i forgrunnen (`/api/app/...`, bare med enhetstoken). En ny bunt lastes ned, sjekkes med sha256 og brukes ved neste oppstart, aldri mens musikken spiller. Melder den ikke «klar» innen 10 s, ruller appen tilbake. Ny native kode gir banneret «Ny app-versjon – Oppdater». versionCode går aldri ned (teller i `%LOCALAPPDATA%\GroovehouseVaultndroiduild-counter`). Studio → Innstillinger → Enheter viser hva hver enhet kjører.
+- **Skysynkronisering:** ligger prosjektmappa i en mappe som Google Drive, OneDrive, Dropbox, iCloud eller Box synkroniserer, sier serveren fra ved oppstart (logg og Windows-varsel), i `vault:install` og i Studio → Innstillinger. `media`, `data`, `.env` og `node_modules` skal ikke til skyen.
 - **Spektrum og kildeformat (del 14):** ingest lager `spectrum48.bin` (48 log-bånd 20 Hz–20 kHz, 20 bilder/s, én byte per bånd, fra masteren i 44,1 kHz) og lagrer kildeformatet («WAV 24-bit / 48 kHz») i manifestet. Eldre versjoner fylles inn med `pnpm gh-ingest --backfill-analysis` (leser bare `master.flac` i `media/`, ingen ny HLS-koding).
 - **Uten HTTPS** (Wi-Fi-modus over `http://10.0.0.47`) finnes ikke delingsmenyen. Da lastes fila ned i stedet. På PC-en finnes også **Vis i Utforsker**, som bare virker fra PC-en selv.
 - **Cache:** delte filer caches i `.../v<N>/share/` og lages på nytt når master, cover eller metadata endres. De serveres bare via `/api/share`, aldri via `/media`, og aldri til lyttersiden.
@@ -190,7 +192,7 @@ Export/
     would-you-run_v3.wav              ← mappenavn = slug, _v3 = versjon (over tid)
     would-you-run__extended_v2.wav    ← __extended = variant (samtidig versjon)
     would-you-run__vip-dub.wav        ← variant uten _vN = v1
-    cover.png                         ← valgfri, men uten cover blir paletten gull
+    cover.png                         ← valgfri, men uten cover blir paletten standardfargen cyan
     meta.json                         ← valgfri, se under
     live_log.json                     ← kun for sett (se under)
 ```
@@ -255,7 +257,7 @@ Filene havner i `media/<slug>/<variant eller main>/v<N>/` og serveres under `/me
 ## Beslutninger som er bygget inn
 
 - **Ingen Web Audio API.** Avspilling via `<audio>` (native HLS i Safari, hls.js lastes bare i andre nettlesere) + Media Session. Visualisering fra `analysis.json`.
-- **Coveret styrer fargene, gull bare i logoen** (endret 2026-11-14, se del 14 i CLAUDE_CODE_SETUP.md). Aksentfarger kommer kun fra `assets.palette` via CSS-variablene `--accent`, `--accent-2`, `--glow`. Paletten velger mest *levende* farge og løftes til ≥ 4.5:1 mot `#07080B`. Fargeløst cover → gull.
+- **Coveret styrer fargene, gull bare i logoen** (endret 2026-11-14, se del 14 i CLAUDE_CODE_SETUP.md). Aksentfarger kommer kun fra `assets.palette` via CSS-variablene `--accent`, `--accent-2`, `--glow`. Paletten velger mest *levende* farge og løftes til ≥ 4.5:1 mot `#07080B`. Mangler cover eller er det fargeløst → standardfargen cyan `#01E6FC` (målt fra referansebildet), også før noen låt er valgt. Gull brukes bare i logoen (endret 2026-11-14). Konfignøkkelen heter nå `colors.colorFallback` (den gamle `goldFallback` leses fortsatt).
 - **Volumnormalisering:** målnivå −14 LUFS via `audio.volume`. Det kan bare dempe; stille spor spilles på full styrke. iOS ignorerer `audio.volume` – der gjelder telefonens volumknapper.
 - **Ingen Web Audio på mobil.** På desktop (Tauri) kan Web Audio brukes senere, f.eks. til automix i takt.
 - **DROP-markør** foreslås fra energianalysen og lagres som `source: "analysis", confirmed: false`.
@@ -276,7 +278,7 @@ Migrasjonen lager alle tabeller med RLS. Kun brukere i `admins` har tilgang. Lyt
 **Ferdig**
 - Din spiller (`/`) for mobil og desktop – se over
 - `gh-ingest`, `gh-watch`, `make-fixtures` – testet ende til ende
-- Drop-side: gull → coverfarger ved avspilling, spolbar bølgeform, DROP-markør, kapitler for sett, sporliste, vannmerke med navn, utløp og nedtelling
+- Drop-side: standardfargen cyan → coverfarger ved avspilling, spolbar bølgeform, DROP-markør, kapitler for sett, sporliste, vannmerke med navn, utløp og nedtelling
 - Command Center: drops, ingest-kort med stegstatus, mottakertabell med lyttedekning beregnet fra lyttehendelser, lyttelogg, arkiv, live-sett, mini-spiller
 - Databasemigrasjon validert mot Postgres 16
 - 28 enhetstester (palett, navn/varianter, lyttedekning, deler/variantbytte, live-logg, tempo, toneart, struktur)

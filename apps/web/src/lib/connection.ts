@@ -13,6 +13,14 @@ export function setConnection(server: string, token: string) {
 }
 export const hasConnection = () => conn.server !== '';
 
+/** Del 15: appens APK- og bunt-versjon, sendt med hvert kall så Studio kan vise hva hver enhet kjører. */
+const client: Record<string, string> = {};
+export function setClientVersion(versionCode: number, bundle: number) {
+  client['X-GV-App'] = String(versionCode);
+  if (bundle) client['X-GV-Bundle'] = String(bundle);
+}
+export const clientHeaders = (): Record<string, string> => ({ ...client });
+
 /** «pc.tailXXXX.ts.net», «https://pc.tailXXXX.ts.net/» → «https://pc.tailXXXX.ts.net». Bare HTTPS. */
 export function normalizeServer(input: string): string | null {
   const s = input.trim();

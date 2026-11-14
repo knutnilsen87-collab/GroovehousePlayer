@@ -62,7 +62,7 @@ export function networkCategories(): string[] {
 }
 
 export async function qrSvg(text: string): Promise<string> {
-  return QRCode.toString(text, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#07080B', light: '#F0DC6A' } });
+  return QRCode.toString(text, { type: 'svg', errorCorrectionLevel: 'M', margin: 2, color: { dark: '#07080B', light: '#F5F7FA' } });
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -84,8 +84,8 @@ img{width:72px;height:72px;align-self:center}
 h1{margin:0;text-align:center;font:600 20px Oswald,Inter,system-ui;letter-spacing:1.5px;text-transform:uppercase}
 p{margin:0;color:#A39E91;font-size:14px;text-align:center}
 input{font-size:28px;letter-spacing:8px;text-align:center;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:#0A0B0F;color:#EDEAE2;min-height:44px}
-input:focus{outline:2px solid #F0C030;border-color:transparent}
-button{min-height:48px;border:0;border-radius:999px;font-weight:600;font-size:16px;color:#120D02;background:linear-gradient(135deg,#F0DC6A 0%,#F0C030 45%,#B06000 100%)}
+input:focus{outline:2px solid #01E6FC;border-color:transparent}
+button{min-height:48px;border:0;border-radius:999px;font-weight:600;font-size:16px;color:#07080B;background:#01E6FC;box-shadow:0 0 18px rgba(1,230,252,.45)}
 .err{color:#F2A08F;min-height:1.2em}
 </style></head><body>
 <form method="post" action="/lan/login">

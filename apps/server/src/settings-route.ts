@@ -1,3 +1,5 @@
+import { readAppManifest } from './app-update';
+import { cloudSyncWarning, detectCloudSync } from './cloudsync';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync, statSync, accessSync, constants } from 'node:fs';
 import path from 'node:path';
@@ -61,7 +63,19 @@ export function createSettingsRoute(h: SettingsHooks) {
         server: { port: h.port(), pid: process.pid, hls: 'AAC 256 kbps · 6 s segmenter' },
         lan: { enabled: cfg.lan.enabled, pinSet: !!safe(() => credRead('lan-pin'), null), firewallRule: h.firewallRule ? safe(h.firewallRule, false) : null },
         remote: { ...remote, url: remoteUrl, qr: remoteUrl ? await qrSvg(remoteUrl) : null },
-        canChangeAccess: ctx.fromPc
+        canChangeAccess: ctx.fromPc,
+        cloudSync: (() => {
+          const s = detectCloudSync(h.root);
+          return s ? { provider: s.provider, syncRoot: s.syncRoot, warning: cloudSyncWarning(s, h.root) } : null;
+        })(),
+        // Del 15: nyeste app-versjoner som er publisert (pnpm android:release)
+        app: (() => {
+          const m = readAppManifest(path.join(h.root, 'data'));
+          return {
+            bundle: m.bundle ? { version: m.bundle.version, minNative: m.bundle.minNative, builtAt: m.bundle.builtAt } : null,
+            apk: m.apk ? { versionCode: m.apk.versionCode, versionName: m.apk.versionName, builtAt: m.apk.builtAt } : null
+          };
+        })()
       });
     }
 

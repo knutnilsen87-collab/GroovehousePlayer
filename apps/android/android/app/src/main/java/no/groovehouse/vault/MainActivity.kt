@@ -8,6 +8,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(NativePlayerPlugin::class.java)
         registerPlugin(VaultAuthPlugin::class.java)
+        registerPlugin(AppUpdaterPlugin::class.java)
         super.onCreate(savedInstanceState)
     }
 }

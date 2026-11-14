@@ -9,3 +9,4 @@ export * from './playlists';
 export * from './queue';
 export * from './share';
 export * from './studio';
+export * from './appupdate';

@@ -29,12 +29,12 @@
 }
 
 :root {
-  /* Nøytral sølv før en låt er valgt. Overstyres av coverets palett (assets.palette) – gull bare i logoen. */
-  --accent: #c8d0dc;
-  --accent-2: #5a6578;
+  /* Standard (FALLBACK_PALETTE): cyan fra referansebildet. Overstyres av coverets palett – gull bare i logoen. */
+  --accent: #01e6fc;
+  --accent-2: #0a6cf0;
   --on-accent: #07080b;
-  --glow: rgba(200, 208, 220, 0.3);
-  --glow-2: rgba(90, 101, 120, 0.12);
+  --glow: rgba(1, 230, 252, 0.42);
+  --glow-2: rgba(10, 108, 240, 0.18);
   color-scheme: dark;
 }
 

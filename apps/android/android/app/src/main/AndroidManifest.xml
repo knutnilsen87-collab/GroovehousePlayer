@@ -38,7 +38,7 @@
             </intent-filter>
         </service>
 
-        <!-- Deling av filer (del 10): bare appens egen cache-mappe -->
+        <!-- Deling av filer (del 10) og ny APK (del 15): bare appens egen cache-mappe -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -55,4 +55,6 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Del 15: «Oppdater»-banneret åpner Androids installasjonsdialog for ny APK -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync, copyFileSync } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { GOLD_FALLBACK, parseFlatName, type AssetManifest } from '@gv/shared';
+import { FALLBACK_PALETTE, parseFlatName, type AssetManifest } from '@gv/shared';
 import { CONFIG_FILE, formatCopyright, LOCAL_CONFIG_FILE, loadConfig, matchRule, type IngestRule, type VaultConfig } from './config';
 import { AUDIO_RE } from './sources';
 import { paletteFrom } from './cover';
@@ -55,7 +55,7 @@ export function validateSettings(patch: SettingsPatch, base: VaultConfig): strin
     });
   const c = num(next.colors.minContrast);
   if (!(c >= 3 && c <= 7)) e.push('Minste kontrast må være mellom 3 og 7');
-  if (typeof next.colors.goldFallback !== 'boolean') e.push('Gull-reserve må være av eller på');
+  if (typeof next.colors.colorFallback !== 'boolean') e.push('Standardfarge for fargeløse cover må være av eller på');
   if (!TIERS.includes(next.drops.tier)) e.push('Ukjent tilgangsnivå for drops');
   const ttl = num(next.drops.ttlDays);
   if (!(ttl >= 1 && ttl <= 365) || !Number.isInteger(ttl)) e.push('Drop-varighet må være 1–365 dager');
@@ -179,7 +179,7 @@ export async function recolorAll(mediaDir: string, cfg: VaultConfig): Promise<{ 
           skipped++;
           continue;
         }
-        const palette = m.files.cover ? await paletteFrom(path.join(dir, m.files.cover), cfg.colors) : { ...GOLD_FALLBACK };
+        const palette = m.files.cover ? await paletteFrom(path.join(dir, m.files.cover), cfg.colors) : { ...FALLBACK_PALETTE };
         if (JSON.stringify(palette) === JSON.stringify(m.palette)) continue;
         const updated = { ...m, palette };
         await writeFile(mp, JSON.stringify(updated, null, 2));

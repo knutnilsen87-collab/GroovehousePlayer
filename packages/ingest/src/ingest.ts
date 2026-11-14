@@ -5,7 +5,7 @@ import path from 'node:path';
 import {
   ANALYSIS_VERSION,
   findSuno,
-  GOLD_FALLBACK,
+  FALLBACK_PALETTE,
   scrubSuno,
   titleFromSlug,
   type AssetKind,
@@ -266,7 +266,7 @@ async function ingestOne(
     const hls = await encodeHls(master.path, work);
     report('hls', 'ok', 'AAC 256k · 6 s segmenter · kildetags fjernet');
 
-    let palette: Palette = { ...GOLD_FALLBACK };
+    let palette: Palette = { ...FALLBACK_PALETTE };
     let cover: string | null = null;
     let coverThumb: string | null = null;
     if (release.coverPath) {
@@ -412,7 +412,7 @@ async function retagOne(outDir: string, m: AssetManifest, r: ResolvedMeta, overr
     const mp = manualPalette(overrides.palette.primary, overrides.palette.secondary, 0);
     if (mp.ok) updated.palette = mp.palette;
   } else if (m.palette.source === 'manual') {
-    updated.palette = m.files.cover ? await paletteFrom(path.join(outDir, m.files.cover), cfg.colors) : { ...GOLD_FALLBACK };
+    updated.palette = m.files.cover ? await paletteFrom(path.join(outDir, m.files.cover), cfg.colors) : { ...FALLBACK_PALETTE };
   }
   // Del 8: live-sett – flytt markørene med endringen i forskyvning
   if (m.kind === 'set') {

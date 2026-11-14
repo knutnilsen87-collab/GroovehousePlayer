@@ -56,7 +56,7 @@ export interface ShareFile {
 
 const yearOf = (m: AssetManifest) => Number((m.copyright ?? '').match(/\b(19|20)\d{2}\b/)?.[0] ?? new Date(m.createdAt).getFullYear());
 
-/** Reservecover for låter uten cover: mørk bunn, gullring, merket og tittelen. Bare for delte filer. */
+/** Reservecover for låter uten cover: mørk bunn, ring i standardfargen (cyan), merket og tittelen. Bare for delte filer. */
 async function fallbackCover(dir: string, m: AssetManifest, logo: string | null): Promise<string> {
   const out = path.join(dir, `cover-fallback-${createHash('sha1').update(m.title).digest('hex').slice(0, 10)}.jpg`);
   if (existsSync(out)) return out;
@@ -64,7 +64,7 @@ async function fallbackCover(dir: string, m: AssetManifest, logo: string | null)
   const title = m.title.length > 28 ? `${m.title.slice(0, 27)}…` : m.title;
   const svg = Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200"><rect width="1200" height="1200" fill="#07080B"/>` +
-      `<circle cx="600" cy="520" r="360" fill="none" stroke="#F0C030" stroke-width="10" opacity="0.85"/>` +
+      `<circle cx="600" cy="520" r="360" fill="none" stroke="#01E6FC" stroke-width="10" opacity="0.85"/>` +
       `<text x="600" y="1030" font-family="Oswald, Arial Narrow, Arial, sans-serif" font-size="72" font-weight="600" fill="#F4EEDD" text-anchor="middle" letter-spacing="4">${esc(title.toUpperCase())}</text>` +
       `<text x="600" y="1110" font-family="Inter, Arial, sans-serif" font-size="34" fill="#C9B98E" text-anchor="middle" letter-spacing="8">ECHO GROOVE · GROOVEHOUSE RECORDS</text></svg>`
   );

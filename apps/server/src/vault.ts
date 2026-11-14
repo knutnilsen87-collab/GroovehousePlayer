@@ -11,6 +11,7 @@ import { elevated, FIREWALL_RULE, firewallRuleExists, lanCommand } from './lan-c
 import { remoteCommand } from './remote-cli';
 import { autostartStatus, disableAutostart, enableAutostart, TASK_NAME } from './autostart';
 import { setShortcutAumid } from './aumid';
+import { cloudSyncWarning, detectCloudSync } from './cloudsync';
 import { AUMID, notify, readyMessage } from './notify';
 import { probeHealth } from './server';
 
@@ -75,6 +76,8 @@ function runPnpm(args: string[]) {
 async function install() {
   const cfg = loadConfig(root);
   console.log('Groovehouse Vault – installasjon\n');
+  const sync = detectCloudSync(root);
+  if (sync) console.log(cloudSyncWarning(sync, root) + '\n');
 
   console.log('1/4 Bygger web-appen (pnpm build)…');
   runPnpm(['--filter', '@gv/web', 'build']);

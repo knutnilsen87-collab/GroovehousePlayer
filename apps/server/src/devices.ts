@@ -14,6 +14,14 @@ export interface Device {
   createdAt: string;
   lastSeenAt: string | null;
   revokedAt: string | null;
+  /** Del 15: versjonen appen sist meldte (X-GV-App / X-GV-Bundle). */
+  client?: ClientVersion;
+}
+
+export interface ClientVersion {
+  versionCode: number;
+  bundle: number | null;
+  seenAt: string;
 }
 
 export interface PublicDevice {
@@ -22,6 +30,7 @@ export interface PublicDevice {
   createdAt: string;
   lastSeenAt: string | null;
   revokedAt: string | null;
+  client?: ClientVersion;
 }
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -87,6 +96,19 @@ export function createDeviceStore(file: string) {
       }
       return pub(d);
     },
+
+    /** Lagres bare når versjonen endres (ikke ved hver forespørsel). */
+    noteClient: (id: string, app: string, bundle: string) =>
+      serial(async () => {
+        const versionCode = Number(app);
+        const b = bundle && /^\d{1,20}$/.test(bundle) ? Number(bundle) : null;
+        if (!Number.isInteger(versionCode) || versionCode < 1) return;
+        const all = await read();
+        const d = all.find((x) => x.id === id);
+        if (!d || (d.client?.versionCode === versionCode && d.client?.bundle === b)) return;
+        d.client = { versionCode, bundle: b, seenAt: new Date().toISOString() };
+        await write(all);
+      }),
 
     revoke: (id: string) =>
       serial(async () => {

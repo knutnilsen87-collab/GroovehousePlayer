@@ -11,7 +11,7 @@ export interface IngestRule {
 export interface Editable {
   audio: { targetLufs: number };
   ingest: { setThresholdMinutes: number; rules: IngestRule[] };
-  colors: { minContrast: number; goldFallback: boolean };
+  colors: { minContrast: number; colorFallback: boolean };
   drops: { tier: Tier; ttlDays: number; maxDevices: number; watermark: boolean };
   defaults: { artist: string | null; label: string | null; copyright: string | null };
   titleCleanup: { remove: string[] };
@@ -32,6 +32,10 @@ export interface SettingsState {
   lan: { enabled: boolean; pinSet: boolean; firewallRule: boolean | null };
   remote: { running: boolean; host: string | null; serve: boolean; funnel: boolean; url: string | null; qr: string | null };
   canChangeAccess: boolean;
+  /** Prosjektmappa ligger i en synkronisert skymappe (Google Drive, OneDrive …). */
+  cloudSync: { provider: string; syncRoot: string; warning: string } | null;
+  /** Del 15: nyeste publiserte app (bunt og APK). */
+  app: { bundle: { version: number; minNative: number; builtAt: string } | null; apk: { versionCode: number; versionName: string; builtAt: string } | null };
 }
 export interface PreviewRow {
   file: string;

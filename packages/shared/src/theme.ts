@@ -3,23 +3,19 @@ import type { Palette } from './types';
 /** Bakgrunnen alt måles mot. */
 export const OBSIDIAN = '#07080B';
 
-export const GOLD_FALLBACK: Palette = {
-  primary: '#F0C030',
-  secondary: '#B06000',
-  onPrimary: '#120D02',
-  source: 'fallback'
-};
-
 /**
- * Del 14: nøytral sølv før noe er valgt (ingen låt i køen, Studio uten låt). Gull er forbeholdt logoen;
- * så snart en låt er i spill, styrer coveret alle aksenter.
+ * Standardpaletten (Knut 2026-11-14): cyan målt fra referansebildet (docs/design/reference/high-end-studio.png).
+ * Brukes når en låt mangler cover eller coveret er fargeløst, og før noen låt er valgt. Gull er bare for logoen.
  */
-export const NEUTRAL_PALETTE: Palette = {
-  primary: '#C8D0DC',
-  secondary: '#5A6578',
+export const FALLBACK_PALETTE: Palette = {
+  primary: '#01E6FC',
+  secondary: '#0A6CF0',
   onPrimary: '#07080B',
   source: 'fallback'
 };
+
+/** Før noen låt er valgt (del 14): samme cyan-standard. */
+export const NEUTRAL_PALETTE: Palette = FALLBACK_PALETTE;
 
 /** CSS-variablene UI-et bruker. Ingen komponent skal hardkode aksentfarger. */
 export function paletteToCssVars(p: Palette): Record<string, string> {

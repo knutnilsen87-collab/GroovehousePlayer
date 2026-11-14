@@ -3,13 +3,19 @@
  *                        i dist/android/. Keystore: %APPDATA%\GroovehouseVault\android\release.jks,
  *                        passord i Windows Credential Manager. Lages første gang (ta backup!).
  * pnpm android:install – installerer siste APK på telefonen via adb (USB-feilsøking må være på).
+ * pnpm android:release – del 15: web-bunt til data/app/bundle, ny APK til data/app/apk bare hvis den
+ *                        native koden er endret, og data/app/manifest.json. Appen henter selv derfra.
  */
 import { spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { credRead, credWrite } from '../../server/src/credstore';
+import { nextVersionCode } from '../../../packages/shared/src/appupdate';
+// @ts-expect-error – ren JS-modul uten typer (kjøres også direkte av web-bygget)
+import { APP_DIR, makeBundle, nativeHash, readManifest, writeManifest } from './bundle.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..', '..');
@@ -64,7 +70,13 @@ function build() {
   run('node', [path.join(here, 'icons.mjs')]);
   assertNoAddress([path.join(root, 'apps', 'web', 'dist'), path.join(gradleDir, 'app', 'src', 'main', 'assets'), path.join(gradleDir, 'app', 'src', 'main', 'res')]);
   const pw = ensureKeystore();
-  const code = String(Number(run('git', ['rev-list', '--count', 'HEAD'], { quiet: true }).trim()) || 1);
+  // Del 15: versionCode går aldri ned (teller i %LOCALAPPDATA%, maks av teller + 1 og antall commits)
+  const counterFile = path.join(process.env.LOCALAPPDATA ?? '', 'GroovehouseVault', 'android', 'build-counter');
+  const commits = Number(run('git', ['rev-list', '--count', 'HEAD'], { quiet: true }).trim()) || 1;
+  const counter = existsSync(counterFile) ? Number(readFileSync(counterFile, 'utf8').trim()) : null;
+  const code = String(nextVersionCode(counter, commits));
+  mkdirSync(path.dirname(counterFile), { recursive: true });
+  writeFileSync(counterFile, code + '\n');
   console.log(`── Gradle assembleRelease (versjon ${version}, kode ${code})`);
   run(path.join(gradleDir, process.platform === 'win32' ? 'gradlew.bat' : 'gradlew'), ['assembleRelease', '--console=plain', '-q'], {
     cwd: gradleDir,
@@ -80,6 +92,38 @@ function build() {
   const apksigner = path.join(sdk, 'build-tools', readdirSync(path.join(sdk, 'build-tools')).sort().pop()!, 'apksigner.bat');
   const v = run(apksigner, ['verify', '--print-certs', target], { quiet: true });
   console.log(`✓ Signert APK: ${path.relative(root, target)} (${(statSync(target).size / 1e6).toFixed(1)} MB)\n  ${v.split('\n').find((l) => l.includes('certificate DN')) ?? ''}`);
+  return { file: target, versionCode: Number(code) };
+}
+
+/**
+ * Del 15: publiser til appen. Web-bunten lages alltid (av web-bygget). Ny APK bare når den native
+ * koden er endret siden forrige APK (eller det ikke finnes noen), og legges i data/app/apk/.
+ */
+function release(force = false) {
+  console.log('── Web-app og bunt');
+  run('pnpm', ['--filter', './apps/web', 'build']);
+  const m = readManifest();
+  const nh = nativeHash();
+  const apkOk = m.apk && m.apk.nativeHash === nh && existsSync(path.join(APP_DIR, 'apk', m.apk.file));
+  if (apkOk && !force) {
+    console.log(`✓ Native kode uendret – ingen ny APK (siste: ${m.apk.versionName} / ${m.apk.versionCode})`);
+  } else {
+    console.log(force ? '── Ny APK (tvunget)' : m.apk ? '── Native kode er endret – bygger ny APK' : '── Første APK med oppdatereren');
+    const built = build();
+    const dir = path.join(APP_DIR, 'apk');
+    mkdirSync(dir, { recursive: true });
+    const file = `groovehouse-vault-${built.versionCode}.apk`;
+    copyFileSync(built.file, path.join(dir, file));
+    for (const f of readdirSync(dir)) if (f !== file && f.endsWith('.apk')) rmSync(path.join(dir, f), { force: true });
+    const buf = readFileSync(path.join(dir, file));
+    const notes = run('git', ['log', '-1', '--format=%s'], { quiet: true }).trim();
+    const latest = readManifest();
+    latest.apk = { versionCode: built.versionCode, versionName: version, sha256: createHash('sha256').update(buf).digest('hex'), size: buf.length, notes, file, nativeHash: nativeHash(), builtAt: new Date().toISOString() };
+    writeManifest(latest);
+    console.log(`✓ APK ${built.versionCode} lagt ut for appen (data/app/apk/${file})`);
+  }
+  // minNative regnes på nytt mot (eventuelt ny) APK
+  makeBundle();
 }
 
 function install() {
@@ -118,7 +162,9 @@ const cmd = process.argv[2];
 try {
   if (cmd === 'build') build();
   else if (cmd === 'install') install();
-  else throw new Error('Bruk: android build | android install');
+  else if (cmd === 'release') release(process.argv.includes('--apk'));
+  else if (cmd === 'bundle') makeBundle();
+  else throw new Error('Bruk: android build | android install | android release [--apk] | android bundle');
 } catch (err) {
   console.error(`\n✗ ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);

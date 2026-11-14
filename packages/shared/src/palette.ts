@@ -1,6 +1,6 @@
 import { converter, formatHex, wcagContrast, clampChroma, type Oklch } from 'culori';
 import type { Palette } from './types';
-import { GOLD_FALLBACK, OBSIDIAN } from './theme';
+import { FALLBACK_PALETTE, OBSIDIAN } from './theme';
 
 
 let _toOklch: ReturnType<typeof converter<'oklch'>> | null = null;
@@ -20,7 +20,7 @@ export interface PaletteOptions {
   /** Minste kontrast mot bakgrunnen (WCAG), 3–7. Standard 4.5. */
   minContrast?: number;
   /** Gull for fargeløse cover (standard). Av: bruk coverets egen (dempede) farge. */
-  goldFallback?: boolean;
+  colorFallback?: boolean;
 }
 
 function oklchOf(hex: string): Oklch {
@@ -50,7 +50,7 @@ export function choosePalette(candidates: ColorCandidate[], opts: PaletteOptions
     .sort((a, b) => b.score - a.score);
 
   const best = scored[0];
-  if (!best || (best.o.c < MIN_CHROMA && opts.goldFallback !== false)) return { ...GOLD_FALLBACK };
+  if (!best || (best.o.c < MIN_CHROMA && opts.colorFallback !== false)) return { ...FALLBACK_PALETTE };
 
   const primary = clampAccent(best.o, minContrast);
 

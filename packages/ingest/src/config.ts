@@ -14,7 +14,7 @@ export interface VaultConfig {
   /** Del 8: kategorisering. Lengre enn grensen = live-sett; regler på filnavn kan sette type/variant. */
   ingest: { setThresholdMinutes: number; rules: IngestRule[] };
   /** Del 8: farger fra cover. */
-  colors: { minContrast: number; goldFallback: boolean };
+  colors: { minContrast: number; colorFallback: boolean };
   /** Del 8: standarder for drops (lagres nå, brukes i delingsfasen). */
   drops: { tier: 'partner' | 'inner_circle' | 'supporter' | 'teaser'; ttlDays: number; maxDevices: number; watermark: boolean };
   /** Eksportmappa (Reason-bounces). Lagres lokalt (groovehouse.local.json); ellers GH_EXPORT_DIR i .env. */
@@ -49,7 +49,7 @@ const FALLBACK: VaultConfig = {
   titleCleanup: { remove: ['suno ai', 'suno'] },
   audio: { targetLufs: -14 },
   ingest: { setThresholdMinutes: 20, rules: [] },
-  colors: { minContrast: 4.5, goldFallback: true },
+  colors: { minContrast: 4.5, colorFallback: true },
   drops: { tier: 'partner', ttlDays: 30, maxDevices: 2, watermark: true },
   exportDir: null
 };
@@ -106,7 +106,7 @@ export function loadConfig(root = findRoot()): VaultConfig {
     titleCleanup: { remove: l.titleCleanup?.remove ?? j.titleCleanup?.remove ?? FALLBACK.titleCleanup.remove },
     audio: { ...FALLBACK.audio, ...(j.audio ?? {}), ...(l.audio ?? {}) },
     ingest: { ...FALLBACK.ingest, ...(j.ingest ?? {}), ...(l.ingest ?? {}) },
-    colors: { ...FALLBACK.colors, ...(j.colors ?? {}), ...(l.colors ?? {}) },
+    colors: legacyColors({ ...FALLBACK.colors, ...(j.colors ?? {}), ...(l.colors ?? {}) }),
     drops: { ...FALLBACK.drops, ...(j.drops ?? {}), ...(l.drops ?? {}) },
     // Eksportmappa er maskinspesifikk: bare fra den lokale fila (eller .env)
     exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null
@@ -152,4 +152,10 @@ export function setAllowedHost(root: string, host: string, allowed: boolean): vo
 /** "℗ {år} {label}" / "℗ {year} Groovehouse Records" → "℗ 2026 Groovehouse Records" */
 export function formatCopyright(template: string | null, year: number, label: string | null = null): string | null {
   return template ? template.replace(/\{(year|år)\}/g, String(year)).replace(/\{label\}/g, label ?? '').replace(/\s+/g, ' ').trim() : null;
+}
+
+/** «goldFallback» (før 2026-11-14) heter nå «colorFallback»: standardfargen er cyan, gull bare i logoen. */
+function legacyColors(c: Record<string, unknown>): { minContrast: number; colorFallback: boolean } {
+  const { goldFallback, ...rest } = c as { goldFallback?: boolean; colorFallback?: boolean; minContrast: number };
+  return { ...rest, colorFallback: rest.colorFallback ?? goldFallback ?? true } as { minContrast: number; colorFallback: boolean };
 }

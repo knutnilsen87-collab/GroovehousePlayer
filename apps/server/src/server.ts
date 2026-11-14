@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import { APP_ID, createApiHandler, isFromDrop, shareFileFor } from '@gv/ingest/api';
 import { createSettingsRoute, type SettingsHooks } from './settings-route';
 import { createMediaHandler } from '@gv/ingest/media-static';
+import { appUpdateRoute } from './app-update';
 import { COOKIE_NAME, issueToken, LoginLimiter, readCookie, verifyPin, verifyToken, type PinRecord } from './lan-auth';
 import { isLoopback, isPrivateIPv4, lanAddresses, loginPage, networkCategories, qrSvg, remoteIPv4, safeNext } from './lan';
 import { APP_ORIGIN, bearerOf, type DeviceStore } from './devices';
@@ -69,6 +70,7 @@ export function createHandler(opts: ServerOptions) {
   const isLocal = opts.isLocal ?? isLoopback;
   const lanHosts = opts.lanHosts ?? lanAddresses;
   const allowedHosts = (opts.allowedHosts ?? []).map((h) => h.toLowerCase().replace(/\.$/, ''));
+  const appUpdate = appUpdateRoute(path.join(path.resolve(opts.mediaDir, '..'), 'data'));
   const limiter = new LoginLimiter();
   let port = 0;
 
@@ -88,7 +90,7 @@ export function createHandler(opts: ServerOptions) {
       if (cors) {
         res.setHeader('Access-Control-Allow-Origin', APP_ORIGIN);
         res.setHeader('Vary', 'Origin');
-        res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+        res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-GV-App, X-GV-Bundle');
         res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, PATCH, PUT, DELETE');
         res.setHeader('Access-Control-Max-Age', '600');
       }
@@ -100,6 +102,10 @@ export function createHandler(opts: ServerOptions) {
         res.statusCode = 401;
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         return res.end(JSON.stringify({ error: 'Enheten er ikke godkjent (lenger). Koble til Vault på nytt.' }));
+      }
+      // Del 15: appen melder sin APK- og bunt-versjon (vises under Studio → Innstillinger → Enheter)
+      if (device && opts.devices && req.headers['x-gv-app']) {
+        void opts.devices.noteClient(device.id, String(req.headers['x-gv-app']), String(req.headers['x-gv-bundle'] ?? '')).catch(() => {});
       }
 
       if (local) {
@@ -164,6 +170,19 @@ export function createHandler(opts: ServerOptions) {
         return res.end();
       }
       if (url.pathname === '/api/devices' || url.pathname.startsWith('/api/devices/')) return await devicesRoute(req, res, url);
+      // Del 15: oppdateringer til appen – bare paret app med gyldig token, aldri fra /drop/
+      if (url.pathname.startsWith('/api/app/')) {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        if (isFromDrop(req)) {
+          res.statusCode = 403;
+          return res.end(JSON.stringify({ error: 'ikke tilgjengelig herfra' }));
+        }
+        if (!device) {
+          res.statusCode = 401;
+          return res.end(JSON.stringify({ error: 'krever paret app (enhetstoken)' }));
+        }
+        return appUpdate(req, res, url);
+      }
       // PC-en selv: loopback, lokalt vertsnavn, ikke Tailscale, og ingen fremmed Origin.
       const origin = req.headers.origin;
       const fromPc = local && /^(127\.0\.0\.1|localhost|\[::1\])$/.test(hostName) && !req.headers['tailscale-user-login'] && (!origin || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin));

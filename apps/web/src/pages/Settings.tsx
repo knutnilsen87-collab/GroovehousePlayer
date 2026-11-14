@@ -81,7 +81,7 @@ export function SettingsView() {
       <MetadataSection draft={draft} set={set} busy={busy} dirty={dirty('defaults') || dirty('titleCleanup')} onSave={() => save(['defaults', 'titleCleanup'], 'Metadata-standardene er lagret og gjelder neste ingest.')} />
       <ColorsSection draft={draft} set={set} busy={busy} dirty={dirty('colors')} onSave={() => save(['colors'], 'Fargeinnstillingene er lagret.')} />
       <AccessSection state={state} onChanged={load} />
-      <Section title="Standarder for drops" hint="Lagres nå, men har ingen effekt før delingsfasen (Supabase).">
+      <Section title="Standarder for drops" hint="Lagres nå, men har ingen effekt før del 13 (deling med lenker) er bygget.">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
           <label className="flex flex-col gap-1 text-xs text-muted">
             Standard nivå
@@ -98,6 +98,13 @@ export function SettingsView() {
         </div>
         <SaveRow busy={busy} dirty={dirty('drops')} onSave={() => save(['drops'], 'Drop-standardene er lagret.')} onReset={() => set('drops', state.defaults.drops)} />
       </Section>
+      <Devices app={state.app} />
+      {state.cloudSync && (
+        <section role="alert" aria-label="Skysynkronisering" className="rounded-2xl border border-[#FF6B5A]/50 bg-[#FF6B5A]/[0.06] p-5">
+          <h2 className="m-0 text-base font-semibold text-[#FFB4A8]">Prosjektmappa synkroniseres av {state.cloudSync.provider}</h2>
+          <pre className="m-0 mt-2 whitespace-pre-wrap font-mono text-xs text-soft">{state.cloudSync.warning}</pre>
+        </section>
+      )}
       <Section title="Server" hint={`Port ${state.server.port} · prosess ${state.server.pid}`}>
         <RestartServer />
       </Section>
@@ -108,6 +115,62 @@ export function SettingsView() {
 const field = 'min-h-11 w-full rounded-xl border border-white/10 bg-sunken px-3 text-sm text-ink focus:border-accent/60 focus:outline-none';
 const primaryBtn = 'min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent disabled:opacity-50';
 const ghostBtn = 'min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50 disabled:opacity-50';
+
+/** Del 15: tilkoblede enheter, hvilken app- og bunt-versjon de kjører, og hva som er nyeste. */
+interface DeviceRow {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastSeenAt: string | null;
+  revokedAt: string | null;
+  client?: { versionCode: number; bundle: number | null; seenAt: string };
+}
+function Devices({ app }: { app: SettingsState['app'] }) {
+  const [devices, setDevices] = useState<DeviceRow[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const load = () =>
+    fetch('/api/devices', { cache: 'no-store' })
+      .then(async (r) => (r.ok ? setDevices(((await r.json()) as { devices: DeviceRow[] }).devices) : setErr(`HTTP ${r.status}`)))
+      .catch((e: unknown) => setErr(String(e)));
+  useEffect(() => {
+    void load();
+  }, []);
+  const fmt = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' }) : '–');
+  const active = (devices ?? []).filter((d) => !d.revokedAt);
+  return (
+    <Section title="Enheter" hint="Android-appen oppdaterer seg selv fra denne PC-en (pnpm android:release). Grensesnittet kommer ved neste oppstart av appen; ny native kode gir «Oppdater» i appen.">
+      <p className="m-0 font-mono text-xs text-soft">
+        Nyeste: app {app.apk ? `${app.apk.versionName} (${app.apk.versionCode})` : 'ikke publisert'} · bunt {app.bundle ? `${app.bundle.version} (krever app ≥ ${app.bundle.minNative})` : 'ikke publisert'}
+      </p>
+      {err && <p className="m-0 text-xs text-[#FF8A7A]">Fikk ikke hentet enhetene: {err}</p>}
+      {devices && active.length === 0 && <p className="m-0 text-sm text-muted">Ingen paret enhet ennå. Åpne appen på telefonen og koble til med adresse og PIN.</p>}
+      <ul className="m-0 flex list-none flex-col gap-2 p-0">
+        {active.map((d) => {
+          const c = d.client;
+          const appOld = !!(c && app.apk && c.versionCode < app.apk.versionCode);
+          const bundleOld = !!(c && app.bundle && (c.bundle ?? 0) < app.bundle.version && c.versionCode >= app.bundle.minNative);
+          return (
+            <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-sm">
+              <span className="min-w-[140px] flex-1 font-semibold text-ink-strong">{d.name}</span>
+              <span className="font-mono text-xs text-soft">
+                {c ? (
+                  <>
+                    app {c.versionCode}
+                    {appOld && <span className="text-accent"> → {app.apk!.versionCode}</span>} · bunt {c.bundle ?? 'innebygd'}
+                    {bundleOld && <span className="text-accent"> → {app.bundle!.version}</span>}
+                  </>
+                ) : (
+                  'versjon ikke meldt ennå (eldre app)'
+                )}
+              </span>
+              <span className="text-xs text-muted">sist sett {fmt(c?.seenAt ?? d.lastSeenAt)}</span>
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
@@ -395,7 +458,7 @@ function ColorsSection({ draft, set, busy, dirty, onSave }: { draft: Editable; s
           <span className="tabular text-sm text-ink-strong">{draft.colors.minContrast.toFixed(1)}:1</span>
         </span>
       </label>
-      <Toggle label="Fargeløse cover får gull" checked={draft.colors.goldFallback} onChange={(v) => set('colors', { ...draft.colors, goldFallback: v })} />
+      <Toggle label="Fargeløse cover får standardfargen (cyan)" checked={draft.colors.colorFallback} onChange={(v) => set('colors', { ...draft.colors, colorFallback: v })} />
       <div className="flex flex-wrap items-center gap-2">
         <SaveRow busy={busy} dirty={dirty} onSave={onSave} />
         <button

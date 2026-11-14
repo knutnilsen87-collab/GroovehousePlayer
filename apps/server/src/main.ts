@@ -10,6 +10,7 @@ import { lanAddresses } from './lan';
 import { createDeviceStore } from './devices';
 import { createLogger } from './logger';
 import { notify, readyMessage } from './notify';
+import { cloudSyncWarning, detectCloudSync } from './cloudsync';
 import type { SettingsHooks } from './settings-route';
 import { firewallRuleExists } from './lan-cli';
 import { spawn } from 'node:child_process';
@@ -83,7 +84,14 @@ async function main() {
     watcherStatus: () => watcher?.status() ?? null,
     restartWatcher: async () => {
       await watcher?.close().catch(() => {});
-      watcher = startWatch();
+      // Synkronisert skymappe? Da havner musikken og hemmelighetene i skyen – si fra tydelig.
+  const sync = detectCloudSync(root);
+  if (sync) {
+    for (const line of cloudSyncWarning(sync, root).split('\n')) log(line);
+    notify('Groovehouse Vault', `Prosjektmappa synkroniseres av ${sync.provider}. Ta media, data, .env og node_modules ut av synkroniseringen.`, log);
+  }
+
+  watcher = startWatch();
       return watcher?.status() ?? null;
     },
     firewallRule: firewallRuleExists,
