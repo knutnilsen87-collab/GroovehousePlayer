@@ -138,3 +138,11 @@ async function printHealth(host: string) {
   }
   console.log(`\nÅpne på mobilen (Tailscale på): https://${host}/`);
 }
+
+/** Del 8: status for Studio (endrer ingenting). Adressen vises bare til innloggede klienter, aldri i git. */
+export function remoteStatus(): { running: boolean; host: string | null; serve: boolean; funnel: boolean } {
+  const host = selfHostOrNull();
+  if (!host) return { running: false, host: null, serve: false, funnel: false };
+  const st = serveStatus();
+  return { running: true, host, serve: !!serveTarget(host), funnel: Object.values(st.AllowFunnel ?? {}).some(Boolean) };
+}

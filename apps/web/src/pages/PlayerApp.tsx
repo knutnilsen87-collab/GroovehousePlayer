@@ -32,6 +32,7 @@ import { useUi } from '../lib/ui';
 import { fromStored } from '@gv/shared/web';
 import { App as CapApp } from '@capacitor/app';
 import { isApp } from '../lib/platform';
+import { loadPlaybackSettings } from '../lib/settings';
 import { UnreachableScreen } from './Connect';
 
 type View = 'catalog' | 'sets' | 'playlists';
@@ -78,6 +79,11 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     const now = usePlayer.getState().queue[usePlayer.getState().index];
     if (now) openActions({ assets: [now], context: 'now', anchor });
   };
+
+  // Del 8: LUFS-målet fra innstillingene (demping regnes ut i spilleren).
+  useEffect(() => {
+    void loadPlaybackSettings();
+  }, []);
 
   // Køen fra forrige gang: legges tilbake pauset når katalogen er lastet (eldre versjoner hentes ved behov).
   const restored = useRef(false);

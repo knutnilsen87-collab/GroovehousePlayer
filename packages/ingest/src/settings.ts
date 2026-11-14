@@ -1,8 +1,9 @@
 import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync, copyFileSync } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { GOLD_FALLBACK, type AssetManifest } from '@gv/shared';
-import { CONFIG_FILE, LOCAL_CONFIG_FILE, loadConfig, type IngestRule, type VaultConfig } from './config';
+import { GOLD_FALLBACK, parseFlatName, type AssetManifest } from '@gv/shared';
+import { CONFIG_FILE, formatCopyright, LOCAL_CONFIG_FILE, loadConfig, matchRule, type IngestRule, type VaultConfig } from './config';
+import { AUDIO_RE } from './sources';
 import { paletteFrom } from './cover';
 
 /**
@@ -15,17 +16,21 @@ export interface SettingsPatch {
   ingest?: Partial<VaultConfig['ingest']>;
   colors?: Partial<VaultConfig['colors']>;
   drops?: Partial<VaultConfig['drops']>;
+  /** Metadata: standard artist/label/copyright-mal ({år}, {label}). */
+  defaults?: Partial<VaultConfig['defaults']>;
+  /** Ord/mønstre som fjernes fra titler. */
+  titleCleanup?: VaultConfig['titleCleanup'];
   /** Lagres i groovehouse.local.json (maskinspesifikk sti). null = fjern, bruk .env. */
   exportDir?: string | null;
 }
 
-export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'colors' | 'drops' | 'exportDir'>;
+export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir'>;
 
 export const BACKUP_FILE = 'groovehouse.config.backup.json';
 const TIERS = ['partner', 'inner_circle', 'supporter', 'teaser'] as const;
 
 export function editableOf(cfg: VaultConfig): Editable {
-  return { audio: cfg.audio, ingest: cfg.ingest, colors: cfg.colors, drops: cfg.drops, exportDir: cfg.exportDir };
+  return { audio: cfg.audio, ingest: cfg.ingest, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir };
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
@@ -57,6 +62,12 @@ export function validateSettings(patch: SettingsPatch, base: VaultConfig): strin
   const dev = num(next.drops.maxDevices);
   if (!(dev >= 1 && dev <= 10) || !Number.isInteger(dev)) e.push('Maks enheter må være 1–10');
   if (typeof next.drops.watermark !== 'boolean') e.push('Vannmerke må være av eller på');
+  for (const [k, label, max] of [['artist', 'Standard artist', 100], ['label', 'Label', 100], ['copyright', 'Copyright-malen', 120]] as const) {
+    const v = next.defaults[k];
+    if (v !== null && (typeof v !== 'string' || v.length > max)) e.push(`${label} må være tekst på høyst ${max} tegn`);
+  }
+  const rm = next.titleCleanup.remove;
+  if (!Array.isArray(rm) || rm.length > 50 || rm.some((w) => typeof w !== 'string' || !w.trim() || w.length > 60)) e.push('Rensingslisten: høyst 50 ord, hvert 1–60 tegn');
   if (patch.exportDir !== undefined && patch.exportDir !== null) {
     const d = patch.exportDir.trim();
     if (!path.isAbsolute(d)) e.push('Eksportmappa må være en full sti (f.eks. D:\\Musikk\\REASONDONE)');
@@ -72,6 +83,8 @@ function applyPatch(base: VaultConfig, p: SettingsPatch): VaultConfig {
     ingest: { ...base.ingest, ...(p.ingest ?? {}) },
     colors: { ...base.colors, ...(p.colors ?? {}) },
     drops: { ...base.drops, ...(p.drops ?? {}) },
+    defaults: { ...base.defaults, ...(p.defaults ?? {}) },
+    titleCleanup: p.titleCleanup ? { remove: p.titleCleanup.remove.map((w) => (typeof w === 'string' ? w.trim() : w)) } : base.titleCleanup,
     exportDir: p.exportDir === undefined ? base.exportDir : p.exportDir?.trim() || null
   };
 }
@@ -92,7 +105,7 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
   const shared = path.join(root, CONFIG_FILE);
   const j = existsSync(shared) ? (JSON.parse(readFileSync(shared, 'utf8')) as Record<string, unknown>) : {};
   if (existsSync(shared)) copyFileSync(shared, path.join(root, BACKUP_FILE));
-  for (const k of ['audio', 'ingest', 'colors', 'drops'] as const) if (patch[k]) j[k] = next[k];
+  for (const k of ['audio', 'ingest', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) if (patch[k]) j[k] = next[k];
   writeAtomic(shared, j);
 
   if (patch.exportDir !== undefined) {
@@ -103,6 +116,37 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
     writeAtomic(local, l);
   }
   return loadConfig(root);
+}
+
+export interface PreviewRow {
+  file: string;
+  title: string;
+  slug: string;
+  variant: string | null;
+  /** Fra en regel, ellers avgjøres det av lengden ved ingest. */
+  kind: 'set' | 'track' | 'etter lengde';
+  removed: string[];
+  rule: string | null;
+}
+
+/**
+ * Forhåndsvisning: hvordan lydfilene i eksportmappa ville blitt tolket med disse innstillingene
+ * (tittel etter rensing, variant, type fra regler). Leser bare filnavn.
+ */
+export function previewExport(dir: string, patch: SettingsPatch, base: VaultConfig, limit = 200): { rows: PreviewRow[]; total: number; copyright: string | null } {
+  const cfg = applyPatch(base, patch);
+  let files: string[] = [];
+  try {
+    files = readdirSync(dir).filter((f) => AUDIO_RE.test(f)).sort((a, b) => a.localeCompare(b, 'nb'));
+  } catch {
+    files = [];
+  }
+  const rows = files.slice(0, limit).map((f): PreviewRow => {
+    const p = parseFlatName(f, cfg.titleCleanup);
+    const rule = matchRule(cfg, f);
+    return { file: f, title: p.clean.title, slug: p.slug, variant: rule?.variant || p.variant, kind: rule?.kind ?? 'etter lengde', removed: p.clean.removed, rule: rule?.pattern ?? null };
+  });
+  return { rows, total: files.length, copyright: formatCopyright(cfg.defaults.copyright, new Date().getFullYear(), cfg.defaults.label) };
 }
 
 /** Antall lydfiler i mappa (for advarselen før bytte av eksportmappe). Leser bare. */

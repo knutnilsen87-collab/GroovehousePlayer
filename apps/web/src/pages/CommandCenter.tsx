@@ -2,14 +2,17 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEven
 import { computeCoverage, formatTime, paletteToCssVars, type AccessTier, type AssetManifest } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
-import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, UploadIcon } from '../components/Icons';
+import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, StudioIcon, UploadIcon } from '../components/Icons';
+import { AssetLook } from '../components/AssetLook';
+import { loadPlaybackSettings } from '../lib/settings';
+import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
 import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, useCatalog, useIngestLog, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
 
-type View = 'drops' | 'archive' | 'sets' | 'mobile';
+type View = 'drops' | 'archive' | 'sets' | 'mobile' | 'settings';
 
 /** Ditt arbeidsbord. Gull er systemfarge her, men data og kontroll har prioritet. */
 export function CommandCenter() {
@@ -22,13 +25,29 @@ export function CommandCenter() {
   };
   // /studio#mobil åpner Mobil-visningen direkte.
   // /studio#arkiv/<slug> (fra «⋯ → Åpne i Studio» i spilleren) åpner Arkiv og markerer låta.
-  const [view, setView] = useState<View>(() => (typeof location === 'undefined' ? 'drops' : location.hash === '#mobil' ? 'mobile' : location.hash.startsWith('#arkiv') ? 'archive' : 'drops'));
+  // /studio/innstillinger (del 8) er en egen adresse.
+  const [view, setViewState] = useState<View>(() =>
+    typeof location === 'undefined' ? 'drops' : location.pathname.startsWith('/studio/innstillinger') ? 'settings' : location.hash === '#mobil' ? 'mobile' : location.hash.startsWith('#arkiv') ? 'archive' : 'drops'
+  );
+  const setView = (v: View) => {
+    setViewState(v);
+    const want = v === 'settings' ? '/studio/innstillinger' : '/studio';
+    if (location.pathname !== want) history.pushState(null, '', want);
+  };
+  useEffect(() => {
+    void loadPlaybackSettings();
+    const onPop = () => setViewState(location.pathname.startsWith('/studio/innstillinger') ? 'settings' : 'drops');
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   return (
     <div className="flex min-h-screen flex-wrap items-stretch bg-obsidian text-ink">
       <Sidebar view={view} setView={setView} />
       <main className="min-w-0 flex-[999_1_560px] px-8 pb-28 pt-7">
-        {loading ? (
+        {view === 'settings' ? (
+          <SettingsView />
+        ) : loading ? (
           <p className="text-muted">Laster katalog…</p>
         ) : view === 'drops' ? (
           <DropsView assets={assets} log={log} />
@@ -48,7 +67,8 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
     { id: 'drops', label: t.drops, Icon: DropsIcon },
     { id: 'archive', label: t.archive, Icon: ArchiveIcon },
     { id: 'sets', label: t.sets, Icon: PulseIcon },
-    { id: 'mobile', label: t.mobile, Icon: LinkIcon }
+    { id: 'mobile', label: t.mobile, Icon: LinkIcon },
+    { id: 'settings', label: 'Innstillinger', Icon: StudioIcon }
   ];
   return (
     <aside className="flex max-w-[260px] flex-[1_1_220px] flex-col gap-7 border-r border-white/[0.06] bg-sunken px-[18px] py-6">
@@ -627,7 +647,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
         <span className="flex items-center gap-1.5 text-[11px] text-muted">
           <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.primary }} />
           <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.secondary }} />
-          {m.palette.source === 'cover' ? m.palette.primary : 'gull (fallback)'}
+          {m.palette.source === 'fallback' ? 'gull (fallback)' : `${m.palette.primary}${m.palette.source === 'manual' ? ' (valgt)' : ''}`}
         </span>
         <button
           type="button"
@@ -643,13 +663,16 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
       </div>
       <SunoNotice entry={entry} />
       {editing && (
-        <MetaEditor
-          a={a}
-          onDone={() => {
-            setEditing(false);
-            onSaved();
-          }}
-        />
+        <>
+          <MetaEditor
+            a={a}
+            onDone={() => {
+              setEditing(false);
+              onSaved();
+            }}
+          />
+          <AssetLook key={`${m.id}-${m.palette.primary}-${m.liveOffsetMs ?? 0}`} a={a} onSaved={onSaved} />
+        </>
       )}
       <Waveform peaks={a.analysis?.peaks ?? []} bars={120} height={40} progress={0} active markers={m.markers.filter((k) => k.kind === 'drop').map((k) => ({ pct: k.startMs / m.durationMs, label: 'DROP' }))} />
       {chapters.length > 0 && (

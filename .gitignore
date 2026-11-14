@@ -23,3 +23,6 @@ fixtures/**/*.wav
 
 # Spillelister o.l. (lagres av serveren på denne PC-en)
 /data/
+
+# Del 8: forrige versjon av config (lages ved lagring fra Studio)
+/groovehouse.config.backup.json

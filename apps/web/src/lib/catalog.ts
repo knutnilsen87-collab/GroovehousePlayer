@@ -121,7 +121,10 @@ export function lastLogFor(entries: IngestLogEntry[], a: LoadedAsset): IngestLog
 }
 
 /** Lagrer tittel/artist/album/variantnavn for en låt. Tom streng = bruk standard. */
-export async function saveAssetMeta(slug: string, body: { title?: string; artist?: string; album?: string; variants?: Record<string, string> }): Promise<void> {
+export async function saveAssetMeta(
+  slug: string,
+  body: { title?: string; artist?: string; album?: string; variants?: Record<string, string>; palette?: { primary: string; secondary: string } | null; liveOffsetMs?: number | null }
+): Promise<void> {
   const r = await fetch(`/api/assets/${encodeURIComponent(slug)}/meta`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

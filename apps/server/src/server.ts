@@ -2,7 +2,8 @@ import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { APP_ID, createApiHandler, shareFileFor } from '@gv/ingest/api';
+import { APP_ID, createApiHandler, isFromDrop, shareFileFor } from '@gv/ingest/api';
+import { createSettingsRoute, type SettingsHooks } from './settings-route';
 import { createMediaHandler } from '@gv/ingest/media-static';
 import { COOKIE_NAME, issueToken, LoginLimiter, readCookie, verifyPin, verifyToken, type PinRecord } from './lan-auth';
 import { isLoopback, isPrivateIPv4, lanAddresses, loginPage, networkCategories, qrSvg, remoteIPv4, safeNext } from './lan';
@@ -29,6 +30,8 @@ export interface ServerOptions {
   /** PIN-hashen paring sjekkes mot (samme som Wi-Fi-modus), også når Wi-Fi-modus er av. */
   pairPin?: () => PinRecord | null;
   allowedHosts?: string[];
+  /** Del 8: innstillinger i Studio (watcher, omstart). Uten: /api/settings svarer 404. */
+  settings?: SettingsHooks;
   /** Testkrok: er klienten PC-en selv? Standard: loopback-adresse på socketen. */
   isLocal?: (remoteAddress: string | undefined) => boolean;
   /** Testkrok: PC-ens LAN-adresser. */
@@ -62,6 +65,7 @@ export function createHandler(opts: ServerOptions) {
   const dist = path.resolve(opts.distDir);
   const api = createApiHandler({ mediaDir: opts.mediaDir });
   const media = createMediaHandler(opts.mediaDir);
+  const settingsRoute = opts.settings ? createSettingsRoute(opts.settings) : null;
   const isLocal = opts.isLocal ?? isLoopback;
   const lanHosts = opts.lanHosts ?? lanAddresses;
   const allowedHosts = (opts.allowedHosts ?? []).map((h) => h.toLowerCase().replace(/\.$/, ''));
@@ -160,10 +164,19 @@ export function createHandler(opts: ServerOptions) {
         return res.end();
       }
       if (url.pathname === '/api/devices' || url.pathname.startsWith('/api/devices/')) return await devicesRoute(req, res, url);
+      // PC-en selv: loopback, lokalt vertsnavn, ikke Tailscale, og ingen fremmed Origin.
+      const origin = req.headers.origin;
+      const fromPc = local && /^(127\.0\.0\.1|localhost|\[::1\])$/.test(hostName) && !req.headers['tailscale-user-login'] && (!origin || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin));
+      if (url.pathname === '/api/settings' || url.pathname.startsWith('/api/settings/')) {
+        if (!settingsRoute) {
+          res.statusCode = 404;
+          return res.end();
+        }
+        return await settingsRoute(req, res, url, { fromPc, fromDrop: isFromDrop(req) });
+      }
       if (url.pathname === '/api/share/reveal') {
         // «Vis i Utforsker» (del 10): bare fra PC-en selv (ikke Tailscale, ikke Wi-Fi), bare filer i share-cachen.
-        const origin = req.headers.origin;
-        const fromPc = local && /^(127\.0\.0\.1|localhost|\[::1\])$/.test(hostName) && !req.headers['tailscale-user-login'] && (!origin || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin));
+        const _fromPcAgain =local && /^(127\.0\.0\.1|localhost|\[::1\])$/.test(hostName) && !req.headers['tailscale-user-login'] && (!origin || /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(origin));
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         if (!fromPc || req.method !== 'POST') {
           res.statusCode = 403;

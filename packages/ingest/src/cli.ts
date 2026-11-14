@@ -62,8 +62,8 @@ async function main() {
 
   if (args.includes('--index-sources')) {
     // Engangskjøring: koble ingestede versjoner til kildefila i eksportmappa via hash (kun lesing der).
-    const dir = path.resolve(base, target ?? process.env.GH_EXPORT_DIR ?? '');
-    if (!target && !process.env.GH_EXPORT_DIR) throw new Error('Mangler eksportmappe: sett GH_EXPORT_DIR i .env eller oppgi mappa');
+    const dir = path.resolve(base, target ?? loadConfig().exportDir ?? '');
+    if (!target && !loadConfig().exportDir) throw new Error('Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
     console.log(`Leser ${dir} (kun lesing) og matcher på hash …`);
     const r = await indexSources({ exportDir: dir, mediaDir, force, onFile: (n) => process.stdout.write(`  · ${n}\n`) });
     for (const m of r.matched) console.log(`  ✓ ${m.key}  ←  ${m.fileName}`);
@@ -76,8 +76,8 @@ async function main() {
   if (args.includes('--backfill-masters')) {
     // Del 10: Vaults egen tapsfrie kopi (master.flac) for låter ingestet før dette fantes.
     // Leser eksportmappa (kun lesing) via data/sources.json, og bare hvis hashen fortsatt stemmer.
-    const dir = path.resolve(base, target ?? process.env.GH_EXPORT_DIR ?? '');
-    if (!target && !process.env.GH_EXPORT_DIR) throw new Error('Mangler eksportmappe: sett GH_EXPORT_DIR i .env eller oppgi mappa');
+    const dir = path.resolve(base, target ?? loadConfig().exportDir ?? '');
+    if (!target && !loadConfig().exportDir) throw new Error('Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
     const sources = (await readSources(sourcesFile(mediaDir))).entries;
     const r = await backfillMasters({
       mediaDir,
@@ -95,8 +95,8 @@ async function main() {
   }
 
   if (args.includes('--backlog')) {
-    const dir = path.resolve(base, target ?? process.env.GH_EXPORT_DIR ?? '');
-    if (!target && !process.env.GH_EXPORT_DIR) throw new Error('Mangler eksportmappe: sett GH_EXPORT_DIR i .env eller oppgi mappa');
+    const dir = path.resolve(base, target ?? loadConfig().exportDir ?? '');
+    if (!target && !loadConfig().exportDir) throw new Error('Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
     const skip = new Set((flag('--skip') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
     const scan = await scanFlat(dir, cfg);
     const plan = await planBacklog(scan.releases, mediaDir, skip, force);

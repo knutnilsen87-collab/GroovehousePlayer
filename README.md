@@ -45,6 +45,18 @@ pnpm vault:server      # serveren i forgrunnen (feilsøking)
 - **Autostart ved pålogging:** `vault:install` lager en planlagt oppgave, «Groovehouse Vault» i Oppgaveplanlegging. Den gjelder bare din bruker og krever ikke administrator. Oppgaven kjører `launcher.vbs /bakgrunn`, som starter serveren og watcheren uten vindu og uten feilbokser (feil havner i loggen). `pnpm vault:autostart on|off|status`. `vault:uninstall` fjerner oppgaven.
 - **Varsel når en ny bounce er klar:** «Would You Run (Extended) er klar – 125 BPM · 8A». Startmeny-snarveien får en AppUserModelID (`GroovehouseRecords.Vault`), så varselet vises med «Groovehouse Vault» som avsender. `pnpm vault:autostart test-varsel` sender et testvarsel. «Ikke forstyrr» i Windows demper varslene som vanlig.
 
+## Innstillinger i Studio (`/studio/innstillinger`)
+
+- **Eksport og watcher:** eksportmappa (sjekkes: finnes, kan leses, antall lydfiler), watcher-status (kjører, i kø, siste hendelse) og omstart. Mappa lagres i `groovehouse.local.json` (bare denne PC-en) og vinner over `GH_EXPORT_DIR`. Mange filer i en ny mappe importeres ikke automatisk – bruk `pnpm gh-ingest --backlog`.
+- **Kategorisering:** grense for live-sett (standard 20 min) og filnavnregler med `*` (f.eks. `* (Live *)` → sett, `*Club*` → variant `club`), med forhåndsvisning på filene i eksportmappa.
+- **Lyd:** målnivå −16 til −11 LUFS (standard −14). Spilleren demper bare, løfter aldri. Gjelder med en gang, også for låter som alt er ingestet.
+- **Metadata:** standard artist, label, copyright-mal (`℗ {år} {label}`) og ord som fjernes fra titler, med forhåndsvisning.
+- **Farger:** minste kontrast (3–7, standard 4.5:1) og gull for fargeløse cover. «Bruk på alle låter nå» regner ut fargene på nytt fra lagret cover (låter med egen farge røres ikke).
+- **Tilgang:** Wi-Fi-modus av/på og ny PIN (bare fra PC-en), Tailscale-status med QR. PIN og hasher vises aldri.
+- **Drops:** standarder lagres nå, men har ingen effekt før delingsfasen.
+- **Per låt (Arkiv → Rediger):** egen primær-/sekundærfarge med kontrastmåling og forhåndsvisning, og for live-sett en forskyvning (±10 s, steg 50 ms) med «spill fra markør». Lagres i `media/<slug>/meta.json` og overlever ny ingest.
+- Lagring valideres først, `groovehouse.config.json` skrives atomisk og forrige versjon ligger i `groovehouse.config.backup.json` (ikke i git). Lyttelenker (`/drop/…`) har aldri tilgang.
+
 ## Mobilen på samme Wi-Fi (LAN-modus)
 
 > **Kun hjemme.** Dette er vanlig HTTP på lokalnettet: PIN og lyd går ukryptert over Wi-Fi-en. Ikke bruk det på offentlige nett, og ikke for partnere – partnerlenker kommer med R2 og invitasjonstokens i en egen fase.

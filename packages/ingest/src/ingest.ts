@@ -138,7 +138,7 @@ export function resolveMeta(
     // Album: per låt, ellers låttittelen (singel). Aldri labelnavnet.
     album: clean(meta.album, 'album') ?? title,
     label,
-    copyright: clean(meta.copyright, 'copyright') ?? formatCopyright(cfg.defaults.copyright, year),
+    copyright: clean(meta.copyright, 'copyright') ?? formatCopyright(cfg.defaults.copyright, year, label),
     variantLabel,
     titleNeedsReview: !meta.title && master.wasAllCaps,
     venue: clean(meta.venue, 'sted')
@@ -201,7 +201,7 @@ async function ingestOne(
   // Kildefil (privat, data/sources.json): bare til «Kildefil» i Info og Studio, aldri i manifest/tags/deling.
   const noteSource = () =>
     recordSources(sourcesFile(opts.mediaDir), {
-      [sourceKey(master.slug, master.variant, master.version)]: { fileName: master.fileName, relPath: relativeToExport(master.path, process.env.GH_EXPORT_DIR), sha256: sha, recordedAt: new Date().toISOString() }
+      [sourceKey(master.slug, master.variant, master.version)]: { fileName: master.fileName, relPath: relativeToExport(master.path, cfg.exportDir ?? undefined), sha256: sha, recordedAt: new Date().toISOString() }
     }).catch((err) => report('kildefil', 'warn', `klarte ikke å lagre kildefil: ${err instanceof Error ? err.message : err}`));
 
   const outDir = path.join(path.resolve(opts.mediaDir), master.slug, master.variant ?? 'main', `v${master.version}`);

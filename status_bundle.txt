@@ -545,9 +545,6 @@ closure_readiness:
   incomplete_work:
     - "Mobiltest av manifest-fiks og del 7 (Knut)"
     - "Del 7 (main-versjonen) pkt. 4–6: tilgangsregler, QR for ts.net i Studio, launcher følger Serve ved portbytte"
-    - "Del 8: innstillinger i Studio (ny på main)"
-    - "Push av setup/del-0 (venter på Knuts OK)"
-    - "Del 1: autostart ved innlogging og Windows-varsel"
     - "Del 2: markør-editor"
     - "Del 3: analysepresisjon og evaluering"
     - "Del 4: parallell ingest og fremdrift"
@@ -555,11 +552,12 @@ closure_readiness:
     - "Avslutning: README-oppdatering for markør-editor, treffrate og ytelsestall"
   evidence:
     - "git log --oneline (11a308b, 14c7ee6, bbd6f82, del 7)"
-    - "pnpm test 82/82, pnpm typecheck grønn"
+    - "pnpm test 137/137 (shared 57, ingest 52, web 8, server 20), pnpm typecheck grønn"
     - "curl mot ts.net og 10.0.0.47 (se validation)"
   notes: >
-    Committet og testet på enhetsnivå: del 0b, del 1 (uten autostart og varsel), del 6,
-    manifest-fiks og del 7. Ikke pushet. Ikke implementert: del 2, 3, 4 og 5.
+    Committet, testet og pushet til setup/del-0: del 0b, del 1 (inkl. autostart og varsel), del 6, 7, 9, 10, 11, 12 og 8.
+    Ikke implementert ennå: del 2, 3, 4 (pågår i rekkefølgen 2 → 4 → 3) og 5 (venter på Supabase-nøkler).
+    Se docs/PROGRESS.md for detaljer per del.
     Ingen deploy er aktuelt (lokal app).
 
 # ============================================================
@@ -567,11 +565,11 @@ closure_readiness:
 # ============================================================
 handoff:
   summary: >
-    Lokal musikkspiller for Knut. Fase 1, del 0b, del 1 (delvis), del 6, manifest-fiks og del 7
-    er committet på setup/del-0 (ikke pushet). Tester 82/82 grønne. Fjerntilgang via Tailscale
+    Lokal musikkspiller for Knut. Del 0b, 1, 6, 7, 8, 9, 10, 11 og 12 er committet og pushet
+    på setup/del-0 (ikke merget til main). Tester 137/137 grønne. Fjerntilgang via Tailscale
     Serve er på (https://<pc>.<tailnet>.ts.net/). Gjenstår: mobiltest, resten av
     del 1, del 2, 3, 4 og 5. Del 3 og 5 krever innspill fra Knut.
-  next_action: "Vent på Knuts test av spillelister (mobil og desktop). PR for setup/del-0 og setup/del-9 mot main må lages (gh mangler). Rekkefølge etter det: del 1 punkt 7–8, så del 8."
+  next_action: "Fortsett autonomt: del 2 (markør-editor), så del 4 (raskere ingest), så del 3 (evalueringsskript + fixtures/truth.json-mal). Status og gjenstående i docs/PROGRESS.md."
   next_checks:
     - "Spiller mobilen via ts.net uten PIN?"
     - "Får «Opprett snarvei» over Wi-Fi Groovehouse-ikonet?"

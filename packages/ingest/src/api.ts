@@ -46,7 +46,8 @@ export const APP_ID = 'groovehouse-vault';
 
 export function createApiHandler(opts: ApiOptions) {
   const root = findRoot(opts.mediaDir);
-  const cfg = loadConfig(root);
+  // Leses per forespørsel: innstillinger fra Studio (del 8) gjelder uten omstart.
+  const config = () => loadConfig(root);
   const playlists = createPlaylistStore(path.join(opts.dataDir ?? path.join(root, 'data'), 'playlists.json'));
   let version = '0.0.0';
   try {
@@ -141,7 +142,7 @@ export function createApiHandler(opts: ApiOptions) {
         if (body.palette === null) delete next.palette;
         else {
           const p = body.palette as { primary?: unknown; secondary?: unknown };
-          const mp = manualPalette(String(p?.primary ?? ''), String(p?.secondary ?? ''), cfg.colors.minContrast);
+          const mp = manualPalette(String(p?.primary ?? ''), String(p?.secondary ?? ''), config().colors.minContrast);
           if (!mp.ok) return send(res, 400, { error: mp.error, contrast: mp.contrast });
           next.palette = { primary: mp.palette.primary, secondary: mp.palette.secondary };
         }
@@ -155,7 +156,7 @@ export function createApiHandler(opts: ApiOptions) {
       const file = overridePath(opts.mediaDir, slug);
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, JSON.stringify(next, null, 2));
-      const manifests = await retagSlug(opts.mediaDir, slug, cfg);
+      const manifests = await retagSlug(opts.mediaDir, slug, config());
       return send(res, 200, { meta: next, manifests });
     } catch (err) {
       return send(res, 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err) });

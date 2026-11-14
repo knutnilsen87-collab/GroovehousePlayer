@@ -149,7 +149,7 @@ export function setAllowedHost(root: string, host: string, allowed: boolean): vo
   writeFileSync(file, JSON.stringify(j, null, 2) + '\n', 'utf8');
 }
 
-/** "℗ {year} Groovehouse Records" → "℗ 2026 Groovehouse Records" */
-export function formatCopyright(template: string | null, year: number): string | null {
-  return template ? template.replace('{year}', String(year)) : null;
+/** "℗ {år} {label}" / "℗ {year} Groovehouse Records" → "℗ 2026 Groovehouse Records" */
+export function formatCopyright(template: string | null, year: number, label: string | null = null): string | null {
+  return template ? template.replace(/\{(year|år)\}/g, String(year)).replace(/\{label\}/g, label ?? '').replace(/\s+/g, ' ').trim() : null;
 }

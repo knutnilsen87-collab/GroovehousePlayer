@@ -29,11 +29,21 @@ const SUBFOLDER_TRIGGER = /\.(wav|wave|aif|aiff|flac)$|^cover\.(png|jpe?g|webp)$
 
 type Job = { kind: 'flat'; file: string } | { kind: 'folder'; folder: string };
 
-export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void> } {
+export interface WatcherStatus {
+  exportDir: string;
+  /** Jobber i kø, inkludert den som kjører nå. */
+  queued: number;
+  busy: boolean;
+  lastEvent: { at: string; text: string } | null;
+}
+
+export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void>; status: () => WatcherStatus } {
   const exportDir = path.resolve(opts.exportDir);
   const log = opts.log ?? ((l: string) => console.log(l));
   const queue: Job[] = [];
   let busy: Promise<void> | null = null;
+  let lastEvent: WatcherStatus['lastEvent'] = null;
+  const event = (text: string) => (lastEvent = { at: new Date().toISOString(), text });
 
   const say = (step: string, status: StepStatus, detail?: string) => {
     if (status === 'start') return;
@@ -62,10 +72,12 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
         for (const res of await runJob(job)) {
           const m = res.manifest;
           log(`  ${res.status === 'unchanged' ? '↷ uendret' : '✓ klar'}: ${m.title}${m.variantLabel ? ` (${m.variantLabel})` : ''}${m.bpm ? ` – ${Math.round(m.bpm)} BPM` : ''}${m.key ? ` · ${m.key.camelot}` : ''}`);
+          event(`${res.status === 'unchanged' ? 'uendret' : 'klar'}: ${m.title}${m.variantLabel ? ` (${m.variantLabel})` : ''}`);
           if (res.status !== 'unchanged') opts.onIngested?.(res);
         }
       } catch (err) {
         log(`  ✗ ${err instanceof Error ? err.message.split('\n')[0] : err}`);
+        event(`feil: ${err instanceof Error ? err.message.split('\n')[0] : String(err)}`);
       }
     }
   }
@@ -108,6 +120,7 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
       await w.close();
       await busy;
     },
+    status: () => ({ exportDir, queued: queue.length + (busy ? 1 : 0), busy: !!busy, lastEvent }),
     /** Venter til køen er tom (brukes i tester). */
     idle: async () => {
       while (busy) await busy;

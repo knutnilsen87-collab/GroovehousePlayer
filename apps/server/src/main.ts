@@ -10,6 +10,9 @@ import { lanAddresses } from './lan';
 import { createDeviceStore } from './devices';
 import { createLogger } from './logger';
 import { notify, readyMessage } from './notify';
+import type { SettingsHooks } from './settings-route';
+import { firewallRuleExists } from './lan-cli';
+import { spawn } from 'node:child_process';
 import { appDataDir, logsDir, portFile } from './paths';
 import { candidatePorts, createHandler, listenWithFallback, readVersion, type LanOptions } from './server';
 
@@ -24,7 +27,10 @@ const config = loadConfig(root);
 const version = readVersion(root);
 const mediaDir = path.resolve(root, process.env.GH_MEDIA_DIR ?? 'media');
 const distDir = path.join(root, 'apps', 'web', 'dist');
-const exportDir = process.env.GH_EXPORT_DIR ? path.resolve(root, process.env.GH_EXPORT_DIR) : null;
+const exportDirOf = () => {
+  const d = loadConfig(root).exportDir;
+  return d ? path.resolve(root, d) : null;
+};
 
 mkdirSync(appDataDir(), { recursive: true });
 const log = createLogger(logsDir(), { echo: process.stdout.isTTY === true });
@@ -45,7 +51,58 @@ async function main() {
       return null;
     }
   };
-  const handler = createHandler({ distDir, mediaDir, version, log, lan, allowedHosts: config.allowedHosts, devices, pairPin });
+  let watcher: ReturnType<typeof startWatcher> | null = null;
+  let port = config.ports.server;
+
+  // Watcheren leser config ved start; startes på nytt når innstillingene endres (del 8).
+  const startWatch = () => {
+    const exportDir = exportDirOf();
+    if (!exportDir || !existsSync(exportDir)) {
+      log(`! Watcher er av: eksportmappa ${exportDir ? `finnes ikke (${exportDir})` : 'er ikke valgt (Studio → Innstillinger eller GH_EXPORT_DIR i .env)'}`);
+      return null;
+    }
+    log(`Watcher: ${exportDir} (leser bare)`);
+    return startWatcher({
+      exportDir,
+      mediaDir,
+      config: loadConfig(root),
+      log,
+      // Del 1 pkt. 8: Windows-varsel når en ny bounce er klar
+      onIngested: (res) => {
+        const msg = readyMessage(res.manifest);
+        notify(msg.title, msg.body, log);
+      }
+    });
+  };
+
+  let restarting = false;
+  const settings: SettingsHooks = {
+    root,
+    mediaDir,
+    port: () => port,
+    watcherStatus: () => watcher?.status() ?? null,
+    restartWatcher: async () => {
+      await watcher?.close().catch(() => {});
+      watcher = startWatch();
+      return watcher?.status() ?? null;
+    },
+    firewallRule: firewallRuleExists,
+    restartServer: () => {
+      if (restarting) return;
+      restarting = true;
+      log('Omstart bedt om fra Studio');
+      setTimeout(async () => {
+        server.close();
+        server.closeAllConnections();
+        await watcher?.close().catch(() => {});
+        rmSync(portFile(), { force: true });
+        spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], { cwd: process.cwd(), detached: true, stdio: 'ignore', windowsHide: true }).unref();
+        process.exit(0);
+      }, 300);
+    }
+  };
+
+  const handler = createHandler({ distDir, mediaDir, version, log, lan, allowedHosts: config.allowedHosts, devices, pairPin, settings });
   const server = http.createServer(handler);
   // LAN av: kun 127.0.0.1. LAN på: alle adaptere, men bare private klienter med PIN slipper inn
   // (og brannmurregelen gjelder bare private nettverk).
@@ -62,28 +119,13 @@ async function main() {
   }
   for (const s of result.skipped) log(`! port ${s.port} ${s.reason} – prøver neste`);
   handler.setPort(result.port);
+  port = result.port;
   writeFileSync(portFile(), String(result.port));
   log(`Lytter på http://127.0.0.1:${result.port}/ · media ${mediaDir} · web ${existsSync(path.join(distDir, 'index.html')) ? distDir : 'IKKE BYGGET'}`);
   if (config.allowedHosts.length) log(`Fjerntilgang (Tailscale Serve, uten PIN): ${config.allowedHosts.map((h) => `https://${h}/`).join(' ')}`);
   if (lan) log(`LAN-modus PÅ (PIN kreves): ${lanAddresses().map((ip) => `http://${ip}:${result.port}/`).join(' ') || 'fant ingen privat IP-adresse'}`);
 
-  let watcher: ReturnType<typeof startWatcher> | null = null;
-  if (exportDir && existsSync(exportDir)) {
-    log(`Watcher: ${exportDir} (leser bare)`);
-    watcher = startWatcher({
-      exportDir,
-      mediaDir,
-      config,
-      log,
-      // Del 1 pkt. 8: Windows-varsel når en ny bounce er klar
-      onIngested: (res) => {
-        const msg = readyMessage(res.manifest);
-        notify(msg.title, msg.body, log);
-      }
-    });
-  } else {
-    log(`! Watcher er av: GH_EXPORT_DIR ${exportDir ? `finnes ikke (${exportDir})` : 'er ikke satt i .env'}`);
-  }
+  watcher = startWatch();
 
   const stop = async (sig: string) => {
     log(`Stopper (${sig})`);
