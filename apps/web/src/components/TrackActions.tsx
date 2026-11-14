@@ -222,7 +222,7 @@ function Radio({ options }: { options: Array<{ label: string; checked: boolean; 
           onClick={o.run}
           className="flex min-h-12 w-full items-center gap-3 rounded-lg px-3 text-left text-[15px] text-ink-strong hover:bg-white/[0.06] focus:bg-white/[0.08] focus:outline-none lg:min-h-9 lg:text-[13px]"
         >
-          <span aria-hidden="true" className={`h-3.5 w-3.5 flex-none rounded-full border ${o.checked ? 'border-gold bg-gold' : 'border-white/30'}`} />
+          <span aria-hidden="true" className={`h-3.5 w-3.5 flex-none rounded-full border ${o.checked ? 'border-accent bg-accent' : 'border-white/30'}`} />
           <span className="tabular min-w-0 flex-1 truncate">{o.label}</span>
         </button>
       ))}
@@ -349,7 +349,7 @@ export function QueuePanel() {
                 className={`relative ${dragFrom === i ? 'opacity-40' : ''}`}
                 style={style}
               >
-                {(dragFrom !== null || touch?.mode === 'drag') && dropBefore === String(i) && <span aria-hidden="true" className="absolute inset-x-2 -top-px h-0.5 rounded bg-gold" />}
+                {(dragFrom !== null || touch?.mode === 'drag') && dropBefore === String(i) && <span aria-hidden="true" className="absolute inset-x-2 -top-px h-0.5 rounded bg-accent" />}
                 <div className={`flex min-h-14 items-center gap-3 rounded-xl px-2 ${cur ? 'bg-white/[0.06]' : ''}`}>
                   <button type="button" onClick={() => playIndex(i)} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Spill ${m.title}`} aria-current={cur ? 'true' : undefined}>
                     <span className="tabular w-5 flex-none text-right text-xs text-muted">{cur ? <span className="text-accent">{playing ? '▶' : '❚❚'}</span> : i + 1}</span>

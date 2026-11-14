@@ -161,7 +161,7 @@ export function Toast() {
             action.run();
             hide();
           }}
-          className="h-9 flex-none rounded-full px-3 text-sm font-semibold text-gold hover:bg-white/[0.06]"
+          className="h-9 flex-none rounded-full px-3 text-sm font-semibold text-accent hover:bg-white/[0.06]"
         >
           {action.label}
         </button>
@@ -258,7 +258,7 @@ export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose
         </div>
         {lockable && variantLabel && (
           <label className="mx-3 mb-2 flex min-h-11 items-center gap-2 text-xs text-ink">
-            <input type="checkbox" checked={lock} onChange={(e) => setLock(e.target.checked)} className="h-4 w-4 accent-[#F0C030]" />
+            <input type="checkbox" checked={lock} onChange={(e) => setLock(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
             Spill alltid {variantLabel}
           </label>
         )}
@@ -273,13 +273,13 @@ export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose
             <label htmlFor="gv-new-list" className="sr-only">
               Navn på ny spilleliste
             </label>
-            <input id="gv-new-list" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Navn, f.eks. Club Ready" className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-sunken px-3 text-[15px] text-ink-strong placeholder:text-muted focus:border-gold/60 focus:outline-none lg:h-10 lg:text-sm" />
-            <button type="submit" disabled={busy || !name.trim()} className="h-11 rounded-xl bg-gold px-4 text-sm font-semibold text-[#120D02] disabled:opacity-40 lg:h-10">
+            <input id="gv-new-list" autoFocus value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Navn, f.eks. Club Ready" className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-sunken px-3 text-[15px] text-ink-strong placeholder:text-muted focus:border-accent/60 focus:outline-none lg:h-10 lg:text-sm" />
+            <button type="submit" disabled={busy || !name.trim()} className="h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent disabled:opacity-40 lg:h-10">
               Lagre
             </button>
           </form>
         ) : (
-          <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-semibold text-gold hover:bg-white/[0.05] lg:min-h-10 lg:text-sm">
+          <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] font-semibold text-accent hover:bg-white/[0.05] lg:min-h-10 lg:text-sm">
             <PlusIcon width={18} height={18} />
             Ny spilleliste
           </button>
@@ -319,7 +319,7 @@ export function IconPicker({ value, hasCover, onPick, onClose }: { value: string
               role="radio"
               aria-checked={ic.id === value}
               onClick={() => onPick(ic.id)}
-              className={`flex flex-col items-center gap-1.5 rounded-xl p-1.5 text-[11px] text-champagne hover:bg-white/[0.05] ${ic.id === value ? 'bg-white/[0.08] ring-2 ring-gold/70' : ''}`}
+              className={`flex flex-col items-center gap-1.5 rounded-xl p-1.5 text-[11px] text-soft hover:bg-white/[0.05] ${ic.id === value ? 'bg-white/[0.08] ring-2 ring-accent/70' : ''}`}
             >
               <img src={playlistIconUrl(ic.id, 160)} alt="" width={80} height={80} className="h-20 w-20" loading="lazy" />
               <span className="text-center leading-tight">{ic.name}</span>
@@ -331,7 +331,7 @@ export function IconPicker({ value, hasCover, onPick, onClose }: { value: string
           role="radio"
           aria-checked={!value}
           onClick={() => onPick(null)}
-          className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-xl border text-sm ${!value ? 'border-gold/60 text-ink-strong' : 'border-white/10 text-muted hover:text-ink'}`}
+          className={`mt-3 flex min-h-11 w-full items-center justify-center rounded-xl border text-sm ${!value ? 'border-accent/60 text-ink-strong' : 'border-white/10 text-muted hover:text-ink'}`}
         >
           Uten ikon (coverne til låtene)
         </button>
@@ -427,7 +427,7 @@ export function PlaylistsOverview({ tracks, onOpen, vctx }: { tracks: Track[]; o
         <h1 id="gv-lists-h" className="m-0 font-display text-[30px] font-semibold uppercase tracking-[1.5px] text-ink-strong">
           Spillelister
         </h1>
-        <button type="button" onClick={() => setCreating(true)} className="flex h-10 items-center gap-1.5 rounded-full border border-gold/40 px-3.5 text-sm font-semibold text-gold hover:bg-gold/[0.08]">
+        <button type="button" onClick={() => setCreating(true)} className="flex h-10 items-center gap-1.5 rounded-full border border-accent/40 px-3.5 text-sm font-semibold text-accent hover:bg-accent/[0.08]">
           <PlusIcon width={16} height={16} />
           Ny liste
         </button>
@@ -487,8 +487,8 @@ function NewListForm({ onDone }: { onDone: (p: Playlist | null) => void }) {
       <label htmlFor="gv-new-list-2" className="sr-only">
         Navn på ny spilleliste
       </label>
-      <input id="gv-new-list-2" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && onDone(null)} placeholder="Navn på lista" className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-surface px-3 text-[15px] text-ink-strong placeholder:text-muted focus:border-gold/60 focus:outline-none" />
-      <button type="submit" disabled={busy || !name.trim()} className="h-11 rounded-xl bg-gold px-4 text-sm font-semibold text-[#120D02] disabled:opacity-40">
+      <input id="gv-new-list-2" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && onDone(null)} placeholder="Navn på lista" className="h-11 min-w-0 flex-1 rounded-xl border border-white/10 bg-surface px-3 text-[15px] text-ink-strong placeholder:text-muted focus:border-accent/60 focus:outline-none" />
+      <button type="submit" disabled={busy || !name.trim()} className="h-11 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent disabled:opacity-40">
         Lag
       </button>
       <button type="button" onClick={() => onDone(null)} className="h-11 rounded-xl px-3 text-sm text-muted">
@@ -549,7 +549,7 @@ export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]
       <div className="mb-1 flex items-center justify-between px-3">
         <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-muted">Spillelister</span>
       </div>
-      <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-left text-[13px] font-semibold text-gold hover:bg-gold/[0.06]">
+      <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-left text-[13px] font-semibold text-accent hover:bg-accent/[0.06]">
         <PlusIcon width={14} height={14} />
         Ny spilleliste
       </button>
@@ -617,7 +617,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
   };
 
   useEffect(() => setResumeKey(savedEntry(id)), [id, nowList, index]);
-  if (!v) return loaded ? <p className="text-sm text-muted">Fant ikke spillelista (slettet på en annen enhet?). <button type="button" className="text-gold underline" onClick={onBack}>Tilbake</button></p> : <p className="text-sm text-muted">Laster …</p>;
+  if (!v) return loaded ? <p className="text-sm text-muted">Fant ikke spillelista (slettet på en annen enhet?). <button type="button" className="text-accent underline" onClick={onBack}>Tilbake</button></p> : <p className="text-sm text-muted">Laster …</p>;
 
   const s = playlistStats(v.assets);
   const c = v.color;
@@ -691,7 +691,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
             )}
             {editable && (
               <div className="relative" ref={menuRef}>
-                <button type="button" aria-label="Flere valg for lista" aria-expanded={menu} onClick={() => setMenu((m) => !m)} className="flex h-12 w-12 items-center justify-center rounded-full text-champagne hover:bg-white/[0.06]">
+                <button type="button" aria-label="Flere valg for lista" aria-expanded={menu} onClick={() => setMenu((m) => !m)} className="flex h-12 w-12 items-center justify-center rounded-full text-soft hover:bg-white/[0.06]">
                   <MoreIcon width={20} height={20} />
                 </button>
                 {menu && (
@@ -813,8 +813,8 @@ function RenameForm({ p, onDone }: { p: Playlist; onDone: () => void }) {
       <label htmlFor="gv-rename" className="sr-only">
         Nytt navn
       </label>
-      <input id="gv-rename" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && onDone()} className="h-12 min-w-0 flex-1 rounded-xl border border-white/15 bg-surface px-3 text-lg text-ink-strong focus:border-gold/60 focus:outline-none" />
-      <button type="submit" className="h-12 rounded-xl bg-gold px-4 text-sm font-semibold text-[#120D02]">
+      <input id="gv-rename" autoFocus value={name} maxLength={80} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && onDone()} className="h-12 min-w-0 flex-1 rounded-xl border border-white/15 bg-surface px-3 text-lg text-ink-strong focus:border-accent/60 focus:outline-none" />
+      <button type="submit" className="h-12 rounded-xl bg-accent px-4 text-sm font-semibold text-on-accent">
         Lagre
       </button>
     </form>
@@ -1038,14 +1038,14 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
   return (
     <>
       {lockLabel && (
-        <span className="flex-none rounded border border-white/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[1px] text-champagne" title={all.find((o) => o.value === current)?.label}>
+        <span className="flex-none rounded border border-white/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[1px] text-soft" title={all.find((o) => o.value === current)?.label}>
           {lockLabel}
         </span>
       )}
       {all.length > 1 && (
         <label className="hidden items-center lg:flex">
           <span className="sr-only">Versjon for {t?.main.manifest.title ?? r.entry.slug}</span>
-          <select value={current} onChange={(e) => choose(e.target.value)} className="h-8 max-w-[190px] rounded-lg border border-white/10 bg-sunken px-2 text-[11px] text-champagne focus:outline-none">
+          <select value={current} onChange={(e) => choose(e.target.value)} className="h-8 max-w-[190px] rounded-lg border border-white/10 bg-sunken px-2 text-[11px] text-soft focus:outline-none">
             {all.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -1082,7 +1082,7 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
                     }}
                     className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-ink-strong active:bg-white/[0.08]"
                   >
-                    <span aria-hidden="true" className={`h-4 w-4 flex-none rounded-full border ${o.value === current ? 'border-gold bg-gold' : 'border-white/30'}`} />
+                    <span aria-hidden="true" className={`h-4 w-4 flex-none rounded-full border ${o.value === current ? 'border-accent bg-accent' : 'border-white/30'}`} />
                     {o.label}
                   </button>
                 </li>

@@ -21,7 +21,8 @@ interface Props {
   unplayedAlpha?: number;
 }
 
-const GOLD = { low: '#B06000', mid: '#F0C030', high: '#F0DC6A' };
+/** Bare før CSS-variablene finnes (første frame). Ellers styrer coveret fargene (del 14). */
+const NEUTRAL = { low: '#5A6578', mid: '#C8D0DC', high: '#EEF1F5' };
 
 /** Lysere variant av en hex-farge (til diskant-laget), så bølgeformen holder seg i coverets kulør. */
 function mixWhite(hex: string, t: number): string {
@@ -76,8 +77,8 @@ export function SpectralWaveform({ analysis, durationMs, progress, active, heigh
     ctx.clearRect(0, 0, width, height);
 
     const css = getComputedStyle(c);
-    const accent = css.getPropertyValue('--accent').trim() || GOLD.mid;
-    const col = active ? { low: css.getPropertyValue('--accent-2').trim() || GOLD.low, mid: accent, high: mixWhite(accent, 0.55) } : GOLD;
+    const accent = css.getPropertyValue('--accent').trim() || NEUTRAL.mid;
+    const col = { low: css.getPropertyValue('--accent-2').trim() || NEUTRAL.low, mid: accent, high: mixWhite(accent, 0.55) };
     const mid = height / 2;
     const bw = Math.max(1, barPx - 1);
     const playedX = progress * width;
@@ -128,7 +129,7 @@ export function SpectralWaveform({ analysis, durationMs, progress, active, heigh
               style={{
                 left: `${(s.startMs / durationMs) * 100}%`,
                 maxWidth: `${(((s.endMs ?? durationMs) - s.startMs) / durationMs) * 100}%`,
-                color: s === current ? (active ? 'var(--accent)' : '#F0C030') : '#8E897D'
+                color: s === current ? 'var(--accent)' : '#8B93A1'
               }}
             >
               {s.label}

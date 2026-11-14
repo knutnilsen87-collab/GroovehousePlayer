@@ -97,14 +97,14 @@ export function CommandPalette({
                   <span className="text-[11px] text-muted">{m.kind === 'set' ? 'Live-sett' : 'Låt'}</span>
                 </span>
                 <span className="tabular hidden text-xs text-muted sm:block">{m.bpm ? `${m.bpm} BPM` : ''}</span>
-                <span className="tabular w-8 text-right text-xs font-semibold text-champagne">{m.key?.camelot ?? ''}</span>
+                <span className="tabular w-8 text-right text-xs font-semibold text-soft">{m.key?.camelot ?? ''}</span>
                 <span className="tabular w-12 text-right text-xs text-muted">{formatTime(m.durationMs)}</span>
               </li>
             );
           })}
         </ul>
         {onSaveSmart && q.trim() && saving === null && (
-          <button type="button" onClick={() => setSaving(q.trim())} className="flex min-h-11 w-full items-center gap-2 border-t border-white/[0.06] px-5 text-left text-sm font-semibold text-gold hover:bg-white/[0.04]">
+          <button type="button" onClick={() => setSaving(q.trim())} className="flex min-h-11 w-full items-center gap-2 border-t border-white/[0.06] px-5 text-left text-sm font-semibold text-accent hover:bg-white/[0.04]">
             <BoltIcon width={16} height={16} />
             Lagre som smart liste
             <span className="ml-auto truncate text-xs font-normal text-muted">«{q.trim()}» oppdaterer seg selv</span>
@@ -122,8 +122,8 @@ export function CommandPalette({
             <label htmlFor="gv-smart-name" className="sr-only">
               Navn på smart liste
             </label>
-            <input id="gv-smart-name" autoFocus value={saving} maxLength={80} onChange={(e) => setSaving(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setSaving(null))} className="h-10 min-w-0 flex-1 rounded-lg border border-white/10 bg-sunken px-3 text-sm text-ink-strong focus:border-gold/60 focus:outline-none" />
-            <button type="submit" className="h-10 rounded-lg bg-gold px-4 text-sm font-semibold text-[#120D02]">
+            <input id="gv-smart-name" autoFocus value={saving} maxLength={80} onChange={(e) => setSaving(e.target.value)} onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setSaving(null))} className="h-10 min-w-0 flex-1 rounded-lg border border-white/10 bg-sunken px-3 text-sm text-ink-strong focus:border-accent/60 focus:outline-none" />
+            <button type="submit" className="h-10 rounded-lg bg-accent px-4 text-sm font-semibold text-on-accent">
               Lagre
             </button>
           </form>

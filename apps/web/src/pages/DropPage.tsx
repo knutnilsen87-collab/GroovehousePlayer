@@ -1,5 +1,5 @@
 import { useEffect, useMemo, type CSSProperties, type ReactNode } from 'react';
-import { formatTime, paletteToCssVars, GOLD_FALLBACK } from '@gv/shared/web';
+import { formatTime, paletteToCssVars, NEUTRAL_PALETTE } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
 import { LockIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, ShieldIcon } from '../components/Icons';
@@ -29,7 +29,7 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
   }, [dropAssets, setQueue]);
 
   const current = queue[index];
-  const palette = current?.manifest.palette ?? GOLD_FALLBACK;
+  const palette = current?.manifest.palette ?? NEUTRAL_PALETTE;
   const vars = paletteToCssVars(palette) as CSSProperties;
   const name = recipient?.trim() || null;
 
@@ -54,7 +54,7 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
       <div
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-[300px] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full transition-opacity duration-1000"
-        style={{ background: 'radial-gradient(circle, rgba(240,192,48,0.30) 0%, rgba(176,96,0,0.10) 40%, transparent 70%)', opacity: started ? 0 : 1 }}
+        style={{ background: 'radial-gradient(circle, var(--glow) 0%, rgba(176,96,0,0.10) 40%, transparent 70%)', opacity: started ? 0 : 1 }}
       />
       <div
         aria-hidden="true"
@@ -65,7 +65,7 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
       <main className="relative z-10 mx-auto flex min-h-[100svh] w-full max-w-[440px] flex-col px-[22px] pb-4 pt-[18px]">
         <header className="flex h-11 items-center justify-between">
           <Logo size={38} />
-          <span className="flex h-7 items-center gap-1.5 rounded-full border border-gold/45 px-3 text-[11px] font-semibold tracking-[1.5px] text-gold">
+          <span className="flex h-7 items-center gap-1.5 rounded-full border border-accent/45 px-3 text-[11px] font-semibold tracking-[1.5px] text-accent">
             <LockIcon width={12} height={12} strokeWidth={2.2} />
             THE VAULT
           </span>
@@ -93,7 +93,7 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
           <div className="flex items-center gap-2 text-[13px] text-muted">
             <span>{m.artist ?? 'Groovehouse Records'}</span>
             <span aria-hidden="true">·</span>
-            <span className="text-[11px] font-semibold tracking-[1px] transition-colors duration-500" style={{ color: started ? 'var(--accent)' : '#F0C030' }}>
+            <span className="text-[11px] font-semibold tracking-[1px] transition-colors duration-500" style={{ color: 'var(--accent)' }}>
               {m.kind === 'set' ? t.set.toUpperCase() : t.unreleased.toUpperCase()}
             </span>
           </div>
@@ -115,20 +115,20 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
         </div>
 
         <div className="mt-2 flex items-center justify-center gap-[30px]">
-          <button type="button" aria-label={t.prev} onClick={prev} className="flex h-12 w-12 items-center justify-center rounded-full text-champagne active:scale-95">
+          <button type="button" aria-label={t.prev} onClick={prev} className="flex h-12 w-12 items-center justify-center rounded-full text-soft active:scale-95">
             <PrevIcon width={22} height={22} />
           </button>
           <button
             type="button"
             aria-label={playing ? t.pause : t.play}
             onClick={toggle}
-            className="h-[72px] w-[72px] rounded-full bg-gold p-[3px] shadow-[0_10px_30px_rgba(240,192,48,0.25)] active:scale-95"
+            className="h-[72px] w-[72px] rounded-full bg-accent p-[3px] shadow-[0_10px_30px_var(--glow)] active:scale-95"
           >
-            <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0B0D12] text-gold">
+            <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0B0D12] text-accent">
               {playing ? <PauseIcon width={26} height={26} /> : <PlayIcon width={26} height={26} className="ml-[3px]" />}
             </span>
           </button>
-          <button type="button" aria-label={t.next} onClick={next} className="flex h-12 w-12 items-center justify-center rounded-full text-champagne active:scale-95">
+          <button type="button" aria-label={t.next} onClick={next} className="flex h-12 w-12 items-center justify-center rounded-full text-soft active:scale-95">
             <NextIcon width={22} height={22} />
           </button>
         </div>
@@ -218,8 +218,8 @@ function Countdown({ opensAt }: { opensAt: string }) {
   const h = Math.floor((ms % 86_400_000) / 3_600_000);
   return (
     <Centered>
-      <span className="block text-xs uppercase tracking-[2px] text-champagne">{t.opensIn}</span>
-      <span className="mt-2 block font-display text-5xl font-semibold tracking-[2px] text-gold">
+      <span className="block text-xs uppercase tracking-[2px] text-soft">{t.opensIn}</span>
+      <span className="mt-2 block font-display text-5xl font-semibold tracking-[2px] text-accent">
         {d}d {h}h
       </span>
     </Centered>

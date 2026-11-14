@@ -38,18 +38,18 @@ export function ConnectScreen({ onConnected }: { onConnected: () => void }) {
       >
         <label className="flex flex-col gap-1 text-xs text-muted">
           Adresse til Vault
-          <input value={server} onChange={(e) => setServer(e.target.value)} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="pc-navn.tailnet.ts.net" className="h-12 rounded-xl border border-white/10 bg-surface px-4 text-[15px] text-ink-strong placeholder:text-muted/60 focus:border-gold/60 focus:outline-none" />
+          <input value={server} onChange={(e) => setServer(e.target.value)} inputMode="url" autoCapitalize="off" autoCorrect="off" spellCheck={false} placeholder="pc-navn.tailnet.ts.net" className="h-12 rounded-xl border border-white/10 bg-surface px-4 text-[15px] text-ink-strong placeholder:text-muted/60 focus:border-accent/60 focus:outline-none" />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted">
           PIN
-          <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} inputMode="numeric" type="password" autoComplete="off" maxLength={12} className="h-12 rounded-xl border border-white/10 bg-surface px-4 text-[15px] tracking-[4px] text-ink-strong focus:border-gold/60 focus:outline-none" />
+          <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} inputMode="numeric" type="password" autoComplete="off" maxLength={12} className="h-12 rounded-xl border border-white/10 bg-surface px-4 text-[15px] tracking-[4px] text-ink-strong focus:border-accent/60 focus:outline-none" />
         </label>
         {error && (
           <p role="alert" className="m-0 rounded-xl border border-[#FF8A7A]/40 bg-[#FF8A7A]/[0.07] px-3 py-2 text-sm text-[#FFB4A8]">
             {error}
           </p>
         )}
-        <button type="submit" disabled={busy} className="mt-2 h-12 rounded-full bg-gold text-sm font-semibold text-[#120D02] disabled:opacity-50">
+        <button type="submit" disabled={busy} className="mt-2 h-12 rounded-full bg-accent text-sm font-semibold text-on-accent disabled:opacity-50">
           {busy ? 'Kobler til …' : 'Koble til'}
         </button>
       </form>
@@ -69,7 +69,7 @@ export function UnreachableScreen({ error, onRetry, onReconnect }: { error: stri
       </p>
       <div className="flex gap-3">
         {!revoked && (
-          <button type="button" onClick={onRetry} className="h-12 rounded-full bg-gold px-6 text-sm font-semibold text-[#120D02]">
+          <button type="button" onClick={onRetry} className="h-12 rounded-full bg-accent px-6 text-sm font-semibold text-on-accent">
             Prøv igjen
           </button>
         )}

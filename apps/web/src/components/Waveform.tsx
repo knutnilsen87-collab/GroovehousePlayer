@@ -20,7 +20,7 @@ interface Props {
  */
 export function Waveform({ peaks, bars = 64, height = 56, progress, active, markers = [], onSeek, label = 'Seek' }: Props) {
   const heights = useMemo(() => downsample(peaks, bars).map((v) => Math.max(0.1, Math.pow(v, 0.8))), [peaks, bars]);
-  const playedColor = active ? 'var(--accent)' : '#F0C030';
+  const playedColor = 'var(--accent)';
 
   return (
     <div className="relative flex items-center gap-[2px]" style={{ height }}>
@@ -40,7 +40,7 @@ export function Waveform({ peaks, bars = 64, height = 56, progress, active, mark
           key={`${m.label}-${m.pct}`}
           aria-hidden="true"
           className="absolute -top-3 -translate-x-1/2 text-[8px] font-semibold tracking-[1.5px]"
-          style={{ left: `${m.pct * 100}%`, color: active ? 'var(--accent)' : '#F0C030' }}
+          style={{ left: `${m.pct * 100}%`, color: 'var(--accent)' }}
         >
           {m.label}
         </span>

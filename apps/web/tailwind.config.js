@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+// Del 14 «High-End Studio»: coveret styrer alle aksenter (CSS-variabler fra assets.palette), gull bare i logoen.
+const fromVar = (v) => `color-mix(in srgb, var(${v}) calc(<alpha-value> * 100%), transparent)`;
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
@@ -7,22 +9,28 @@ export default {
         obsidian: '#07080B',
         surface: '#0E1015',
         sunken: '#0A0B0F',
-        ink: '#EDEAE2',
-        'ink-strong': '#F4F1EA',
-        muted: '#A39E91',
-        champagne: '#C9B98E',
+        ink: '#E9ECF2',
+        'ink-strong': '#F5F7FA',
+        muted: '#8B93A1',
+        /** Sekundær tekst og ikoner (kjølig sølv; erstatter champagne). */
+        soft: '#B4BBC8',
+        /** Bare til logoen (Brand.tsx). En test passer på at gull ikke brukes andre steder. */
         gold: { hi: '#F0DC6A', DEFAULT: '#F0C030', deep: '#B06000' },
-        // Aksentfargene kommer ALLTID fra coverets palett via CSS-variabler.
-        accent: 'var(--accent)',
-        'accent-2': 'var(--accent-2)',
+        // Aksentfargene kommer ALLTID fra coverets palett via CSS-variabler, med støtte for /alfa.
+        accent: fromVar('--accent'),
+        'accent-2': fromVar('--accent-2'),
         'on-accent': 'var(--on-accent)'
       },
       fontFamily: {
-        display: ['Oswald', 'sans-serif'],
-        sans: ['Inter', 'system-ui', 'sans-serif']
+        display: ['Satoshi', 'system-ui', 'sans-serif'],
+        sans: ['Satoshi', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
       },
       backgroundImage: {
         gold: 'linear-gradient(135deg, #F0DC6A 0%, #F0C030 45%, #B06000 100%)'
+      },
+      borderRadius: {
+        panel: '16px'
       }
     }
   },

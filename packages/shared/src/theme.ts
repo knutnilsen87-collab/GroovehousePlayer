@@ -10,6 +10,17 @@ export const GOLD_FALLBACK: Palette = {
   source: 'fallback'
 };
 
+/**
+ * Del 14: nøytral sølv før noe er valgt (ingen låt i køen, Studio uten låt). Gull er forbeholdt logoen;
+ * så snart en låt er i spill, styrer coveret alle aksenter.
+ */
+export const NEUTRAL_PALETTE: Palette = {
+  primary: '#C8D0DC',
+  secondary: '#5A6578',
+  onPrimary: '#07080B',
+  source: 'fallback'
+};
+
 /** CSS-variablene UI-et bruker. Ingen komponent skal hardkode aksentfarger. */
 export function paletteToCssVars(p: Palette): Record<string, string> {
   return {

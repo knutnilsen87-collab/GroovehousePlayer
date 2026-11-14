@@ -59,7 +59,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
             {label}
             <span className="flex items-center gap-2">
               <input type="color" value={hex.test(value) ? value.toLowerCase() : '#000000'} onChange={(e) => set(e.target.value.toUpperCase())} aria-label={`${label}farge`} className="h-11 w-11 cursor-pointer rounded-lg border border-white/15 bg-transparent" />
-              <input value={value} onChange={(e) => set(e.target.value.trim().toUpperCase())} maxLength={7} aria-label={`${label}farge som hex`} className="min-h-11 w-24 rounded-xl border border-white/10 bg-sunken px-2 font-mono text-sm text-ink focus:border-gold/60 focus:outline-none" />
+              <input value={value} onChange={(e) => set(e.target.value.trim().toUpperCase())} maxLength={7} aria-label={`${label}farge som hex`} className="min-h-11 w-24 rounded-xl border border-white/10 bg-sunken px-2 font-mono text-sm text-ink focus:border-accent/60 focus:outline-none" />
             </span>
           </label>
         ))}
@@ -90,11 +90,11 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
           </div>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2">
-          <button type="button" disabled={busy || tooLow || !hex.test(primary) || !hex.test(secondary)} onClick={() => run({ palette: { primary, secondary } }, 'Farge lagret')} className="min-h-11 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02] disabled:opacity-50">
+          <button type="button" disabled={busy || tooLow || !hex.test(primary) || !hex.test(secondary)} onClick={() => run({ palette: { primary, secondary } }, 'Farge lagret')} className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent disabled:opacity-50">
             Lagre farge
           </button>
           {m.palette.source === 'manual' && (
-            <button type="button" disabled={busy} onClick={() => run({ palette: null }, 'Tilbake til automatisk')} className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-gold/50">
+            <button type="button" disabled={busy} onClick={() => run({ palette: null }, 'Tilbake til automatisk')} className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50">
               Tilbakestill til automatisk
             </button>
           )}
@@ -105,7 +105,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
         <fieldset className="m-0 flex flex-col gap-2 border-0 p-0">
           <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Live-sett: forskyvning av markører</legend>
           <label className="flex flex-wrap items-center gap-3 text-xs text-muted">
-            <input type="range" min={-10000} max={10000} step={50} value={offset} onChange={(e) => setOffset(Number(e.target.value))} aria-label="Forskyvning i millisekunder" className="w-72 accent-[var(--accent,#F0C030)]" />
+            <input type="range" min={-10000} max={10000} step={50} value={offset} onChange={(e) => setOffset(Number(e.target.value))} aria-label="Forskyvning i millisekunder" className="w-72 accent-[var(--accent)]" />
             <span data-testid="offset" className="tabular min-w-[72px] text-sm text-ink-strong">
               {offset > 0 ? '+' : ''}
               {(offset / 1000).toFixed(2)} s
@@ -120,7 +120,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
             <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
               {markers.slice(0, 40).map((k) => (
                 <li key={`${k.kind}-${k.startMs}`}>
-                  <button type="button" onClick={() => playFrom([a], 0, shifted(k.startMs))} className="flex h-8 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-[11px] hover:border-gold/50" aria-label={`Spill fra ${k.label ?? k.kind} ${formatTime(shifted(k.startMs))}`}>
+                  <button type="button" onClick={() => playFrom([a], 0, shifted(k.startMs))} className="flex h-8 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-[11px] hover:border-accent/50" aria-label={`Spill fra ${k.label ?? k.kind} ${formatTime(shifted(k.startMs))}`}>
                     ▶ <span className="tabular text-muted">{formatTime(shifted(k.startMs))}</span> {k.label ?? k.kind}
                   </button>
                 </li>
@@ -128,14 +128,14 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
             </ol>
           )}
           <div>
-            <button type="button" disabled={busy || offset === savedOffset} onClick={() => run({ liveOffsetMs: offset }, 'Forskyvning lagret – markørene er flyttet')} className="min-h-11 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02] disabled:opacity-50">
+            <button type="button" disabled={busy || offset === savedOffset} onClick={() => run({ liveOffsetMs: offset }, 'Forskyvning lagret – markørene er flyttet')} className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent disabled:opacity-50">
               Lagre forskyvning
             </button>
           </div>
         </fieldset>
       )}
       {msg && (
-        <span role={msg.ok ? 'status' : 'alert'} className={`text-[12px] ${msg.ok ? 'text-champagne' : 'text-[#F2A08F]'}`}>
+        <span role={msg.ok ? 'status' : 'alert'} className={`text-[12px] ${msg.ok ? 'text-soft' : 'text-[#F2A08F]'}`}>
           {msg.text}
         </span>
       )}

@@ -61,7 +61,7 @@ export function SettingsView() {
             {error}
           </p>
         )}
-        {notice && <p className="m-0 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-3 text-sm text-champagne">{notice}</p>}
+        {notice && <p className="m-0 rounded-xl border border-accent/30 bg-accent/[0.08] px-4 py-3 text-sm text-soft">{notice}</p>}
       </div>
 
       <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir')} onSave={() => save(['exportDir'], 'Eksportmappa er lagret.')} onReload={load} />
@@ -105,9 +105,9 @@ export function SettingsView() {
   );
 }
 
-const field = 'min-h-11 w-full rounded-xl border border-white/10 bg-sunken px-3 text-sm text-ink focus:border-gold/60 focus:outline-none';
-const primaryBtn = 'min-h-11 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02] disabled:opacity-50';
-const ghostBtn = 'min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-gold/50 disabled:opacity-50';
+const field = 'min-h-11 w-full rounded-xl border border-white/10 bg-sunken px-3 text-sm text-ink focus:border-accent/60 focus:outline-none';
+const primaryBtn = 'min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent disabled:opacity-50';
+const ghostBtn = 'min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50 disabled:opacity-50';
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
@@ -148,7 +148,7 @@ function NumberField({ label, value, min, max, step = 1, onChange }: { label: st
 function Toggle({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
     <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
-      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 accent-[#F0C030]" />
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} className="h-5 w-5 accent-[var(--accent)]" />
       {label}
     </label>
   );
@@ -182,7 +182,7 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
         </p>
       )}
       {check?.ok && (
-        <p className={`m-0 text-xs ${check.many ? 'text-gold' : 'text-champagne'}`}>
+        <p className={`m-0 text-xs ${check.many ? 'text-accent' : 'text-soft'}`}>
           {check.audioFiles} lydfiler i mappa.
           {check.many && ' Watcheren importerer bare nye filer. For å ta inn det som ligger der fra før, kjør «pnpm gh-ingest --backlog» i et terminalvindu (viser listen og spør før den starter).'}
         </p>
@@ -190,7 +190,7 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
       <SaveRow busy={busy || (dirty && !!draft.exportDir && !check?.ok)} dirty={dirty} onSave={onSave} label="Lagre og start watcheren på nytt" />
       <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/[0.06] bg-sunken/60 px-3 py-2 text-xs">
         <span className="flex items-center gap-2 font-semibold text-ink">
-          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${w ? 'bg-gold' : 'bg-[#F2A08F]'}`} />
+          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${w ? 'bg-accent' : 'bg-[#F2A08F]'}`} />
           {w ? (w.busy ? 'Watcher jobber' : 'Watcher kjører') : 'Watcher er av'}
         </span>
         {w && <span className="text-muted">{w.queued} i kø</span>}
@@ -268,13 +268,13 @@ function PreviewTable({ p, columns }: { p: { rows: PreviewRow[]; total: number }
                 {columns === 'rules' ? (
                   <>
                     <td className="px-2 py-1.5 text-ink">{r.variant ?? '–'}</td>
-                    <td className={`px-2 py-1.5 ${r.rule ? 'text-gold' : 'text-muted'}`}>
+                    <td className={`px-2 py-1.5 ${r.rule ? 'text-accent' : 'text-muted'}`}>
                       {r.kind}
                       {r.rule ? ` (${r.rule})` : ''}
                     </td>
                   </>
                 ) : (
-                  <td className="px-2 py-1.5 text-gold">{r.removed.join(', ') || '–'}</td>
+                  <td className="px-2 py-1.5 text-accent">{r.removed.join(', ') || '–'}</td>
                 )}
               </tr>
             ))}
@@ -453,7 +453,7 @@ function AccessSection({ state, onChanged }: { state: SettingsState; onChanged: 
           }}
         />
         <span className="text-xs text-muted">PIN: {state.lan.pinSet ? 'satt' : 'ikke satt'}</span>
-        {state.lan.firewallRule === false && state.lan.enabled && <span className="text-xs text-gold">Brannmurregelen mangler – kjør «pnpm vault:lan on» i et terminalvindu (Windows spør om administrator).</span>}
+        {state.lan.firewallRule === false && state.lan.enabled && <span className="text-xs text-accent">Brannmurregelen mangler – kjør «pnpm vault:lan on» i et terminalvindu (Windows spør om administrator).</span>}
         {can && (
           <button type="button" className={ghostBtn} onClick={() => setShowPin((s) => !s)}>
             {state.lan.pinSet ? 'Bytt PIN' : 'Velg PIN'}
@@ -501,7 +501,7 @@ function AccessSection({ state, onChanged }: { state: SettingsState; onChanged: 
             <span className="text-muted">Kjører ikke eller er ikke logget inn.</span>
           ) : state.remote.serve && state.remote.url ? (
             <>
-              <span className="text-champagne">På – {state.remote.url}</span>
+              <span className="text-soft">På – {state.remote.url}</span>
               <span className="text-muted">Bare enheter i tailnettet ditt når adressen.</span>
             </>
           ) : (
@@ -512,7 +512,7 @@ function AccessSection({ state, onChanged }: { state: SettingsState; onChanged: 
         {state.remote.qr && <div className="h-36 w-36 overflow-hidden rounded-lg" aria-label="QR-kode til Tailscale-adressen" dangerouslySetInnerHTML={{ __html: state.remote.qr }} />}
       </div>
       {msg && (
-        <p role="status" className="m-0 text-xs text-champagne">
+        <p role="status" className="m-0 text-xs text-soft">
           {msg}
         </p>
       )}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { formatTime, GOLD_FALLBACK, paletteToCssVars, sectionAt, sectionsOf } from '@gv/shared/web';
+import { formatTime, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CommandPalette } from '../components/CommandPalette';
 import { CoverArt } from '../components/CoverArt';
@@ -56,7 +56,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   /** Desktop: valgte låter i tabellen (Ctrl/Shift-klikk). Mobil: velgemodus (hold inne på en låt). */
   const [selected, setSelected] = useState<string[]>([]);
   const [selectMode, setSelectMode] = useState(false);
-  const { queue, index, playing, started, playFrom, switchVariant, toggle, nextSection, prevSection } = usePlayer();
+  const { queue, index, playing, playFrom, switchVariant, toggle, nextSection, prevSection } = usePlayer();
   const cur = queue[index];
   const root = useRef<HTMLDivElement>(null);
   useSubBass(root, cur, playing);
@@ -139,7 +139,8 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     return () => void h.then((x) => x.remove());
   }, []);
 
-  const vars = paletteToCssVars(started && cur ? cur.manifest.palette : GOLD_FALLBACK) as CSSProperties;
+  // Del 14: coveret styrer fargene – låta i spilleren (også pauset), ellers den nyeste låta, ellers nøytral sølv.
+  const vars = paletteToCssVars(cur?.manifest.palette ?? tracks[0]?.main.manifest.palette ?? NEUTRAL_PALETTE) as CSSProperties;
 
   // Tastatur: Ctrl/Cmd+K søk, mellomrom spill/pause, Shift+←/→ forrige/neste del, Esc lukker fullskjerm
   useEffect(() => {
@@ -239,9 +240,9 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
           >
             <SearchIcon width={16} height={16} />
             <span className="flex-1">Søk i tittel, BPM, toneart …</span>
-            <kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-champagne">Ctrl K</kbd>
+            <kbd className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] text-soft">Ctrl K</kbd>
           </button>
-          <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Søk" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-champagne lg:hidden">
+          <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Søk" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-soft lg:hidden">
             <SearchIcon width={20} height={20} />
           </button>
         </header>
@@ -324,7 +325,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
             type="button"
             disabled={!selected.length}
             onClick={() => openSheet(visible.filter((t) => selected.includes(t.slug)).map(shownAsset))}
-            className="h-12 flex-1 rounded-full bg-gold text-sm font-semibold text-[#120D02] shadow-[0_8px_24px_rgba(240,192,48,0.3)] disabled:opacity-50"
+            className="h-12 flex-1 rounded-full bg-accent text-sm font-semibold text-on-accent shadow-[0_8px_24px_var(--glow)] disabled:opacity-50"
           >
             Legg til i spilleliste ({selected.length})
           </button>
@@ -400,7 +401,7 @@ function Sidebar({ view, setView, onSearch, children }: { view: View; setView: (
         type="button"
         aria-current={active ? 'page' : undefined}
         onClick={() => setView(id)}
-        className={`flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-left text-sm ${active ? 'bg-gold/[0.08] font-semibold text-gold' : 'text-muted hover:text-ink-strong'}`}
+        className={`flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-left text-sm ${active ? 'bg-accent/[0.08] font-semibold text-accent' : 'text-muted hover:text-ink-strong'}`}
       >
         <Icon width={18} height={18} />
         {label}
@@ -439,7 +440,7 @@ function Sidebar({ view, setView, onSearch, children }: { view: View; setView: (
 
 /** Mobil: fire faner. Søk ligger som knappen øverst til høyre (avklart med Knut), så Lister tar plassen. */
 function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }) {
-  const cls = (active: boolean) => `flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium ${active ? 'text-gold' : 'text-muted'}`;
+  const cls = (active: boolean) => `flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium ${active ? 'text-accent' : 'text-muted'}`;
   return (
     <nav aria-label="Hovedmeny" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.07] bg-sunken/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden">
       <button type="button" className={cls(view === 'catalog')} aria-current={view === 'catalog' ? 'page' : undefined} onClick={() => setView('catalog')}>
@@ -464,7 +465,7 @@ function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }
 
 function EmptyState() {
   return (
-    <div className="rounded-2xl border border-dashed border-gold/30 p-8 text-center text-sm text-muted">
+    <div className="rounded-2xl border border-dashed border-accent/30 p-8 text-center text-sm text-muted">
       Hvelvet er tomt. Kjør <code className="text-ink">pnpm make-fixtures</code> og <code className="text-ink">pnpm gh-ingest fixtures/blue-fire</code>, eller bounce til eksportmappa med <code className="text-ink">pnpm gh-watch</code>.
     </div>
   );
@@ -493,7 +494,7 @@ function Hero({ t, onPlay }: { t: Track; onPlay: (v?: LoadedAsset, atMs?: number
             {[m.artist, t.variants.length > 1 ? `${t.variants.length} varianter` : null, m.bpm ? `${m.bpm} BPM` : null, m.key?.camelot, formatTime(m.durationMs)].filter(Boolean).join(' · ')}
           </p>
           <div className="mt-1 flex items-center gap-3">
-            <button type="button" onClick={() => onPlay()} aria-label={`Spill ${m.title}`} className="flex h-12 items-center gap-2 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02]">
+            <button type="button" onClick={() => onPlay()} aria-label={`Spill ${m.title}`} className="flex h-12 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent">
               <PlayIcon width={18} height={18} />
               Spill
             </button>
@@ -541,7 +542,7 @@ function Pills({ value, onChange }: { value: Filter; onChange: (f: Filter) => vo
           type="button"
           aria-pressed={value === id}
           onClick={() => onChange(id)}
-          className={`h-9 flex-none rounded-full px-4 text-xs font-semibold ${value === id ? 'bg-gold text-[#120D02]' : 'border border-white/10 bg-surface text-ink hover:border-white/20'}`}
+          className={`h-9 flex-none rounded-full px-4 text-xs font-semibold ${value === id ? 'bg-accent text-on-accent' : 'border border-white/10 bg-surface text-ink hover:border-white/20'}`}
         >
           {label}
         </button>
@@ -639,7 +640,7 @@ function TrackTable({
                   />
                 </td>
                 <td className="tabular py-2 text-right text-ink">{m.bpm ?? '–'}</td>
-                <td className="tabular py-2 text-right font-semibold text-champagne">{m.key?.camelot ?? '–'}</td>
+                <td className="tabular py-2 text-right font-semibold text-soft">{m.key?.camelot ?? '–'}</td>
                 <td className="tabular py-2 text-right text-muted">{formatTime(m.durationMs)}</td>
               </tr>
             );
@@ -661,7 +662,7 @@ function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedAsset; o
       <select
         value={value.manifest.id}
         onChange={(e) => onChange(t.variants.find((v) => v.manifest.id === e.target.value)!)}
-        className="appearance-none bg-transparent pr-4 text-[11px] text-champagne focus:outline-none"
+        className="appearance-none bg-transparent pr-4 text-[11px] text-soft focus:outline-none"
       >
         {t.variants.map((v) => (
           <option key={v.manifest.id} value={v.manifest.id} className="bg-surface text-ink">
@@ -669,7 +670,7 @@ function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedAsset; o
           </option>
         ))}
       </select>
-      <ChevronDownIcon width={12} height={12} className="pointer-events-none absolute right-0 text-champagne" />
+      <ChevronDownIcon width={12} height={12} className="pointer-events-none absolute right-0 text-soft" />
       </span>
       <span aria-hidden="true" className="rounded border border-white/10 px-1 text-[9px] tracking-[1px]">{t.variants.length} VARIANTER</span>
     </label>
@@ -773,17 +774,17 @@ function TrackList({
               style={{ ...(paletteToCssVars(m.palette) as CSSProperties), ...(swipe?.slug === t.slug ? { transform: `translateX(${swipe.dx}px)`, background: '#15181F' } : {}) }}
             >
               {swipe?.slug === t.slug && swipe.dx > 0 && (
-                <span aria-hidden="true" className="absolute inset-y-0 right-full flex items-center whitespace-nowrap pr-3 text-xs font-semibold text-gold" style={{ opacity: Math.min(1, swipe.dx / 90) }}>
+                <span aria-hidden="true" className="absolute inset-y-0 right-full flex items-center whitespace-nowrap pr-3 text-xs font-semibold text-accent" style={{ opacity: Math.min(1, swipe.dx / 90) }}>
                   + Køen
                 </span>
               )}
               {swipe?.slug === t.slug && swipe.dx < 0 && (
-                <span aria-hidden="true" className="absolute inset-y-0 left-full flex items-center whitespace-nowrap pl-3 text-xs font-semibold text-gold" style={{ opacity: Math.min(1, -swipe.dx / 90) }}>
+                <span aria-hidden="true" className="absolute inset-y-0 left-full flex items-center whitespace-nowrap pl-3 text-xs font-semibold text-accent" style={{ opacity: Math.min(1, -swipe.dx / 90) }}>
                   + Sist brukte liste
                 </span>
               )}
               {selectMode && (
-                <span aria-hidden="true" className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border text-[13px] font-bold ${isSel ? 'border-gold bg-gold text-[#120D02]' : 'border-white/30'}`}>
+                <span aria-hidden="true" className={`flex h-6 w-6 flex-none items-center justify-center rounded-full border text-[13px] font-bold ${isSel ? 'border-accent bg-accent text-on-accent' : 'border-white/30'}`}>
                   {isSel ? '✓' : ''}
                 </span>
               )}
@@ -834,7 +835,7 @@ function SetsView({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]; on
                 <h2 className="m-0 text-base font-semibold text-ink-strong">{m.title}</h2>
                 <span className="text-xs text-muted">{[m.venue, m.performedAt ? new Date(m.performedAt).toLocaleDateString('nb-NO') : null, formatTime(m.durationMs), `${chapters.length} låter`].filter(Boolean).join(' · ')}</span>
               </div>
-              <button type="button" onClick={() => onPlay(t, a)} className="flex h-11 items-center gap-2 rounded-full bg-gold px-4 text-sm font-semibold text-[#120D02]">
+              <button type="button" onClick={() => onPlay(t, a)} className="flex h-11 items-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">
                 <PlayIcon width={16} height={16} />
                 {resume && !isCur ? `Fortsett fra ${formatTime(resume)}` : 'Spill'}
               </button>
@@ -873,7 +874,7 @@ function SetsView({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]; on
                     >
                       <span className="tabular text-muted">{formatTime(c.startMs)}</span>
                       {c.label}
-                      {!c.confirmed && <span className="text-gold" title="Ubekreftet – fant ikke sync-klikket">·?</span>}
+                      {!c.confirmed && <span className="text-accent" title="Ubekreftet – fant ikke sync-klikket">·?</span>}
                     </button>
                   </li>
                 ))}
@@ -893,7 +894,7 @@ function TransportButtons({ size = 'md' }: { size?: 'md' | 'lg' }) {
   const cur = queue[index];
   const hasSections = !!cur && sectionsOf(cur.manifest.markers).length > 0;
   const big = size === 'lg';
-  const small = `flex items-center justify-center rounded-full text-champagne hover:text-ink-strong disabled:opacity-30 ${big ? 'h-12 w-12' : 'h-10 w-10'}`;
+  const small = `flex items-center justify-center rounded-full text-soft hover:text-ink-strong disabled:opacity-30 ${big ? 'h-12 w-12' : 'h-10 w-10'}`;
   return (
     <div className={`flex items-center justify-center ${big ? 'gap-3' : 'gap-1.5'}`}>
       <button type="button" aria-label="Forrige del" title="Forrige del (Shift+←)" onClick={prevSection} disabled={!hasSections} className={small}>
@@ -906,9 +907,9 @@ function TransportButtons({ size = 'md' }: { size?: 'md' | 'lg' }) {
         type="button"
         aria-label={playing ? 'Pause' : 'Spill'}
         onClick={toggle}
-        className={`rounded-full bg-gold p-[3px] shadow-[0_8px_24px_rgba(240,192,48,0.25)] active:scale-95 ${big ? 'h-[76px] w-[76px]' : 'h-12 w-12'}`}
+        className={`rounded-full bg-accent p-[3px] shadow-[0_8px_24px_var(--glow)] active:scale-95 ${big ? 'h-[76px] w-[76px]' : 'h-12 w-12'}`}
       >
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0B0D12] text-gold">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0B0D12] text-accent">
           {playing ? <PauseIcon width={big ? 28 : 20} height={big ? 28 : 20} /> : <PlayIcon width={big ? 28 : 20} height={big ? 28 : 20} className="ml-0.5" />}
         </span>
       </button>
@@ -998,7 +999,7 @@ function Dock({ cur, track, onVariant, tracks, onPlay, onMore }: { cur: LoadedAs
         <label className="flex w-[180px] items-center gap-2 text-muted">
           <VolumeIcon width={18} height={18} />
           <span className="sr-only">Volum</span>
-          <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(Number(e.target.value))} className="w-full accent-[#F0C030]" />
+          <input type="range" min={0} max={1} step={0.01} value={volume} onChange={(e) => setVolume(Number(e.target.value))} className="w-full accent-[var(--accent)]" />
         </label>
       </div>
     </div>
@@ -1082,7 +1083,7 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
             <NowLabel cur={cur} />
           </span>
         </button>
-        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-gold text-[#120D02]">
+        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent text-on-accent">
           {playing ? <PauseIcon width={18} height={18} /> : <PlayIcon width={18} height={18} className="ml-0.5" />}
         </button>
       </div>
@@ -1103,11 +1104,11 @@ function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cur: Load
     <div role="dialog" aria-modal="true" aria-label={`Spiller: ${m.title}`} className="fixed inset-0 z-40 flex flex-col overflow-y-auto bg-obsidian px-6 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(14px,env(safe-area-inset-top))] lg:hidden">
       <div aria-hidden="true" className="pointer-events-none absolute left-1/2 top-[30%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, var(--glow), var(--glow-2) 55%, transparent)', opacity: 'calc(0.6 + var(--sub, 0) * 0.4)' }} />
       <div className="relative flex items-center justify-between">
-        <button type="button" onClick={onClose} aria-label="Lukk spilleren" className="flex h-11 w-11 items-center justify-center rounded-full text-champagne">
+        <button type="button" onClick={onClose} aria-label="Lukk spilleren" className="flex h-11 w-11 items-center justify-center rounded-full text-soft">
           <ChevronDownIcon width={26} height={26} />
         </button>
         <span className="text-[10px] font-semibold tracking-[2px] text-muted">{m.kind === 'set' ? 'LIVE-SETT' : 'SPILLES NÅ'}</span>
-        <button type="button" onClick={onMore} aria-label="Valg for låta som spilles" className="flex h-11 w-11 items-center justify-center rounded-full text-champagne">
+        <button type="button" onClick={onMore} aria-label="Valg for låta som spilles" className="flex h-11 w-11 items-center justify-center rounded-full text-soft">
           <MoreIcon width={22} height={22} />
         </button>
       </div>

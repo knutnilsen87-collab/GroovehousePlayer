@@ -2,13 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Del 14: selvhostet skrift (Satoshi: ITF Free Font License, JetBrains Mono: OFL – lisensene ligger ved siden av). */
+@font-face {
+  font-family: 'Satoshi';
+  src: url('/fonts/Satoshi-Variable.woff2') format('woff2');
+  font-weight: 300 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-SemiBold.woff2') format('woff2');
+  font-weight: 600 700;
+  font-display: swap;
+}
+
 :root {
-  /* Standard: gull. Overstyres per låt fra assets.palette. */
-  --accent: #f0c030;
-  --accent-2: #b06000;
-  --on-accent: #120d02;
-  --glow: rgba(240, 192, 48, 0.3);
-  --glow-2: rgba(176, 96, 0, 0.12);
+  /* Nøytral sølv før en låt er valgt. Overstyres av coverets palett (assets.palette) – gull bare i logoen. */
+  --accent: #c8d0dc;
+  --accent-2: #5a6578;
+  --on-accent: #07080b;
+  --glow: rgba(200, 208, 220, 0.3);
+  --glow-2: rgba(90, 101, 120, 0.12);
   color-scheme: dark;
 }
 
@@ -21,13 +47,75 @@ body,
 body {
   margin: 0;
   background: #07080b;
-  color: #edeae2;
-  font-family: Inter, system-ui, sans-serif;
+  color: #e9ecf2;
+  font-family: Satoshi, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------- Del 14: «High-End Studio» */
+
+/* Data (BPM, toneart, LUFS, tider, format): JetBrains Mono med tabulære tall. */
+.font-mono,
+.gv-data {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glasspanel: nøytral flate, tynn kant og svak ytre glød i aksentfargen. Ingen backdrop-filter (mobil/app). */
+.gv-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  border-radius: 16px;
+  box-shadow:
+    0 0 28px color-mix(in srgb, var(--accent) 9%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.gv-panel-quiet {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+}
+
+/* Paneltitler: små versaler med sperring (TRACK INFO-stil). */
+.gv-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #b4bbc8;
+}
+
+/* Aktivt element: full neon-glød (samme oppskrift som neonGlow i del 9). */
+.gv-neon {
+  box-shadow:
+    0 0 6px var(--accent),
+    0 0 18px color-mix(in srgb, var(--accent) 60%, transparent),
+    0 0 36px color-mix(in srgb, var(--accent) 33%, transparent);
+}
+.gv-neon-soft {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent),
+    0 0 14px color-mix(in srgb, var(--accent) 35%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.gv-neon-text {
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* Fokusringer i aksent (tastaturnavigasjon). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Tynne rullefelt i paneler. */
+.gv-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 35%, transparent) transparent;
 }
 
 .sr-only {

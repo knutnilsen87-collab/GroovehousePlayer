@@ -82,7 +82,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
               type="button"
               aria-current={active ? 'page' : undefined}
               onClick={() => setView(id)}
-              className={`flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-left text-sm ${active ? 'bg-gold/[0.08] font-semibold text-gold' : 'text-muted hover:text-ink-strong'}`}
+              className={`flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-left text-sm ${active ? 'bg-accent/[0.08] font-semibold text-accent' : 'text-muted hover:text-ink-strong'}`}
             >
               <Icon width={18} height={18} />
               {label}
@@ -95,7 +95,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
       </a>
       <div className="mt-auto flex flex-col gap-1.5 rounded-xl border border-white/[0.06] bg-surface p-3.5">
         <div className="flex items-center gap-2 text-xs font-semibold">
-          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-gold shadow-[0_0_10px_rgba(240,192,48,0.7)]" />
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_var(--glow)]" />
           {t.watcher}
         </div>
         <span className="text-[11px] text-muted">{t.watcherHint}</span>
@@ -156,7 +156,7 @@ function MobileView() {
             <p className="text-sm text-muted">{t.mobileNoIp}</p>
           )}
           <div className="flex min-w-[240px] flex-1 flex-col gap-3 text-sm">
-            <p className="m-0 font-semibold text-gold">{t.mobileOn}</p>
+            <p className="m-0 font-semibold text-accent">{t.mobileOn}</p>
             <ol className="m-0 flex flex-col gap-1.5 pl-5 text-[#C9C4B6]">
               <li>Koble mobilen til samme Wi-Fi som PC-en.</li>
               <li>Pek kameraet på QR-koden og åpne lenken.</li>
@@ -195,7 +195,7 @@ function DropsView({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEntry
             {SEED_DROPS.length} drops · {assets.length} assets i katalogen · {t.sampleData}
           </p>
         </div>
-        <button type="button" disabled title={t.phase2} className="flex min-h-11 items-center gap-2 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02] disabled:opacity-60">
+        <button type="button" disabled title={t.phase2} className="flex min-h-11 items-center gap-2 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent disabled:opacity-60">
           <PlusIcon width={16} height={16} />
           {t.newDrop}
         </button>
@@ -220,8 +220,8 @@ function IngestStrip({ assets, log }: { assets: LoadedAsset[]; log: IngestLogEnt
   const recent = [...assets].sort((a, b) => b.manifest.createdAt.localeCompare(a.manifest.createdAt)).slice(0, 2);
   return (
     <section aria-label="Ingest" className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
-      <div className="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-gold/35 bg-gold/[0.03] p-4 text-center">
-        <UploadIcon width={26} height={26} className="text-gold" strokeWidth={1.8} />
+      <div className="flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed border-accent/35 bg-accent/[0.03] p-4 text-center">
+        <UploadIcon width={26} height={26} className="text-accent" strokeWidth={1.8} />
         <span className="text-sm font-semibold">{t.dropzone}</span>
         <span className="text-xs text-muted">{t.dropzoneHint}</span>
       </div>
@@ -250,13 +250,13 @@ function IngestCard({ a, entry }: { a: LoadedAsset; entry?: IngestLogEntry }) {
             </span>
           </div>
         </div>
-        <span className="text-[11px] font-semibold tracking-[1px] text-gold">KLAR</span>
+        <span className="text-[11px] font-semibold tracking-[1px] text-accent">KLAR</span>
       </div>
       <SunoNotice entry={entry} />
-      {m.titleNeedsReview && <p className="m-0 text-[11px] text-gold">{t.titleNeedsReview}</p>}
+      {m.titleNeedsReview && <p className="m-0 text-[11px] text-accent">{t.titleNeedsReview}</p>}
       <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
         {steps.map((s) => (
-          <li key={s.label} className={`flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium ${s.ok ? 'bg-gold/10 text-gold-hi' : 'bg-white/[0.06] text-[#C9C4B6]'}`}>
+          <li key={s.label} className={`flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium ${s.ok ? 'bg-accent/10 text-accent' : 'bg-white/[0.06] text-[#C9C4B6]'}`}>
             {s.ok ? '✓' : '!'} {s.label}
           </li>
         ))}
@@ -269,8 +269,8 @@ function IngestCard({ a, entry }: { a: LoadedAsset; entry?: IngestLogEntry }) {
 function SunoNotice({ entry }: { entry?: IngestLogEntry }) {
   if (!entry || entry.suno.length === 0) return null;
   return (
-    <div role="status" className="rounded-xl border border-gold/50 bg-gold/[0.08] px-3 py-2 text-[12px] text-ink">
-      <p className="m-0 font-semibold text-gold-hi">{t.sunoFound(entry.suno.length)}</p>
+    <div role="status" className="rounded-xl border border-accent/50 bg-accent/[0.08] px-3 py-2 text-[12px] text-ink">
+      <p className="m-0 font-semibold text-accent">{t.sunoFound(entry.suno.length)}</p>
       <ul className="m-0 mt-1 list-disc pl-4 text-[11px] text-[#C9C4B6]">
         {entry.suno.map((s) => (
           <li key={s} className="break-all">
@@ -296,8 +296,8 @@ function pipelineSteps(m: AssetManifest) {
 }
 
 const TIER_STYLE: Record<AccessTier, string> = {
-  inner: 'border-gold text-gold-hi',
-  partner: 'border-gold/45 text-gold',
+  inner: 'border-accent text-accent',
+  partner: 'border-accent/45 text-accent',
   supporter: 'border-white/20 text-[#C9C4B6]',
   teaser: 'border-white/20 text-muted'
 };
@@ -313,7 +313,7 @@ function DropCard({ drop, assets, selected, onSelect }: { drop: SeedDrop; assets
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex items-center gap-3 rounded-[14px] border bg-surface p-3.5 text-left ${selected ? 'border-gold/55' : 'border-white/[0.06] hover:border-white/15'}`}
+      className={`flex items-center gap-3 rounded-[14px] border bg-surface p-3.5 text-left ${selected ? 'border-accent/55' : 'border-white/[0.06] hover:border-white/15'}`}
     >
       {first ? (
         <CoverArt src={assetUrl(first, first.manifest.files.coverThumb)} palette={first.manifest.palette} title={first.manifest.title} size={44} rounded={9} />
@@ -375,7 +375,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
           <a href={`/drop/${drop.slug}${recipient ? `?r=${encodeURIComponent(recipient.name)}` : ''}`} target="_blank" rel="noreferrer" className="flex min-h-11 items-center rounded-full border border-white/[0.12] px-4 text-[13px] text-ink no-underline hover:border-white/25">
             Åpne lyttervisning
           </a>
-          <button type="button" onClick={copy} disabled={!recipient} className="flex min-h-11 items-center gap-1.5 rounded-full border border-gold/45 px-4 text-[13px] font-semibold text-gold disabled:opacity-50">
+          <button type="button" onClick={copy} disabled={!recipient} className="flex min-h-11 items-center gap-1.5 rounded-full border border-accent/45 px-4 text-[13px] font-semibold text-accent disabled:opacity-50">
             <LinkIcon width={15} height={15} />
             {copied ? t.copied : t.copyLink}
           </button>
@@ -452,7 +452,7 @@ function RecipientRow({ r, asset, dropMs, maxDevices, selected, onSelect }: { r:
   const overLimit = r.devices > maxDevices;
 
   return (
-    <tr className={`border-t border-white/[0.06] ${selected ? 'bg-gold/[0.05]' : ''}`}>
+    <tr className={`border-t border-white/[0.06] ${selected ? 'bg-accent/[0.05]' : ''}`}>
       <td className="pr-2.5">
         <button type="button" aria-pressed={selected} onClick={onSelect} className="flex min-h-14 w-full flex-col justify-center rounded-lg px-2 text-left hover:bg-white/[0.04]">
           <span className="font-semibold text-ink-strong">{r.name}</span>
@@ -468,12 +468,12 @@ function RecipientRow({ r, asset, dropMs, maxDevices, selected, onSelect }: { r:
             return <span key={i} aria-hidden="true" className="flex-1 rounded-[1.5px]" style={{ height: Math.max(4, Math.round(h * 28)), backgroundColor: bg }} />;
           })}
           {dropMs !== null && (
-            <span aria-hidden="true" className="absolute -bottom-0.5 -top-0.5 w-px bg-gold/60" style={{ left: `${(dropMs / m.durationMs) * 100}%` }} />
+            <span aria-hidden="true" className="absolute -bottom-0.5 -top-0.5 w-px bg-accent/60" style={{ left: `${(dropMs / m.durationMs) * 100}%` }} />
           )}
         </div>
       </td>
       <td className={`whitespace-nowrap px-2.5 font-medium ${status.cls}`}>{status.text}</td>
-      <td className={`whitespace-nowrap pl-2.5 ${overLimit ? 'text-gold' : 'text-[#C9C4B6]'}`}>
+      <td className={`whitespace-nowrap pl-2.5 ${overLimit ? 'text-accent' : 'text-[#C9C4B6]'}`}>
         {r.devices === 0 ? '—' : `${r.devices} ${r.devices === 1 ? 'enhet' : 'enheter'}`}
         {overLimit && ' · sjekk'}
       </td>
@@ -499,7 +499,7 @@ function ListenLog({ r, asset, dropMs }: { r: SeedRecipient; asset: LoadedAsset;
           {lines.map((l, i) => (
             <li key={i} className="flex items-baseline gap-3.5">
               <span className="tabular w-[52px] flex-none text-xs text-muted">{l.at}</span>
-              <span aria-hidden="true" className="h-2 w-2 flex-none -translate-y-px rounded-full" style={{ background: l.accent ? 'var(--accent)' : '#F0C030' }} />
+              <span aria-hidden="true" className="h-2 w-2 flex-none -translate-y-px rounded-full" style={{ background: l.accent ? 'var(--accent)' : 'rgba(255,255,255,0.35)' }} />
               <span className="text-[13px]">{l.text}</span>
             </li>
           ))}
@@ -608,7 +608,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
   const vars = paletteToCssVars(m.palette) as CSSProperties;
   const chapters = m.markers.filter((k) => k.kind === 'chapter' || k.kind === 'highlight');
   return (
-    <li id={`arkiv-${latest.manifest.slug}`} ref={rowRef} className={`flex flex-col gap-3 rounded-2xl border bg-surface p-4 ${focused ? 'border-gold/60 ring-1 ring-gold/40' : 'border-white/[0.06]'}`} style={vars}>
+    <li id={`arkiv-${latest.manifest.slug}`} ref={rowRef} className={`flex flex-col gap-3 rounded-2xl border bg-surface p-4 ${focused ? 'border-accent/60 ring-1 ring-accent/40' : 'border-white/[0.06]'}`} style={vars}>
       <div className="flex flex-wrap items-center gap-4">
         <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={56} rounded={10} />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -617,7 +617,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
             {m.variantLabel ? <span className="font-normal text-muted"> · {m.variantLabel}</span> : null}
           </span>
           <span className="text-xs text-[#C9C4B6]">{[m.artist, m.album && m.album !== m.title ? m.album : null, m.copyright].filter(Boolean).join(' · ')}</span>
-          {m.titleNeedsReview && <span className="text-[11px] text-gold">{t.titleNeedsReview}</span>}
+          {m.titleNeedsReview && <span className="text-[11px] text-accent">{t.titleNeedsReview}</span>}
           {source && <span className="text-[11px] text-muted">Kildefil: <span className="text-[#C9C4B6]">{source}</span></span>}
           {(() => {
             const n = shareCounts[`${m.slug}::${m.variant ?? 'main'}::v${m.version}`] ?? 0;
@@ -628,7 +628,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
             {versions.length > 1 ? (
               <label className="inline-flex items-center gap-1">
                 <span className="sr-only">Versjon av {m.title}</span>
-                <select value={picked} onChange={(e) => setPicked(Number(e.target.value))} className="rounded border border-white/15 bg-sunken px-1 text-xs text-champagne focus:outline-none">
+                <select value={picked} onChange={(e) => setPicked(Number(e.target.value))} className="rounded border border-white/15 bg-sunken px-1 text-xs text-soft focus:outline-none">
                   {versions.map((v) => (
                     <option key={v.version} value={v.version}>
                       v{v.version}
@@ -653,11 +653,11 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
           type="button"
           onClick={() => setEditing((e) => !e)}
           aria-expanded={editing}
-          className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-gold/50"
+          className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50"
         >
           {editing ? t.close : t.edit}
         </button>
-        <button type="button" onClick={() => onPlay(a)} aria-label={`Spill ${m.title} v${m.version}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-gold text-[#120D02]">
+        <button type="button" onClick={() => onPlay(a)} aria-label={`Spill ${m.title} v${m.version}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-on-accent">
           <PlayIcon width={18} height={18} className="ml-0.5" />
         </button>
       </div>
@@ -681,7 +681,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
             <li key={`${c.kind}-${c.startMs}`} className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-[11px]">
               <span className="tabular text-muted">{formatTime(c.startMs)}</span>
               {c.label}
-              {!c.confirmed && <span className="text-gold">· ubekreftet</span>}
+              {!c.confirmed && <span className="text-accent">· ubekreftet</span>}
             </li>
           ))}
         </ol>
@@ -715,7 +715,7 @@ function MetaEditor({ a, onDone }: { a: LoadedAsset; onDone: () => void }) {
     }
   };
 
-  const field = 'min-h-11 w-full rounded-xl border border-white/10 bg-sunken px-3 text-sm text-ink focus:border-gold/60 focus:outline-none';
+  const field = 'min-h-11 w-full rounded-xl border border-white/10 bg-sunken px-3 text-sm text-ink focus:border-accent/60 focus:outline-none';
   return (
     <form onSubmit={submit} className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 rounded-xl border border-white/[0.08] bg-sunken/60 p-3">
       <label className="flex flex-col gap-1 text-[11px] text-muted" htmlFor={`${id}-title`}>
@@ -737,7 +737,7 @@ function MetaEditor({ a, onDone }: { a: LoadedAsset; onDone: () => void }) {
         </label>
       )}
       <div className="col-span-full flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={busy} className="min-h-11 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02] disabled:opacity-60">
+        <button type="submit" disabled={busy} className="min-h-11 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent disabled:opacity-60">
           {busy ? t.saving : t.save}
         </button>
         <span className="text-[11px] text-muted">{t.saveHint}</span>
@@ -768,7 +768,7 @@ function MiniPlayer() {
             {formatTime(positionMs)} / {formatTime(m.durationMs)}
           </span>
         </div>
-        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-gold text-[#120D02]">
+        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-accent text-on-accent">
           {playing ? <PauseIcon width={18} height={18} /> : <PlayIcon width={18} height={18} className="ml-0.5" />}
         </button>
         <div className="min-w-0 flex-1">

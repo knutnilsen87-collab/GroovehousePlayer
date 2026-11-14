@@ -110,9 +110,9 @@ function ShareSheet() {
               role="radio"
               aria-checked={kind === k.kind}
               onClick={() => choose(k.kind)}
-              className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-left ${kind === k.kind ? 'border-gold/60 bg-gold/[0.06]' : 'border-white/10 hover:border-white/20'}`}
+              className={`flex min-h-14 items-center gap-3 rounded-xl border px-3 text-left ${kind === k.kind ? 'border-accent/60 bg-accent/[0.06]' : 'border-white/10 hover:border-white/20'}`}
             >
-              <span aria-hidden="true" className={`h-4 w-4 flex-none rounded-full border ${kind === k.kind ? 'border-gold bg-gold' : 'border-white/30'}`} />
+              <span aria-hidden="true" className={`h-4 w-4 flex-none rounded-full border ${kind === k.kind ? 'border-accent bg-accent' : 'border-white/30'}`} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="text-[15px] font-semibold text-ink-strong lg:text-sm">{k.label}</span>
                 <span className="text-xs text-muted">{k.hint}</span>
@@ -140,16 +140,16 @@ function ShareSheet() {
           {progress ? (
             <div aria-live="polite" className="flex flex-col gap-1.5">
               <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
-                <div className="h-full rounded-full bg-gold transition-[width]" style={{ width: pct != null ? `${pct}%` : '30%' }} />
+                <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: pct != null ? `${pct}%` : '30%' }} />
               </div>
               <span className="text-xs text-muted">{pct != null ? `Henter … ${pct} %` : `Lager fila … ${formatBytes(progress.loaded)}`}</span>
             </div>
           ) : fetched ? (
-            <button type="button" onClick={() => void shareNow()} className="h-12 rounded-full bg-gold text-sm font-semibold text-[#120D02]">
+            <button type="button" onClick={() => void shareNow()} className="h-12 rounded-full bg-accent text-sm font-semibold text-on-accent">
               {shareable ? 'Del nå' : 'Last ned'}
             </button>
           ) : (
-            <button type="button" onClick={() => void fetchIt()} className="h-12 rounded-full bg-gold text-sm font-semibold text-[#120D02]">
+            <button type="button" onClick={() => void fetchIt()} className="h-12 rounded-full bg-accent text-sm font-semibold text-on-accent">
               {shareable ? 'Gjør klar til deling' : 'Gjør klar til nedlasting'}
             </button>
           )}
