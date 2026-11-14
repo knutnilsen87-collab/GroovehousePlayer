@@ -185,7 +185,7 @@ Mål: Knut kan justere oppførselen uten å redigere filer. Alt lagres i `groove
 4. **Metadata:** standard artist, label, copyright-mal (`℗ {år} {label}`) og rensingslisten for titler (legg til og fjern ord/mønstre, med forhåndsvisning på eksisterende filnavn).
 5. **Farger:** minimum kontrast for aksent (standard 4.5:1, ikke lavere enn 3:1) og om fargeløse cover skal falle tilbake til gull.
 6. **Tilgang:** Wi-Fi-modus på/av og bytte PIN (samme logikk som `vault:lan`), Tailscale-status og adresse med QR (samme logikk som `vault:remote`). Ingen visning av PIN eller hasher.
-7. **Standarder for drops** (lagres nå, brukes når drops kobles til Supabase): standard nivå, levetid i dager, maks antall enheter per lenke (standard 2), og vannmerke på/av som standard. Merk tydelig i UI-et at dette ikke har effekt før delingsfasen.
+7. **Standarder for drops** (lagres nå, brukes av del 13): standard nivå, levetid i dager, maks antall enheter per lenke (standard 2), og vannmerke på/av som standard. Merk tydelig i UI-et at dette ikke har effekt før del 13 er bygget.
 
 **Per låt (asset-siden i Studio)**
 8. **Fargeoverstyring:** to fargevelgere (`primary`, `secondary`) med live forhåndsvisning av spiller og drop-side, kontrastmåling mot `#07080B` (rødt under minimum) og «Tilbakestill til automatisk». Lagres som `palette` i `meta.json` med `source: "manual"`. Ingest skal respektere den ved ny kjøring.
@@ -197,7 +197,7 @@ Mål: Knut kan justere oppførselen uten å redigere filer. Alt lagres i `groove
 - Skriving til innstillinger er bare lov fra PC-en selv eller fra Knuts egne enheter (Tailscale, eller Wi-Fi med gyldig PIN). Lytterlenker (`/drop/...`) har aldri tilgang.
 - Tester for validering, atomisk skriving, at manuell palett overlever ny ingest, og at offset flytter markørene riktig.
 
-**Ikke i denne delen** (hører til delingsfasen med Supabase): oppførsel per nivå (nedlasting av stems, opplåsing, teaser kun med preview), håndheving av enhetsgrense, GDPR-sletting av lyttelogger og personvernerklæring for partnere, og klipp-eksport til sosiale medier.
+**Ikke i denne delen** (hører til del 13): oppførsel per nivå (nedlasting av stems, opplåsing, teaser kun med preview), håndheving av enhetsgrense, GDPR-sletting av lyttelogger og personvernerklæring for partnere, og klipp-eksport til sosiale medier.
 
 **Ferdig når:** Knut kan endre eksportmappe, LUFS-mål, standard artist/label og farge på én låt fra Studio, og endringene står seg etter omstart og ny ingest.
 
