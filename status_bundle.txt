@@ -453,8 +453,8 @@ changed_surfaces:
 repo_health:
   git_branch: "setup/del-0"
   git_head_at_start: "308f83526c88f7e762f64894b9f1639a70a1e6aa"
-  git_head_current: "b8a7c04"
-  working_tree_status: "dirty. Del 5/13, standardfarge grønn og denne statusfila er ikke committet. To CSV-filer i rota er usporet og skal ikke committes."
+  git_head_current: "a0e035b"
+  working_tree_status: "Del 5/13 er committet som a0e035b og ikke pushet. To CSV-filer i rota er fortsatt usporet og skal ikke committes."
   uncommitted_changes:
     - "Del 5: packages/shared/src/playback.ts, packages/ingest/src/playback-store.ts, apps/web playbackSync og ResumeBanner"
     - "Del 13: packages/shared/src/listen.ts, apps/listen-worker, packages/ingest/src/drops-api.ts, ShareSheet"
@@ -463,8 +463,8 @@ repo_health:
   build_status: "not_run"
   tests_status: "passed"
   security_checks_status: "not_run"
-  commit_created: false
-  commit_hash: "b8a7c04 (HEAD, ingen ny commit i denne økta)"
+  commit_created: true
+  commit_hash: "a0e035b"
   pushed_to_remote: true
   push_verified: false
   deployed: false
@@ -583,7 +583,7 @@ handoff:
     Lokal musikkspiller. Ferdig og beskrevet i docs/PROGRESS.md: del 0–2, 4, 6–12, 14–17.
     Del 3 venter på fasit (keyMethod krumhansl). Del 5 synker avspillingsposisjon via Vault-serveren.
     Del 13 er kodet (Worker + Del lenke) og ikke deployet. 246 enhetstester grønne 2026-11-15.
-    Arbeidskopien er ikke committet. Ikke pushet.
+    Committet lokalt som a0e035b. Ikke pushet.
   next_action: "Be Knut om fasit i fixtures/truth.json, og om ja til wrangler login før deploy. Ikke finn på BPM eller Camelot."
   next_checks:
     - "Spiller mobilen via ts.net uten PIN?"
