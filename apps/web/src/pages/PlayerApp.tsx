@@ -14,12 +14,14 @@ import { addWithUndo, AddToPlaylistSheet, PlaylistDetail, PlaylistsOverview, Sid
 import { ChevronDownIcon, MoreIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SearchIcon, SectionNextIcon, SectionPrevIcon, VolumeIcon } from '../components/Icons';
 import { SpectralWaveform } from '../components/SpectralWaveform';
 import { assetUrl, groupTracks, loadVersion, useCatalog, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
+import { startPlaybackSync } from '../lib/playbackSync';
 import { savedPosition, storedQueue, usePlayer } from '../lib/player';
 import { SetBuilder } from '../components/SetBuilder';
 import { itemFor, mostRecentTarget, toastError, usePlaylists, usePlaylistSync, useToast } from '../lib/playlists';
 import { useSubBass } from '../lib/useSubBass';
 import { useVersionCtx } from '../lib/versions';
 import { QueuePanel, TrackActionsHost } from '../components/TrackActions';
+import { ResumeBanner } from '../components/ResumeBanner';
 import { ShareSheetHost } from '../components/ShareSheet';
 import { useUi } from '../lib/ui';
 import { fromStored } from '@gv/shared/web';
@@ -82,7 +84,12 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   useEffect(() => {
     void loadPlaybackSettings();
     void useFavorites.getState().load();
-    return startListenReporting();
+    const stopSync = startPlaybackSync();
+    const stopListen = startListenReporting();
+    return () => {
+      stopSync();
+      stopListen();
+    };
   }, []);
 
   // Køen fra forrige gang: legges tilbake pauset når katalogen er lastet (eldre versjoner hentes ved behov).
@@ -259,6 +266,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
             <SearchIcon width={20} height={20} />
           </button>
         </header>
+        <ResumeBanner tracks={tracks} />
 
         {loading ? (
           <p className="text-sm text-muted">Åpner hvelvet …</p>

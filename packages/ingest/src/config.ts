@@ -165,7 +165,7 @@ export function formatCopyright(template: string | null, year: number, label: st
   return template ? template.replace(/\{(year|år)\}/g, String(year)).replace(/\{label\}/g, label ?? '').replace(/\s+/g, ' ').trim() : null;
 }
 
-/** «goldFallback» (før 2026-11-14) heter nå «colorFallback»: standardfargen er cyan, gull bare i logoen. */
+/** «goldFallback» (før 2026-11-14) heter nå «colorFallback»: standardfargen er grønn (#06B211), gull bare i logoen. */
 function legacyColors(c: Record<string, unknown>): { minContrast: number; colorFallback: boolean } {
   const { goldFallback, ...rest } = c as { goldFallback?: boolean; colorFallback?: boolean; minContrast: number };
   return { ...rest, colorFallback: rest.colorFallback ?? goldFallback ?? true } as { minContrast: number; colorFallback: boolean };

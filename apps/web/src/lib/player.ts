@@ -51,13 +51,20 @@ export function savedPosition(a: LoadedAsset): number | null {
     return null;
   }
 }
-function savePosition(a: LoadedAsset, ms: number) {
+/** Del 5: synk mot Vault-serveren. force = pause eller lukking, ellers høyst hvert 10. sekund. */
+type PositionHook = (a: LoadedAsset, ms: number, force: boolean) => void;
+let positionHook: PositionHook | null = null;
+export function setPositionHook(fn: PositionHook | null) {
+  positionHook = fn;
+}
+function savePosition(a: LoadedAsset, ms: number, force = false) {
   try {
     if (ms > a.manifest.durationMs - 15_000) localStorage.removeItem(posKey(a));
     else localStorage.setItem(posKey(a), String(Math.round(ms)));
   } catch {
     /* privat modus o.l. */
   }
+  positionHook?.(a, ms, force);
 }
 /** Posisjoner native-tjenesten lagret mens JavaScript sov (appen i bakgrunnen). */
 export function mergeSavedPositions(positions: Record<string, number> | undefined) {
@@ -305,7 +312,7 @@ function wire(e: PlayerEngine) {
       const a = current();
       if (a) {
         logListen({ event: 'pause', assetId: a.manifest.id, positionMs: e.positionMs() });
-        savePosition(a, e.positionMs());
+        savePosition(a, e.positionMs(), true);
       }
       saveQueue();
     },
@@ -360,7 +367,7 @@ if (isBrowser) {
   window.addEventListener('pagehide', () => {
     saveQueue();
     const a = current();
-    if (a && engine && !engine.isPaused()) savePosition(a, engine.positionMs());
+    if (a && engine && !engine.isPaused()) savePosition(a, engine.positionMs(), true);
   });
 
   // Web: låseskjermkontroller via Media Session. I appen gjør Media3-tjenesten dette selv.

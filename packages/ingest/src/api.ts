@@ -9,9 +9,11 @@ import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
 import { retagSlug, updateCatalog } from './ingest';
 import { ensureShareFile, ShareError } from './share';
-import { DRAFT_BASE, manualPalette, statusOf, validateMarkers, versionName, type AssetManifest, type ShareKind } from '@gv/shared';
+import { DRAFT_BASE, manualPalette, statusOf, validPoint, validateMarkers, versionName, type AssetManifest, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
+import { handleDrops, type DropPublisher } from './drops-api';
+import { loadPlayback, savePoint } from './playback-store';
 import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
 import { addLearn, m3u, readLearn, recordedPairs, rekordboxXml, resolveItems, type ExportItem } from './sets';
 import { readSources, sourceKey, sourcesFile } from './source-index';
@@ -54,6 +56,8 @@ export interface ApiOptions {
   mediaDir: string;
   /** Mappe for playlists.json. Standard: <prosjektrot>/data. */
   dataDir?: string;
+  /** Del 13: bytt ut opplastingen i tester. Standard er lytter-workeren når den er koblet til. */
+  publishDrop?: DropPublisher;
 }
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,120}$/;
@@ -79,6 +83,23 @@ export function createApiHandler(opts: ApiOptions) {
   return async function handle(req: IncomingMessage, res: ServerResponse, next?: () => void): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (url.pathname === '/api/health') return send(res, 200, { app: APP_ID, version });
+    // Del 5: posisjon på tvers av enheter. Nyeste tidsstempel vinner. Aldri fra /drop/.
+    if (url.pathname === '/api/playback') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const file = path.join(dataDir, 'playback.json');
+      if (req.method === 'GET') return send(res, 200, await loadPlayback(file));
+      if (req.method !== 'PUT') return send(res, 405, { error: 'method not allowed' });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      const body = (await readJson(req).catch(() => null)) as Record<string, unknown> | null;
+      if (!body || !validPoint(body as never)) return send(res, 400, { error: 'ugyldig posisjon' });
+      const saved = await savePoint(file, { slug: body.slug as string, variant: body.variant as string, positionMs: body.positionMs as number, updatedAt: body.updatedAt as string, deviceId: body.deviceId as string, deviceLabel: String(body.deviceLabel).slice(0, 40) }, body.claim === true);
+      return send(res, 200, saved);
+    }
+    // Del 13: personlig lytterlenke. Tokenet returneres én gang og lagres ikke her.
+    if (url.pathname === '/api/drops') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return handleDrops({ mediaDir: opts.mediaDir, dataDir, publish: opts.publishDrop }, req, res);
+    }
     if (url.pathname === '/api/playlists' || url.pathname.startsWith('/api/playlists/')) {
       await handlePlaylists(playlists, url, req, res);
       return;

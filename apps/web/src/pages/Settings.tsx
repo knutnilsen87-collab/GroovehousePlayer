@@ -465,7 +465,7 @@ function ColorsSection({ draft, set, busy, dirty, onSave }: { draft: Editable; s
           <span className="tabular text-sm text-ink-strong">{draft.colors.minContrast.toFixed(1)}:1</span>
         </span>
       </label>
-      <Toggle label="Fargeløse cover får standardfargen (cyan)" checked={draft.colors.colorFallback} onChange={(v) => set('colors', { ...draft.colors, colorFallback: v })} />
+      <Toggle label="Fargeløse cover får standardfargen (grønn)" checked={draft.colors.colorFallback} onChange={(v) => set('colors', { ...draft.colors, colorFallback: v })} />
       <div className="flex flex-wrap items-center gap-2">
         <SaveRow busy={busy} dirty={dirty} onSave={onSave} />
         <button

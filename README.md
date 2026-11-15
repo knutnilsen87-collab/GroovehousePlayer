@@ -51,9 +51,9 @@ pnpm vault:server      # serveren i forgrunnen (feilsøking)
 - **Kategorisering:** grense for live-sett (standard 20 min) og filnavnregler med `*` (f.eks. `* (Live *)` → sett, `*Club*` → variant `club`), med forhåndsvisning på filene i eksportmappa.
 - **Lyd:** målnivå −16 til −11 LUFS (standard −14). Spilleren demper bare, løfter aldri. Gjelder med en gang, også for låter som alt er ingestet.
 - **Metadata:** standard artist, label, copyright-mal (`℗ {år} {label}`) og ord som fjernes fra titler, med forhåndsvisning.
-- **Farger:** minste kontrast (3–7, standard 4.5:1) og om fargeløse cover skal få standardfargen cyan (`#01E6FC`, fra referansebildet). «Bruk på alle låter nå» regner ut fargene på nytt fra lagret cover (låter med egen farge røres ikke).
+- **Farger:** minste kontrast (3–7, standard 4.5:1) og om fargeløse cover skal få standardfargen grønn (`#06B211`). «Bruk på alle låter nå» regner ut fargene på nytt fra lagret cover (låter med egen farge røres ikke).
 - **Tilgang:** Wi-Fi-modus av/på og ny PIN (bare fra PC-en), Tailscale-status med QR. PIN og hasher vises aldri.
-- **Drops:** standarder lagres nå, men har ingen effekt før delingsfasen.
+- **Drops:** standarder lagres. «⋯ → Del…» kan lage en lyttelenke når `LISTEN_ADMIN_URL` og `LISTEN_ADMIN_TOKEN` er satt (se under). Uten det svarer serveren at tjenesten ikke er koblet til.
 - **Per låt (Arkiv → Rediger):** egen primær-/sekundærfarge med kontrastmåling og forhåndsvisning, og for live-sett en forskyvning (±10 s, steg 50 ms) med «spill fra markør». Lagres i `media/<slug>/meta.json` og overlever ny ingest.
 - Lagring valideres først, `groovehouse.config.json` skrives atomisk og forrige versjon ligger i `groovehouse.config.backup.json` (ikke i git). Lyttelenker (`/drop/…`) har aldri tilgang.
 
@@ -226,7 +226,7 @@ Export/
     would-you-run_v3.wav              ← mappenavn = slug, _v3 = versjon (over tid)
     would-you-run__extended_v2.wav    ← __extended = variant (samtidig versjon)
     would-you-run__vip-dub.wav        ← variant uten _vN = v1
-    cover.png                         ← valgfri, men uten cover blir paletten standardfargen cyan
+    cover.png                         ← valgfri, men uten cover blir paletten standardfargen grønn
     meta.json                         ← valgfri, se under
     live_log.json                     ← kun for sett (se under)
 ```
@@ -291,7 +291,7 @@ Filene havner i `media/<slug>/<variant eller main>/v<N>/` og serveres under `/me
 ## Beslutninger som er bygget inn
 
 - **Ingen Web Audio API.** Avspilling via `<audio>` (native HLS i Safari, hls.js lastes bare i andre nettlesere) + Media Session. Visualisering fra `analysis.json`.
-- **Coveret styrer fargene, gull bare i logoen** (endret 2026-11-14, se del 14 i CLAUDE_CODE_SETUP.md). Aksentfarger kommer kun fra `assets.palette` via CSS-variablene `--accent`, `--accent-2`, `--glow`. Paletten velger mest *levende* farge og løftes til ≥ 4.5:1 mot `#07080B`. Mangler cover eller er det fargeløst → standardfargen cyan `#01E6FC` (målt fra referansebildet), også før noen låt er valgt. Gull brukes bare i logoen (endret 2026-11-14). Konfignøkkelen heter nå `colors.colorFallback` (den gamle `goldFallback` leses fortsatt).
+- **Coveret styrer fargene, gull bare i logoen** (endret 2026-11-14, oppdatert 2026-11-15, se del 14 i CLAUDE_CODE_SETUP.md). Aksentfarger kommer kun fra `assets.palette` via CSS-variablene `--accent`, `--accent-2`, `--glow`. Paletten velger mest *levende* farge og løftes til ≥ 4.5:1 mot `#07080B`. Mangler cover eller er det fargeløst → standardfargen grønn `#06B211` / `#14E177`, også før noen låt er valgt. Gull brukes bare i logoen. Konfignøkkelen heter nå `colors.colorFallback` (den gamle `goldFallback` leses fortsatt).
 - **Volumnormalisering:** målnivå −14 LUFS via `audio.volume`. Det kan bare dempe; stille spor spilles på full styrke. iOS ignorerer `audio.volume` – der gjelder telefonens volumknapper.
 - **Ingen Web Audio på mobil.** På desktop (Tauri) kan Web Audio brukes senere, f.eks. til automix i takt.
 - **DROP-markør** foreslås fra energianalysen og lagres som `source: "analysis", confirmed: false`.
@@ -312,19 +312,21 @@ Migrasjonen lager alle tabeller med RLS. Kun brukere i `admins` har tilgang. Lyt
 **Ferdig**
 - Din spiller (`/`) for mobil og desktop – se over
 - `gh-ingest`, `gh-watch`, `make-fixtures` – testet ende til ende
-- Drop-side: standardfargen cyan → coverfarger ved avspilling, spolbar bølgeform, DROP-markør, kapitler for sett, sporliste, vannmerke med navn, utløp og nedtelling
+- Drop-side: standardfargen grønn → coverfarger ved avspilling, spolbar bølgeform, DROP-markør, kapitler for sett, sporliste, vannmerke med navn, utløp og nedtelling
 - Command Center: drops, ingest-kort med stegstatus, mottakertabell med lyttedekning beregnet fra lyttehendelser, lyttelogg, arkiv, live-sett, mini-spiller
 - Databasemigrasjon validert mot Postgres 16
 - 28 enhetstester (palett, navn/varianter, lyttedekning, deler/variantbytte, live-logg, tempo, toneart, struktur)
 
 **Eksempeldata:** drops, mottakere og lyttehendelser ligger i `apps/web/src/lib/seed.ts` til Supabase kobles på. Mottakernavn i klammer er plassholdere.
 
+**Fortsett på en annen enhet (del 5).** Posisjonen lagres fortsatt lokalt (`gv:pos:…`) og sendes til Vault-serveren (`PUT /api/playback`, filen `data/playback.json`). Nyeste tidsstempel vinner. Banneret «Fortsett her» vises når en annen enhet har en nyere posisjon, minst 10 sekunder inn i låten, og ikke bare noen sekunder unna der du allerede er. «Fortsett her» pauser den andre enheten i løpet av et par sekunder. Supabase-tabellen `playback_positions` er ikke koblet på.
+
+**Lyttelenke (del 13).** «⋯ → Del… → Del lenke» poster til `/api/drops`. Serveren laster opp HLS, smakebit og cover til Workeren og logger bare id, tittel og mottaker i `data/drops.json` (aldri tokenet). Lenken er `https://listen.groovehouserecords.com/d/…`. Mottakeren trenger ikke Tailscale. Koden ligger i `packages/shared/src/listen.ts` og `apps/listen-worker`. Den er ikke publisert: `wrangler login` åpner nettleseren og skal bare kjøres når du sier ja. Sett deretter `LISTEN_ADMIN_URL` og token (miljø eller Credential Manager, navn `listen-admin`).
+
 **Gjenstår**
-- Godkjenne/flytte strukturmarkører i Command Center
-- «Fortsett der du slapp» på tvers av PC og mobil: tabellen `playback_positions` finnes, men spilleren bruker localStorage per enhet til Supabase er koblet på
-- Supabase-klient i web, Edge Functions: `create-invite`, `issue-play-token`, `log-event`
-- Cloudflare Worker foran R2 (tokensjekk + m3u8-omskriving), opplasting med `gh-ingest --upload`
-- Invitasjonstoken i stedet for `?r=<navn>`, enhetsbinding (`max_devices`)
+- Fasit for BPM og toneart i `fixtures/truth.json` (del 3). Metoden er fortsatt Krumhansl.
+- Legge ut lytter-Workeren (D1, R2, ruten `listen.groovehouserecords.com`) etter `wrangler login`
+- Supabase-klient i web er ikke koblet på. Innlogging med magic link krever et Supabase-prosjekt.
 - Vannmerke i selve lyden, klipp-eksport, katalogmatching for sett
 - Tauri (desktop) og Capacitor (iPhone, med native bakgrunnslyd)
 - Forenklet logo som SVG for ikoner og favicon

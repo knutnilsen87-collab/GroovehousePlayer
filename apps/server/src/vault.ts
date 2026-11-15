@@ -91,6 +91,12 @@ async function install() {
   const icon = path.join(dir, 'groovehouse.ico');
   copyFileSync(iconSource, icon);
   const launcher = path.join(dir, 'launcher.vbs');
+  const edgeProfile = path.join(dir, 'edge-profile');
+  mkdirSync(path.join(edgeProfile, 'Default'), { recursive: true });
+  const prefFile = path.join(edgeProfile, 'Default', 'Preferences');
+  if (!existsSync(prefFile)) {
+    writeFileSync(prefFile, JSON.stringify({ browser: { theme: { color_scheme2: 2, user_color2: -16316405 } }, extensions: { theme: { system_theme: 0 } } }));
+  }
   const vbs = readFileSync(path.join(serverDir, 'launcher', 'launcher.vbs.tmpl'), 'utf8')
     .replace('{{NODE}}', process.execPath)
     .replace('{{SERVER_DIR}}', serverDir)
@@ -98,7 +104,7 @@ async function install() {
     .replace('{{PORT_FILE}}', portFile())
     .replace('{{LOG_FILE}}', path.join(logsDir(), 'server.log'))
     .replace('{{PORT}}', String(cfg.ports.server))
-    .replace('{{APP_ARGS}}', '')
+    .replace('{{APP_ARGS}}', ` & " --user-data-dir=""" & "${edgeProfile}" & """ --force-dark-mode"`)
     .replace(/\r?\n/g, '\r\n');
   if (/\{\{[A-Z_]+\}\}/.test(vbs)) throw new Error('launcher-malen har plassholdere som ikke ble fylt ut');
   // UTF-16 LE med BOM: Windows Script Host leser da æøå i stier og meldinger riktig.

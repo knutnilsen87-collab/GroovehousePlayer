@@ -38,6 +38,10 @@ function ShareSheet() {
   // Del 16: utkast deles bare etter et eksplisitt valg, og merkes « (Utkast)» i fila
   const draft = isDraft(m);
   const [draftOk, setDraftOk] = useState(false);
+  const [mode, setMode] = useState<'link' | 'file'>('link');
+  const [recipient, setRecipient] = useState('');
+  const [link, setLink] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
   const fileName = shareFileName({ artist: m.artist, title: draft ? draftTitle(m.title) : m.title, variantLabel: m.variantLabel, kind });
   const blocked = draft && !draftOk;
 
@@ -85,6 +89,30 @@ function ShareSheet() {
     }
   };
 
+  const makeLink = async () => {
+    setError(null);
+    setLinkBusy(true);
+    try {
+      const r = await fetch('/api/drops', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          recipient: recipient.trim(),
+          title: m.title,
+          maxDevices: 2,
+          expiresInDays: 30,
+          items: [{ slug: m.slug, variant: m.variant ?? 'main', version: m.version }]
+        })
+      });
+      const data = (await r.json()) as { url?: string; error?: string };
+      if (!r.ok || !data.url) throw new Error(data.error || 'Kunne ikke lage lenken');
+      setLink(data.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLinkBusy(false);
+    }
+  };
   const pct = progress?.total ? Math.round((progress.loaded / progress.total) * 100) : null;
   const sheetPos: CSSProperties | undefined = undefined;
 
@@ -106,6 +134,24 @@ function ShareSheet() {
           </div>
         </div>
 
+        <div className="mb-3 grid grid-cols-2 gap-2">
+          <button type="button" onClick={() => setMode('link')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'link' ? 'bg-accent text-on-accent' : 'border border-white/15 text-ink'}`}>
+            Del lenke
+          </button>
+          <button type="button" onClick={() => setMode('file')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'file' ? 'bg-accent text-on-accent' : 'border border-white/15 text-ink'}`}>
+            Send fil
+          </button>
+        </div>
+        {mode === 'link' ? (
+          <div className="flex flex-col gap-2">
+            <p className="m-0 text-xs text-muted">Én personlig lenke. Mottakeren trykker og hører, uten app og uten Tailscale. Anbefalt.</p>
+            <label className="text-xs text-muted">
+              Mottaker
+              <input value={recipient} onChange={(e) => setRecipient(e.target.value)} maxLength={80} className="mt-1 h-11 w-full rounded-xl border border-white/15 bg-transparent px-3 text-sm text-ink" />
+            </label>
+            {link && <p className="m-0 break-all rounded-lg bg-white/[0.04] px-3 py-2 text-xs text-ink">{link}</p>}
+          </div>
+        ) : (
         <div role="radiogroup" aria-label="Hva vil du dele?" className="flex flex-col gap-1.5">
           {KINDS.map((k) => (
             <button
@@ -125,10 +171,13 @@ function ShareSheet() {
             </button>
           ))}
         </div>
+        )}
 
+        {mode === 'file' && (
         <p className="m-0 mt-3 break-words text-xs text-muted">
           Fila heter: <span className="text-ink">{fileName}</span>
         </p>
+        )}
         {draft && (
           <label className="mt-3 flex items-start gap-2 rounded-lg border border-dashed border-white/30 bg-white/[0.03] px-3 py-2 text-xs text-soft">
             <input type="checkbox" checked={draftOk} onChange={(e) => setDraftOk(e.target.checked)} className="mt-0.5" />
@@ -137,7 +186,7 @@ function ShareSheet() {
             </span>
           </label>
         )}
-        {!shareable && (
+        {mode === 'file' && !shareable && (
           <p className="m-0 mt-2 rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-[#E7D9AE]">
             Deling krever HTTPS – bruk Tailscale-adressen, eller send den nedlastede fila.
           </p>
@@ -149,7 +198,11 @@ function ShareSheet() {
         )}
 
         <div className="mt-4 flex flex-col gap-2">
-          {progress ? (
+          {mode === 'link' ? (
+            <button type="button" disabled={blocked || !recipient.trim() || linkBusy} onClick={() => (link ? void navigator.clipboard.writeText(link).then(() => useToast.getState().show('Lenken er kopiert')).catch(() => setError('Kunne ikke kopiere')) : void makeLink())} className="h-12 rounded-full bg-accent text-sm font-semibold text-on-accent disabled:opacity-40">
+              {linkBusy ? 'Lager lenken …' : link ? 'Kopier lenke' : 'Lag lenke'}
+            </button>
+          ) : progress ? (
             <div aria-live="polite" className="flex flex-col gap-1.5">
               <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
                 <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: pct != null ? `${pct}%` : '30%' }} />
@@ -165,7 +218,7 @@ function ShareSheet() {
               {shareable ? 'Gjør klar til deling' : 'Gjør klar til nedlasting'}
             </button>
           )}
-          {desktop && canReveal() && !blocked && (
+          {mode === 'file' && desktop && canReveal() && !blocked && (
             <button
               type="button"
               onClick={() =>

@@ -24,14 +24,14 @@ describe('choosePalette', () => {
     expect(contrastOnObsidian(p.primary)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('faller tilbake til standardfargen cyan (ikke gull) for fargeløse cover', () => {
+  it('faller tilbake til standardfargen grønn (ikke gull) for fargeløse cover', () => {
     const p = choosePalette([
       { hex: '#111111', population: 1 },
       { hex: '#888888', population: 0.5 },
       { hex: '#eeeeee', population: 0.2 }
     ]);
     expect(p).toEqual(FALLBACK_PALETTE);
-    expect(p.primary).toBe('#01E6FC');
+    expect(p.primary).toBe('#06B211');
   });
 
   it('gir sekundærfarge og lesbar tekstfarge', () => {

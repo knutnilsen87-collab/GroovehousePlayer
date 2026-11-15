@@ -751,7 +751,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
         <span className="flex items-center gap-1.5 text-[11px] text-muted">
           <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.primary }} />
           <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.secondary }} />
-          {m.palette.source === 'fallback' ? 'standard (cyan)' : `${m.palette.primary}${m.palette.source === 'manual' ? ' (valgt)' : ''}`}
+          {m.palette.source === 'fallback' ? 'standard (grønn)' : `${m.palette.primary}${m.palette.source === 'manual' ? ' (valgt)' : ''}`}
         </span>
         <button
           type="button"

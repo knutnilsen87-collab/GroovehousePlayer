@@ -3,8 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
- * Del 14 (låst av Knut 2026-11-14): coveret styrer alle farger, gull bare i logoen.
- * Fargeløse cover og «ingen låt valgt» bruker standardfargen cyan fra referansebildet (FALLBACK_PALETTE),
+ * Del 14 (låst av Knut 2026-11-14, oppdatert til grønn 2026-11-15): coveret styrer alle farger, gull bare i logoen.
+ * Fargeløse cover og «ingen låt valgt» bruker standardfargen grønn (#06B211 / #14E177) (FALLBACK_PALETTE),
  * ikke gull. Ingen komponent skal hardkode gull eller cyan; aksenter går via --accent/--accent-2/--glow.
  */
 const REPO = path.resolve(__dirname, '../../..');
@@ -36,11 +36,11 @@ describe('designregel: gull bare i logoen, cyan som standard (del 14)', () => {
     expect(bad).toEqual([]);
   });
 
-  it('standardfargen er cyan fra referansen, og bare definert som token', () => {
+  it('standardfargen er grønn (#06B211), og bare definert som token', () => {
     const theme = readFileSync(path.join(REPO, 'packages/shared/src/theme.ts'), 'utf8');
-    expect(theme).toMatch(/FALLBACK_PALETTE[^]*primary: '#01E6FC'/);
+    expect(theme).toMatch(/FALLBACK_PALETTE[^]*primary: '#06B211'/);
     const css = readFileSync(path.join(REPO, 'apps/web/src/index.css'), 'utf8');
-    expect(css).toMatch(/:root \{[^}]*--accent: #01e6fc;/);
+    expect(css).toMatch(/:root \{[^}]*--accent: #06b211;/);
   });
 
   it('ingen hardkodet cyan i komponentene (cyan kommer fra coveret eller standardtokenet)', () => {

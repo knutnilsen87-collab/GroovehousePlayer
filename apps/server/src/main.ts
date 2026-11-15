@@ -9,6 +9,7 @@ import type { PinRecord } from './lan-auth';
 import { lanAddresses } from './lan';
 import { createDeviceStore } from './devices';
 import { createLogger } from './logger';
+import { loadSeenIds, pollAccessRequests, saveSeenIds } from './listen-poll';
 import { notify, readyMessage } from './notify';
 import { cloudSyncWarning, detectCloudSync } from './cloudsync';
 import type { SettingsHooks } from './settings-route';
@@ -155,9 +156,11 @@ async function main() {
 
   watcher = startWatch();
   draftWatchers = startDraftWatch();
+  const stopListenPoll = startListenPoll();
 
   const stop = async (sig: string) => {
     log(`Stopper (${sig})`);
+    stopListenPoll();
     server.close();
     await watcher?.close().catch(() => {});
     try {
@@ -170,6 +173,42 @@ async function main() {
   process.on('SIGINT', () => void stop('SIGINT'));
   process.on('SIGTERM', () => void stop('SIGTERM'));
   process.on('SIGBREAK', () => void stop('SIGBREAK'));
+}
+
+/** Del 13: spør om åpne tilgangsforespørsler hvert minutt. Uten LISTEN_ADMIN_URL skjer ingenting. */
+function startListenPoll(): () => void {
+  const base = process.env.LISTEN_ADMIN_URL?.replace(/\/$/, '');
+  if (!base) return () => {};
+  let token = process.env.LISTEN_ADMIN_TOKEN ?? '';
+  if (!token) {
+    try {
+      token = credRead('listen-admin') ?? '';
+    } catch (err) {
+      log(`! Lytter-token i Credential Manager: ${err instanceof Error ? err.message : String(err)}`);
+      return () => {};
+    }
+  }
+  if (!token) {
+    log('! LISTEN_ADMIN_URL er satt, men token mangler (miljø eller Credential Manager «listen-admin»).');
+    return () => {};
+  }
+  const file = path.join(appDataDir(), 'listen-access-seen.json');
+  const seen = loadSeenIds(file);
+  const tick = () => {
+    void pollAccessRequests({
+      baseUrl: base,
+      token,
+      seen,
+      notify: (title, body) => notify(title, body, log)
+    })
+      .then((n) => {
+        if (n) saveSeenIds(file, seen);
+      })
+      .catch((err) => log(`! lytteforespørsler: ${err instanceof Error ? err.message : String(err)}`));
+  };
+  const timer = setInterval(tick, 60_000);
+  tick();
+  return () => clearInterval(timer);
 }
 
 /** LAN-oppsettet: på i config + PIN-hash og nøkkel i Credential Manager. Mangler noe, kun lokalt. */

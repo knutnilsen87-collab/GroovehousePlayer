@@ -1,0 +1,17 @@
+name = "groovehouse-listen"
+main = "src/index.ts"
+compatibility_date = "2026-11-15"
+workers_dev = false
+
+[[routes]]
+pattern = "listen.groovehouserecords.com/*"
+zone_name = "groovehouserecords.com"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "groovehouse-listen"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "groovehouse-drops"

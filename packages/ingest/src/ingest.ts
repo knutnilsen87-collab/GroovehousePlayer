@@ -373,7 +373,7 @@ async function ingestOne(
       cover = coverRes.cover;
       coverThumb = coverRes.coverThumb;
     } else {
-      report('palett', 'warn', release.origin === 'flat' ? `ingen «${master.titleFromFile}.png/jpg» ved siden av lydfila – bruker standardfargen (cyan)` : 'ingen cover.png/jpg – bruker standardfargen (cyan). Legg til cover og kjør på nytt.');
+      report('palett', 'warn', release.origin === 'flat' ? `ingen «${master.titleFromFile}.png/jpg» ved siden av lydfila – bruker standardfargen (grønn)` : 'ingen cover.png/jpg – bruker standardfargen (grønn). Legg til cover og kjør på nytt.');
     }
     // Del 8: manuell farge fra Studio vinner over coveret
     if (meta.palette) {

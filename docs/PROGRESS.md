@@ -3,9 +3,9 @@
 Arbeidslogg for `setup/del-0` (alt pushes hit, ingenting merges til `main`). Les denne først hvis arbeidet blir avbrutt.
 Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut står i `docs/OPEN_QUESTIONS.md`.
 
-**Rekkefølge (Knut, 2026-11-14):** 9 → 11 → 12 → 10 → 1 pkt. 7–8 → 8 → 15 → 14 → **16 (utkast)** → 2 → 4 → 3 → **17 (settbygger)** → 13 (deling med lenker, ikke i denne runden). Del 16 kom inn på main etter at 2/4/3 var gjort; den tas nå, før 17 som bygger på den.
+**Rekkefølge (Knut, 2026-11-14):** 9 → 11 → 12 → 10 → 1 pkt. 7–8 → 8 → 15 → 14 → **16 (utkast)** → 2 → 4 → 3 → **17 (settbygger)** → 13 (deling med lenker). Del 16 kom inn på main etter at 2/4/3 var gjort; den tas nå, før 17 som bygger på den.
 
-**Designregel endret (Knut, 2026-11-14):** coveret styrer alle farger, gull bare i logoen. Erstatter «gullet er rammen». Del 5 (Supabase) hoppes over (ingen nøkler i `.env`).
+**Designregel endret (Knut, 2026-11-14):** coveret styrer alle farger, gull bare i logoen. Erstatter «gullet er rammen». Del 5 bruker Vault-serveren til posisjon (ingen Supabase-nøkler i `.env`). Del 13 er kodet, men ikke lagt ut i Cloudflare.
 
 **Faste regler:** REASONDONE kun lesing · ingen hemmeligheter/PIN/Tailscale-adresse i git (`git grep -i "ts.net"` før push) · aldri Funnel · ingen musikk til skyen · ingen admin/brannmur · ikke essentia.js.
 
@@ -26,7 +26,8 @@ Detaljert status og testbevis står i `status_bundle.txt`. Spørsmål til Knut s
 | 2 Markør-editor | ✅ ferdig | 6 enhetstester (sammenslåing, slettede forslag, overføring til ny versjon, validering, takt) + 4 ende-til-ende med ffmpeg (flytt Drop 1 → --force står seg, også på fixtures/blue-fire; _v2 får ubekreftede forslag; validering); UI på ekte låt 14/14 (tastatur, dra, navn, slett, dobbeltklikk, lagre, spilleren) | «Ferdig når»: flytt Drop 1 på en ekte låt i Studio, kjør `pnpm gh-ingest --force` på den, og se at flyttingen står seg |
 | 4 Raskere ingest | ✅ ferdig | Målt før/etter (`pnpm ingest:bench`): 10 min 10,6 → 6,4 s, blue-fire 8,5 → 4,8 s, live-sett-demo 5,5 → 3,7 s; 3 nye tester (vekting, 21-min sett med stigende prosent og fil som fjernes, korte låter uten fremdrift); Studio-kortet 3/3; alle ingest-tester grønne | Se fremdriften neste gang et langt sett bounces | – | – |
 | 3 Analyse (uten fasit) | ✅ ferdig så langt det går uten fasit | `pnpm eval:analysis` (mappe mot fasit, eller `--synthetic`); syntetisk 16 filer: toneart 16/16 → 16/16, BPM 12/16 → 16/16; 12 nye enhetstester; ny tempometode og tempo per kapittel i bruk; EDMA klar bak `analysis.keyMethod` | Fyll inn `fixtures/truth.json` (mal med 26 låter) og kjør `pnpm eval:analysis` mot REASONDONE: avgjør Krumhansl eller EDMA (uenige på 10 låter) |
-| 5 Supabase | ⏭ hoppet over | – | Krever Supabase-prosjekt og nøkler i `.env` |
+| 5 Fortsett på tvers | ✅ via Vault-serveren | 3 delte tester (nyeste posisjon vinner, samme spor innen 15 s vises ikke, tekst) + 1 HTTP-test (eldre tidsstempel overskriver ikke, krav fra `/drop/` er 403) | Supabase-tabellen finnes, men er ikke koblet på. «Ferdig når» på telefon: start på PC, åpne samme låt på mobilen, «Fortsett her» |
+| 13 Lyttelenker | ✅ kodet, ikke lagt ut | 4 delte tester (token-hash, robot teller ikke, enhetsgrense, signert segment bundet til enhet, utløp, tilbaketrekking, godkjenning, opprydding etter 7 dager, kode, rate limit) + 1 Worker-test + 1 publiserings-test + 2 varseltester | `wrangler login` (spør først), D1/R2/rute, slett GoDaddy-parkering. «Ferdig når»: WhatsApp til en annen telefon. Uten `LISTEN_ADMIN_URL` svarer «Lag lenke» at tjenesten ikke er koblet til |
 
 ## Del 11 – «⋯»-meny (plan)
 
@@ -108,3 +109,5 @@ elease.jks.
 - 2026-11-14: Del 3 ferdig uten fasit: evaluering, HPCP + tuning + EDMA (av til fasiten avgjør), tempo med kam og house-regel, tempo per kapittel i sett, fixtures/truth.json-mal.
 - 2026-11-14: Del 17 ferdig: settbygger under Live-sett (Innspilte · Planlagte · Lag sett) og i DJ-verktøy, rekordbox XML/M3U, læring med tilbakestill. Energiscore 1–10 fra analysen (kan overstyres per låt via API/meta.json).
 - 2026-11-14: Del 16 (fra main) ferdig. Rettet samtidig: advarselen om skysynkronisering lå i restartWatcher i stedet for ved oppstart.
+- 2026-11-15: Standardfargen byttet fra cyan (`#01E6FC`) til grønn (`#06B211` / `#14E177`) etter ønske fra Knut. 18 fallback-manifester i `media/` oppdatert. Desktop-launcheren bruker nå egen mørk Edge-profil (`edge-profile` i `%LOCALAPPDATA%\GroovehouseVault\`) for å unngå rød tittellinje fra hovedprofilens Edge-tema.
+- 2026-11-15: Del 3 står. REASONDONE-WAV-ene (26) har ingen BPM-/toneart-tagger. `keyMethod` forblir `krumhansl`. Del 5: posisjon synkes via `/api/playback` (nyeste tidsstempel), banner «Fortsett her». Del 13: handler, Worker-pakke og «Del lenke» er testet lokalt. Cloudflare er ikke deployet.

@@ -29,12 +29,12 @@
 }
 
 :root {
-  /* Standard (FALLBACK_PALETTE): cyan fra referansebildet. Overstyres av coverets palett – gull bare i logoen. */
-  --accent: #01e6fc;
-  --accent-2: #0a6cf0;
+  /* Standard (FALLBACK_PALETTE): grønn (#06B211). Overstyres av coverets palett – gull bare i logoen. */
+  --accent: #06b211;
+  --accent-2: #14e177;
   --on-accent: #07080b;
-  --glow: rgba(1, 230, 252, 0.42);
-  --glow-2: rgba(10, 108, 240, 0.18);
+  --glow: rgba(6, 178, 17, 0.42);
+  --glow-2: rgba(20, 225, 119, 0.18);
   color-scheme: dark;
 }
 

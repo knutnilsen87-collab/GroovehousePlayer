@@ -28,8 +28,8 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-14T17:10:00+01:00"
-updated_by: "Claude Code (Claude Opus 5.5)"
+last_updated: "2026-11-15T02:35:00+01:00"
+updated_by: "Grok Build"
 
 # ============================================================
 # PROJECT IDENTITY / PROSJEKTIDENTITET
@@ -59,16 +59,18 @@ current_state:
     Ferdig: del 9, 11, 12, 10, 1 pkt. 7–8, 8, 15 (appen oppdaterer seg selv), 14 (nytt utseende), 2 (markør-editor),
     4 (parallell ingest, målt 10,6 → 6,4 s), 3 så langt det går uten fasit (eval:analysis, syntetisk BPM 12/16 → 16/16),
     16 (utkast holdt atskilt, album- og settplaner) og 17 (settbygger med rekordbox XML/M3U, tre forslag på under 0,3 s).
-    234 enhetstester grønne. Fargeløse cover og standard = cyan #01E6FC; gull bare i logoen. Advarsel ved skysynkronisert prosjektmappe.
+    246 enhetstester grønne i shared, ingest, web, server og listen-worker (2026-11-15). Fargeløse cover og standard = grønn #06B211 (#14E177); gull bare i logoen.
+    Del 5 synker posisjon via /api/playback (nyeste tidsstempel), ikke Supabase. Del 13 (lytterlenker) er kodet og testet lokalt, ikke deployet til Cloudflare.
     APK med oppdatereren: dist/android/groovehouse-vault-0.1.0.apk (versionCode 51), også publisert i data/app/apk.
-    Ikke verifisert: alt på telefon/bil (ingen emulator), autostart etter ekte omstart, «Ferdig når» for del 2/14/15 på Knuts utstyr.
+    Ikke verifisert i nettleser denne økta: banneret «Fortsett her» og «Del lenke». Ikke verifisert: telefon/bil, WhatsApp, rekordbox, autostart etter ekte omstart.
   recommended_next_action: >
-    Vent på fasit i fixtures/truth.json (del 3), valg av utkastmappe (del 16) og Knuts tester på telefon og i rekordbox (del 17). Del 13 (deling med lenker) og del 5 (Supabase) er ikke i denne runden.
+    Knut fyller fasit i fixtures/truth.json (del 3). Si ja til wrangler login før lytter-Workeren legges ut. Prøv «Fortsett her» mellom PC og telefon, og en lyttelenke på WhatsApp når Workeren er oppe.
   active_blockers:
-    - "Del 3: fasit for 5–10 låter i fixtures/truth.json (avgjør Krumhansl eller EDMA)."
-    - "Del 5 krever Supabase-prosjekt og nøkler i .env."
+    - "Del 3: fasit for 5–10 låter i fixtures/truth.json. WAV-ene i REASONDONE har ingen BPM- eller toneart-tagger (lest 2026-11-15). keyMethod er krumhansl."
+    - "Del 13: wrangler login, D1, R2 og ruten listen.groovehouserecords.com er ikke kjørt. Spør før wrangler login."
+    - "Del 5: Supabase er ikke koblet på. Synk går via Vault-serveren."
     - 'Google Drive synkroniserer F:\prosjekter_MAIN (Knut tar dette selv).'
-  last_verified_at: "2026-11-14T20:45:00+01:00"
+  last_verified_at: "2026-11-15T02:35:00+01:00"
 
 # ============================================================
 # TASK AND SCOPE / OPPGAVE OG AVGRENSNING
@@ -272,6 +274,13 @@ rollback:
 # ============================================================
 validation:
   checks:
+    - name: "Del 5 og 13, enhetstester og typecheck"
+      command: "pnpm --filter @gv/shared --filter @gv/ingest --filter @gv/web --filter @gv/server --filter @gv/listen-worker test; samme filtre typecheck"
+      expected: "Alle testfiler grønne og tsc uten feil"
+      status: "passed"
+      actual: "246/246 tester (shared 105, ingest 94, web 18, server 28, listen-worker 1). tsc --noEmit grønn for de fem. Android har ikke test- eller typecheck-script."
+      evidence: "Kjørt 2026-11-15 i denne økta. Nettleserflyt for banner og Del lenke er ikke kjørt."
+      tested_at: "2026-11-15T02:35:00+01:00"
     - name: "Enhetstester (vitest, alle pakker)"
       command: "pnpm test"
       expected: "Alle testfiler grønne"
@@ -327,6 +336,12 @@ validation:
 # EXECUTION LOG / HENDELSESLOGG
 # ============================================================
 execution_log:
+  - at: "2026-11-15T02:35:00+01:00"
+    actor: "Grok Build"
+    action: "Del 3 undersøkt uten å finne på fasit. Del 5 (posisjon via Vault) og del 13 (lytterhandler, Worker-pakke, Del lenke, varsel om ny tilgang) kodet. Segment-URL bundet til enheten. Cloudflare ikke deployet."
+    command: "ffprobe format_tags + acid-søk på 26 WAV i REASONDONE (kun lesing); pnpm install; pnpm --filter @gv/shared --filter @gv/ingest --filter @gv/web --filter @gv/server --filter @gv/listen-worker test; samme filtre typecheck"
+    result: "partial"
+    evidence: "26 WAV uten tags og uten acid-chunk. Tester 246/246 grønne (shared 105, ingest 94, web 18, server 28, listen-worker 1). Typecheck grønn for de fem pakkene. Claude-chat-URL lot seg ikke åpne. Ingen nettleser-klikk på banner eller Del lenke. can_claim_success er false."
   - at: "2026-11-13T23:30:00+01:00"
     actor: "Claude Code"
     action: "Fullførte del 9: merget origin/main (7dc8714, del 11 og 12), verifiserte UI i hodeløs Edge via DevTools-protokollen (skript i scratchpad), rettet funn."
@@ -438,15 +453,18 @@ changed_surfaces:
 repo_health:
   git_branch: "setup/del-0"
   git_head_at_start: "308f83526c88f7e762f64894b9f1639a70a1e6aa"
-  git_head_current: "bbd6f82dac8aa760ff75f53c15f9321a514c04d8 + del 7-commiten (inneholder denne fila)"
-  working_tree_status: "clean (etter del 7-commiten)"
-  uncommitted_changes: []
-  dependencies_status: "installed"
-  build_status: "passed"
+  git_head_current: "b8a7c04"
+  working_tree_status: "dirty. Del 5/13, standardfarge grønn og denne statusfila er ikke committet. To CSV-filer i rota er usporet og skal ikke committes."
+  uncommitted_changes:
+    - "Del 5: packages/shared/src/playback.ts, packages/ingest/src/playback-store.ts, apps/web playbackSync og ResumeBanner"
+    - "Del 13: packages/shared/src/listen.ts, apps/listen-worker, packages/ingest/src/drops-api.ts, ShareSheet"
+    - "Standardfarge grønn og Edge-profil i launcher (allerede i arbeidskopien før denne økta)"
+  dependencies_status: "installed (pnpm install 2026-11-15, lockfile inkluderer @gv/listen-worker)"
+  build_status: "not_run"
   tests_status: "passed"
   security_checks_status: "not_run"
-  commit_created: true
-  commit_hash: "11a308b (del 0b), 14c7ee6 (del 1 + 6), bbd6f82 (manifest-fiks), del 7 (se git log)"
+  commit_created: false
+  commit_hash: "b8a7c04 (HEAD, ingen ny commit i denne økta)"
   pushed_to_remote: true
   push_verified: false
   deployed: false
@@ -542,36 +560,31 @@ closure_readiness:
   acceptance_criteria_met: false
   tests_verified: true
   remaining_blockers:
-    - "Fasit for del 3 mangler fra Knut."
-    - "Supabase-prosjekt for del 5 mangler fra Knut."
+    - "Fasit for del 3 mangler fra Knut. WAV-tagger gir ingen BPM eller toneart."
+    - "Del 13 er ikke deployet. wrangler login er ikke kjørt."
+    - "«Ferdig når» på telefon, i WhatsApp og i rekordbox er ikke kjørt."
   incomplete_work:
-    - "Mobiltest av manifest-fiks og del 7 (Knut)"
-    - "Del 7 (main-versjonen) pkt. 4–6: tilgangsregler, QR for ts.net i Studio, launcher følger Serve ved portbytte"
-    - "Del 2: markør-editor"
-    - "Del 3: analysepresisjon og evaluering"
-    - "Del 4: parallell ingest og fremdrift"
-    - "Del 5: Supabase og fortsett på tvers av enheter"
-    - "Avslutning: README-oppdatering for markør-editor, treffrate og ytelsestall"
+    - "Del 3: velg EDMA bare etter fasit. keyMethod er krumhansl."
+    - "Del 5: Supabase-innlogging er ikke koblet på. Synk går via Vault-serveren."
+    - "Del 13: Cloudflare Worker, R2 og D1 er ikke opprettet. database_id i wrangler.toml er en plassholder."
+    - "Banneret «Fortsett her» og «Del lenke» er ikke klikket i en nettleser i denne økta."
   evidence:
-    - "git log --oneline (11a308b, 14c7ee6, bbd6f82, del 7)"
-    - "pnpm test 137/137 (shared 57, ingest 52, web 8, server 20), pnpm typecheck grønn"
-    - "curl mot ts.net og 10.0.0.47 (se validation)"
+    - "246/246 enhetstester og typecheck 2026-11-15 (se validation)"
+    - "ffprobe på 26 WAV i REASONDONE: ingen tags, ingen acid-chunk"
   notes: >
-    Committet, testet og pushet til setup/del-0: del 0b, del 1 (inkl. autostart og varsel), del 6, 7, 9, 10, 11, 12 og 8.
-    Ikke implementert ennå: del 2, 3, 4 (pågår i rekkefølgen 2 → 4 → 3) og 5 (venter på Supabase-nøkler).
-    Se docs/PROGRESS.md for detaljer per del.
-    Ingen deploy er aktuelt (lokal app).
+    current_state øverst er nyere enn eldre punkter i execution_log. Del 2, 4, 16 og 17 er ferdige ifølge docs/PROGRESS.md.
+    Del 5 og 13 er kodet og enhetstestet. Ikke pushet. can_claim_success er false.
 
 # ============================================================
 # HANDOFF / OVERLEVERING TIL NESTE AGENT
 # ============================================================
 handoff:
   summary: >
-    Lokal musikkspiller for Knut. Del 0b, 1, 6, 7, 8, 9, 10, 11 og 12 er committet og pushet
-    på setup/del-0 (ikke merget til main). Tester 137/137 grønne. Fjerntilgang via Tailscale
-    Serve er på (https://<pc>.<tailnet>.ts.net/). Gjenstår: mobiltest, resten av
-    del 1, del 2, 3, 4 og 5. Del 3 og 5 krever innspill fra Knut.
-  next_action: "Fortsett autonomt: del 2 (markør-editor), så del 4 (raskere ingest), så del 3 (evalueringsskript + fixtures/truth.json-mal). Status og gjenstående i docs/PROGRESS.md."
+    Lokal musikkspiller. Ferdig og beskrevet i docs/PROGRESS.md: del 0–2, 4, 6–12, 14–17.
+    Del 3 venter på fasit (keyMethod krumhansl). Del 5 synker avspillingsposisjon via Vault-serveren.
+    Del 13 er kodet (Worker + Del lenke) og ikke deployet. 246 enhetstester grønne 2026-11-15.
+    Arbeidskopien er ikke committet. Ikke pushet.
+  next_action: "Be Knut om fasit i fixtures/truth.json, og om ja til wrangler login før deploy. Ikke finn på BPM eller Camelot."
   next_checks:
     - "Spiller mobilen via ts.net uten PIN?"
     - "Får «Opprett snarvei» over Wi-Fi Groovehouse-ikonet?"

@@ -4,17 +4,17 @@ import type { Palette } from './types';
 export const OBSIDIAN = '#07080B';
 
 /**
- * Standardpaletten (Knut 2026-11-14): cyan målt fra referansebildet (docs/design/reference/high-end-studio.png).
+ * Standardpaletten (Knut 2026-11-15): grønn (#06B211 / #14E177).
  * Brukes når en låt mangler cover eller coveret er fargeløst, og før noen låt er valgt. Gull er bare for logoen.
  */
 export const FALLBACK_PALETTE: Palette = {
-  primary: '#01E6FC',
-  secondary: '#0A6CF0',
+  primary: '#06B211',
+  secondary: '#14E177',
   onPrimary: '#07080B',
   source: 'fallback'
 };
 
-/** Før noen låt er valgt (del 14): samme cyan-standard. */
+/** Før noen låt er valgt (del 14): samme grønne standard. */
 export const NEUTRAL_PALETTE: Palette = FALLBACK_PALETTE;
 
 /** CSS-variablene UI-et bruker. Ingen komponent skal hardkode aksentfarger. */
