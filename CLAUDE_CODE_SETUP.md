@@ -342,6 +342,15 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 
 Mål: Knut har mange umastrede låter han vil ha i spilleren for å planlegge sett og album. De skal **aldri blandes** med det som er ferdig eksportert fra Reason og klart for release, verken i biblioteket, i blanding, i smarte lister, i forslag eller i deling.
 
+**Oppdatert 2026-11-15 (Knut):** filene i utkastmappa er **ferdige låter som bare ikke er mastret**. De skal være fullt tilgjengelige i spillerne, ikke gjemt.
+- I UI-et heter statusen **Umastret**, ikke «Utkast».
+- **Bibliotek og Hjem:** viser begge, i to tydelige seksjoner, med **Release-klar** øverst og **Umastret** under, og samme merking som under (brikke, stiplet kant). Segmentet Release-klar · Umastret · Alle står med standard **Alle (gruppert)**.
+- **Ctrl+K og DJ-verktøy:** finner begge, med brikke.
+- **Bland og autospill:** blander aldri automatisk på tvers. De holder seg innenfor gruppen avspillingen startet i, med mindre en liste eller plan eksplisitt inneholder begge.
+- **Settbyggeren (del 17):** «Ta med umastret» er **på** som standard og huskes. Planen viser «x av y mastret».
+- **Import:** importer alt i mappa uten å spørre per fil. Hopp bare over eksakte duplikater (samme lyd-hash) og filer som tydelig er stems ifølge navnet. Vis lista over det som ble hoppet over etterpå, så Knut kan hente inn noe likevel.
+- Punktene 7–9, 11 og 13–14 under gjelder med denne justeringen.
+
 **Status bestemmes av mappa, ikke av filnavnet**
 1. To kilder:
    - `GH_EXPORT_DIR` (REASONDONE) = **Release-klar**, som i dag.
