@@ -539,7 +539,27 @@ Mål: Knut kan bytte hele utseendet med ett valg. Det skal være flere ferdige s
    - **Mono Studio:** nesten fargeløs: hvit/grå med svak glød, for lange økter
    - **OLED Svart:** ren svart bakgrunn og minimal glød, sparer batteri på S22
 
+   - **Echo Groove Nights** (merkevareskin, se under)
+
    Alle aksenter må holde kontrastlåsen (≥ 4,5:1 mot bakgrunnen).
+
+   **Echo Groove Nights:** bygd på Echo Groove-merkevareguiden i `docs/design/reference/echo-groove-nights.jpg`.
+   - **Farger:**
+     - Fast aksent hot pink/magenta (ca. `#FF2E9A`) og aksent-2 elektrisk fiolett (ca. `#8B3DFF`), med blålilla sekundærtone (ca. `#5B6CFF`).
+     - Bakgrunn dyp natt-lilla (ca. `#0A0614`) med en svak rosa «måne»-glød (radial gradient) øverst til høyre bak hovedpanelet. Paneler med lilla toning.
+     - Ta de eksakte verdiene fra bildet med pipette, og sjekk kontrasten.
+   - **Glød:** sterk og myk neonrør-glød (som de skrevne tekstene i guiden), litt kraftigere enn i Kameleon. Bølgeformen spilt i rosa→fiolett-gradient.
+   - **Logo:**
+     - Skinnet kan vise **Echo Groove**-ordmerket (krom/holografisk skriftlogo) i stedet for Groovehouse-logoen øverst i sidemenyen og på oppstartsskjermen.
+     - Krever ordmerket som PNG eller SVG med gjennomsiktig bakgrunn i `assets/brand/echo-groove/`. Spør Knut om fila, og bruk Groovehouse-logoen til den finnes.
+     - Ikke prøv å gjenskape skriftlogoen med en font.
+   - **Motiv:** hjerteslag-linja med hjerte fra guiden brukes som ikon for favoritter, som lasteanimasjon og som liten detalj under «Spilles nå».
+   - **Skrift:**
+     - UI beholder Satoshi og JetBrains Mono, for lesbarhet.
+     - Små sitater og tomme tilstander kan bruke en neon-script (lisens som tillater selvhosting, f.eks. OFL) med glød, sparsomt.
+     - Paneletiketter i sperret versal, som «MUSIC · PEOPLE · NIGHTS · NO LIMITS».
+   - **Tomme tilstander og oppstart:** korte tekster i guidens tone, f.eks. «Let the music find you», «Music lives here», «Deeper · Louder · Hotter».
+   - **Bilder:** ingen av fotografiene fra guiden brukes i appen. Coverne til låtene er innholdet.
 3. Låter med manuell farge fra Studio beholder den bare i Kameleon-skinnet. Faste skins overstyrer.
 
 **Valg og lagring**
