@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { formatTime, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
+import { displayLabel, formatTime, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
 import { assetUrl, uploadAssetCover, variantName, type LoadedAsset } from '../lib/catalog';
 import { useFavorites, useIsFavorite, useLyrics } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
@@ -9,6 +9,8 @@ import { CoverArt } from './CoverArt';
 import { DraftBadge } from './Draft';
 import { HeartIcon, MoreIcon, NextIcon, OutputIcon, PauseIcon, PlayIcon, PrevIcon, RepeatIcon, ScreenIcon, ShuffleIcon, SlidersIcon, SpeedIcon, UploadIcon, VolumeIcon } from './Icons';
 import { BigWaveform, SpectrumView, ZoomWaveform } from './Visuals';
+import { Heartbeat, useHeartbeatMotif } from './Brand';
+import { useSkin } from '../lib/skin';
 
 /**
  * Del 14 «High-End Studio»: dekket øverst på Hjem og Bibliotek (desktop), og bitene fullskjermspilleren
@@ -32,6 +34,7 @@ export function Panel({ title, right, children, className = '' }: { title?: stri
 }
 
 export function HeartButton({ slug, title, size = 20, className = '' }: { slug: string; title: string; size?: number; className?: string }) {
+  const motif = useHeartbeatMotif();
   const on = useIsFavorite(slug);
   const toggle = useFavorites((s) => s.toggle);
   return (
@@ -45,7 +48,7 @@ export function HeartButton({ slug, title, size = 20, className = '' }: { slug: 
       }}
       className={`flex flex-none items-center justify-center rounded-full transition-colors ${on ? 'text-accent !opacity-100' : 'text-soft hover:text-ink-strong'} ${className}`}
     >
-      <HeartIcon filled={on} width={size} height={size} />
+      {motif ? <Heartbeat width={Math.round(size * 2.2)} height={size} className={on ? '' : 'opacity-50'} /> : <HeartIcon filled={on} width={size} height={size} />}
     </button>
   );
 }
@@ -153,7 +156,7 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
             type="button"
             onClick={() => fileInput.current?.click()}
             aria-label={`Bytt cover for ${m.title}`}
-            className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full border border-white/15 bg-[#0A0C12]/85 px-2.5 py-1 text-[11px] font-medium text-soft opacity-0 backdrop-blur-md transition-opacity hover:border-accent/60 hover:text-ink-strong focus-visible:opacity-100 group-hover:opacity-100"
+            className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full border border-white/15 bg-sunken/85 px-2.5 py-1 text-[11px] font-medium text-soft opacity-0 backdrop-blur-md transition-opacity hover:border-accent/60 hover:text-ink-strong focus-visible:opacity-100 group-hover:opacity-100"
           >
             <UploadIcon width={13} height={13} />
             <span>{m.files.cover ? 'Bytt cover' : 'Slipp cover her'}</span>
@@ -162,7 +165,7 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
 
         {/* Aktiv dra-og-slipp-sone */}
         {dragOver && (
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent bg-[#080A0F]/85 p-4 text-center backdrop-blur-sm">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent bg-obsidian/85 p-4 text-center backdrop-blur-sm">
             <span className="flex h-11 w-11 items-center justify-center rounded-full border border-accent/60 bg-accent/15 text-accent">
               <UploadIcon width={22} height={22} />
             </span>
@@ -173,7 +176,7 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
 
         {/* Opplastingsindikator */}
         {uploading && (
-          <div className=" absolute inset-0 flex items-center justify-center rounded-xl bg-[#080A0F]/80 text-xs font-semibold text-ink-strong backdrop-blur-sm">
+          <div className=" absolute inset-0 flex items-center justify-center rounded-xl bg-obsidian/80 text-xs font-semibold text-ink-strong backdrop-blur-sm">
             Lagrer cover …
           </div>
         )}
@@ -323,7 +326,7 @@ export function RateControl() {
         {rate.toFixed(rate === 1 ? 1 : 2)}x
       </button>
       {open && (
-        <div role="dialog" aria-label="Hastighet" className="gv-panel absolute bottom-11 right-0 z-30 flex w-60 flex-col gap-2 !bg-[#0E1117] p-3">
+        <div role="dialog" aria-label="Hastighet" className="gv-panel absolute bottom-11 right-0 z-30 flex w-60 flex-col gap-2 !bg-surface p-3">
           <div className="flex items-center justify-between">
             <span className="gv-label">Hastighet</span>
             <span className="font-mono text-sm text-ink-strong">{rate.toFixed(2)}x</span>
@@ -370,7 +373,7 @@ function AudioSettings({ cur }: { cur: LoadedAsset | undefined }) {
         <SlidersIcon width={20} height={20} />
       </button>
       {open && (
-        <div role="dialog" aria-label="Lydinnstillinger" className="gv-panel absolute bottom-11 right-0 z-30 flex w-64 flex-col gap-2 !bg-[#0E1117] p-3 text-[12px]">
+        <div role="dialog" aria-label="Lydinnstillinger" className="gv-panel absolute bottom-11 right-0 z-30 flex w-64 flex-col gap-2 !bg-surface p-3 text-[12px]">
           <span className="gv-label">Lyd</span>
           {l ? (
             <dl className="m-0 grid grid-cols-[1fr_auto] gap-y-1 font-mono">
@@ -451,8 +454,8 @@ export function Credits({ cur }: { cur: LoadedAsset }) {
     ['℗', m.copyright ?? '–'],
     ['Album', m.album ?? '–'],
     ['Variant', m.variant ? variantName(cur) : 'Original'],
-    ['Versjon', `${versionName(m)}${m.versionLabel && m.versionLabel !== versionName(m) ? ` · ${m.versionLabel}` : ''}`],
-    ['Status', isDraft(m) ? 'Utkast (umastret)' : 'Release-klar'],
+    ['Versjon', `${versionName(m)}${m.versionLabel && displayLabel(m.versionLabel) !== versionName(m) ? ` · ${displayLabel(m.versionLabel)}` : ''}`],
+    ['Status', isDraft(m) ? 'Umastret' : 'Release-klar'],
     ['Ingestet', new Date(m.createdAt).toLocaleDateString('nb-NO', { dateStyle: 'medium' })],
     ['BPM-sikkerhet', pct(m.bpmConfidence)],
     ['Toneart-sikkerhet', pct(m.key?.confidence)],
@@ -702,9 +705,17 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, segmented
 export function NowPanel({ cur, onMore, extra, idle }: { cur: LoadedAsset; onMore: (anchor: { x: number; y: number } | null) => void; extra?: ReactNode; idle?: (atMs?: number) => void }) {
   const [tab, setTab] = useState<DeckTab>('now');
   const { loop, seek, setLoop } = usePlayer();
+  const motif = useHeartbeatMotif();
+  const labels = useSkin((st) => st.skin.brand?.labels);
   const m = cur.manifest;
   return (
     <section aria-label="Spilles nå" className="gv-panel flex min-w-0 flex-col gap-3 p-4">
+      {motif && (
+        <div className="flex items-center gap-2" aria-hidden="true">
+          <Heartbeat width={54} height={16} animate />
+          {labels && <span className="gv-brand-label">{labels}</span>}
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <Tabs tabs={DECK_TABS} value={tab} onChange={setTab} label="Visning" />
         <span className="flex-1" />

@@ -89,7 +89,7 @@ export function BottomNav({ view, setView }: { view: View; setView: (v: View) =>
     </button>
   );
   return (
-    <nav aria-label="Hovedmeny" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.07] bg-[#0A0B0F]/95 pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav aria-label="Hovedmeny" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.07] bg-sunken/95 pb-[env(safe-area-inset-bottom)] lg:hidden">
       {tab('home', 'Hjem', HomeIcon)}
       {tab('library', 'Bibliotek', LibraryIcon)}
       {tab('sets', 'Live-sett', PulseIcon)}

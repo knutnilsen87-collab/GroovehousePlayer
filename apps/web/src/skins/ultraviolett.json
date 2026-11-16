@@ -1,0 +1,9 @@
+{
+  "id": "ultraviolett",
+  "name": "Ultraviolett",
+  "description": "Fast lilla og blå.",
+  "mode": "fixed", "accent": "#A47BFF", "accent2": "#6F86FF",
+  "background": { "base": "#07070D", "surface": "#100F1B", "sunken": "#0A0A13", "panelTint": "#E3DBFF", "panelAlpha": 3, "moon": null },
+  "glow": 60, "border": 26, "radius": 16,
+  "waveform": "accent", "goldFrame": false, "logo": "groovehouse"
+}

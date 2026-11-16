@@ -1,0 +1,9 @@
+{
+  "id": "mono-studio",
+  "name": "Mono Studio",
+  "description": "Nesten fargeløs: hvit og grå med svak glød, for lange økter.",
+  "mode": "fixed", "accent": "#D7DCE4", "accent2": "#9AA3B2",
+  "background": { "base": "#0A0B0D", "surface": "#121417", "sunken": "#0D0E10", "panelTint": "#FFFFFF", "panelAlpha": 3, "moon": null },
+  "glow": 15, "border": 14, "radius": 12,
+  "waveform": "accent", "goldFrame": false, "logo": "groovehouse"
+}

@@ -140,7 +140,7 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
         spellCheck={false}
         aria-label={`Sangtekst for ${a.manifest.title}`}
         placeholder={'Lim inn LRC ([00:12.50]Linje), WhisperX JSON ([{ "word": "Feel", "start": 1.2, "end": 1.5 }]) eller ren tekst.'}
-        className="gv-scroll w-full resize-y rounded-lg border border-white/10 bg-[#0A0B0F] p-3 font-mono text-[13px] leading-relaxed text-ink focus:border-accent/60 focus:outline-none"
+        className="gv-scroll w-full resize-y rounded-lg border border-white/10 bg-sunken p-3 font-mono text-[13px] leading-relaxed text-ink focus:border-accent/60 focus:outline-none"
       />
       <div className="flex flex-wrap items-center gap-2">
         <button

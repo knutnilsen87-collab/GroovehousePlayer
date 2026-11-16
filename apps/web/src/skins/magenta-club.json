@@ -1,0 +1,9 @@
+{
+  "id": "magenta-club",
+  "name": "Magenta Club",
+  "description": "Fast magenta og rosa neon.",
+  "mode": "fixed", "accent": "#FF3EA5", "accent2": "#FF7AD9",
+  "background": { "base": "#09060B", "surface": "#130D16", "sunken": "#0C080E", "panelTint": "#FFD6EC", "panelAlpha": 3, "moon": null },
+  "glow": 65, "border": 26, "radius": 16,
+  "waveform": "accent", "goldFrame": false, "logo": "groovehouse"
+}

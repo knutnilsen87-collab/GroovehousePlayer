@@ -13,6 +13,8 @@ import { DRAFT_BASE, manualPalette, statusOf, validPoint, validateMarkers, versi
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
 import { transcribeLyricsForSlug } from './lyrics-sync';
+import { findBrandLogo, handleSkins } from './skins-store';
+import { BUILT_IN_SKIN_IDS } from '@gv/shared';
 import { handleDrops, type DropPublisher } from './drops-api';
 import { loadPlayback, savePoint } from './playback-store';
 import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
@@ -100,6 +102,23 @@ export function createApiHandler(opts: ApiOptions) {
     if (url.pathname === '/api/drops') {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
       return handleDrops({ mediaDir: opts.mediaDir, dataDir, publish: opts.publishDrop }, req, res);
+    }
+    // Del 19: egne skins (data/skins/) og «samme skin på alle enheter»
+    if (url.pathname === '/api/skins' || url.pathname.startsWith('/api/skins/')) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return handleSkins(path.join(dataDir, 'skins'), new Set<string>(BUILT_IN_SKIN_IDS), url, req, res, send, readJson);
+    }
+    // Del 19: merkevarelogo for skins (Echo Groove-ordmerket), hvis Knut har lagt den i assets/brand/<navn>/
+    const brand = url.pathname.match(/^\/api\/brand\/([a-z0-9-]{1,40})\/logo$/);
+    if (brand && req.method === 'GET') {
+      const file = await findBrandLogo(root, brand[1]!);
+      if (!file) return send(res, 404, { error: 'ingen logo ennå' });
+      res.statusCode = 200;
+      res.setHeader('Content-Type', file.toLowerCase().endsWith('.svg') ? 'image/svg+xml' : 'image/png');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      if (file.toLowerCase().endsWith('.svg')) res.setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+      return void res.end(readFileSync(file));
     }
     if (url.pathname === '/api/playlists' || url.pathname.startsWith('/api/playlists/')) {
       await handlePlaylists(playlists, url, req, res);
@@ -275,7 +294,7 @@ export function createApiHandler(opts: ApiOptions) {
       const kind = url.searchParams.get('kind') ?? 'full';
       if (kind !== 'full' && kind !== 'preview' && kind !== 'wav') return send(res, 400, { error: 'kind må være full, preview eller wav' });
       // Del 16: utkast deles bare etter et eksplisitt valg («Del utkast likevel»)
-      if (Number(sh[3]) > DRAFT_BASE && url.searchParams.get('draft') !== '1') return send(res, 409, { error: 'Dette er et utkast. Velg «Del utkast likevel» for å dele det.', draft: true });
+      if (Number(sh[3]) > DRAFT_BASE && url.searchParams.get('draft') !== '1') return send(res, 409, { error: 'Denne låta er umastret. Velg «Del umastret likevel» for å dele den.', draft: true });
       try {
         const r = await shareFileFor(opts.mediaDir, root, sh[1]!, sh[2]!, Number(sh[3]), kind);
         if (!r) return send(res, 404, { error: 'ukjent låt eller versjon' });

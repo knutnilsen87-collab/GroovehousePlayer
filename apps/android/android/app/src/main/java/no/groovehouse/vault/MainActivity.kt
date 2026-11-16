@@ -9,6 +9,9 @@ class MainActivity : BridgeActivity() {
         registerPlugin(NativePlayerPlugin::class.java)
         registerPlugin(VaultAuthPlugin::class.java)
         registerPlugin(AppUpdaterPlugin::class.java)
+        registerPlugin(SystemBarsPlugin::class.java)
         super.onCreate(savedInstanceState)
+        // Del 19: skinnets bakgrunn på statuslinje/navigasjonslinje (og oppstartsskjermen neste gang)
+        SystemBarsPlugin.restore(this)
     }
 }

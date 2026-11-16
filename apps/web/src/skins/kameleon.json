@@ -1,0 +1,9 @@
+{
+  "id": "kameleon",
+  "name": "Kameleon",
+  "description": "Coveret styrer fargene. Gull bare i logoen.",
+  "mode": "chameleon",
+  "background": { "base": "#07080B", "surface": "#0E1015", "sunken": "#0A0B0F", "panelTint": "#FFFFFF", "panelAlpha": 3, "moon": null },
+  "glow": 50, "border": 24, "radius": 16,
+  "waveform": "accent", "goldFrame": false, "logo": "groovehouse"
+}

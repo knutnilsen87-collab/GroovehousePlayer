@@ -2,6 +2,9 @@
 <resources>
     <!-- Groovehouse Vault: alltid mørk (#07080B), også statuslinje og navigasjonslinje. -->
     <color name="gv_obsidian">#07080B</color>
+    <!-- Del 19: oppstartsskjerm per skin (OLED Svart og Echo Groove Nights) -->
+    <color name="gv_oled">#000000</color>
+    <color name="gv_night">#05030C</color>
 
     <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="colorPrimary">@color/gv_obsidian</item>
@@ -24,5 +27,12 @@
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
         <item name="android:background">@drawable/splash</item>
+    </style>
+
+    <style name="AppTheme.NoActionBarLaunch.Oled">
+        <item name="windowSplashScreenBackground">@color/gv_oled</item>
+    </style>
+    <style name="AppTheme.NoActionBarLaunch.Night">
+        <item name="windowSplashScreenBackground">@color/gv_night</item>
     </style>
 </resources>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { SkinPicker } from '../components/SkinPicker';
 import { settingsApi, type Editable, type IngestRule, type PreviewRow, type SettingsState, type Tier } from '../lib/settings';
 
 /**
@@ -71,6 +72,9 @@ export function SettingsView() {
           <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-ink-strong">groovehouse.config.backup.json</code>). Eksportmappa lagres bare på denne PC-en.
         </p>
       </header>
+      <Section title="Utseende" hint="Velg skin. Byttet skjer med en gang og lagres på denne enheten, så PC og telefon kan ha ulike skins.">
+        <SkinPicker />
+      </Section>
       <div aria-live="polite" className="sticky top-2 z-20 empty:hidden">
         {error && (
           <p role="alert" className="m-0 rounded-xl border border-[#F2A08F]/40 bg-[#2A1512]/95 px-4 py-3 text-sm text-[#F2A08F] shadow-lg backdrop-blur-md">
@@ -78,7 +82,7 @@ export function SettingsView() {
           </p>
         )}
         {notice && (
-          <p className="m-0 flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-[#0E1318]/95 px-4 py-3 text-sm text-ink-strong shadow-lg backdrop-blur-md">
+          <p className="m-0 flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-surface/95 px-4 py-3 text-sm text-ink-strong shadow-lg backdrop-blur-md">
             <span>{notice}</span>
             <button type="button" onClick={() => setNotice(null)} className="text-xs text-soft hover:text-ink-strong">
               Lukk
@@ -166,7 +170,7 @@ export function SettingsView() {
         <div
           role="region"
           aria-label="Ulagrede endringer"
-          className="fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-[720px] flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent/50 bg-[#0B0E14]/95 px-5 py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.75)] backdrop-blur-xl"
+          className="fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-[720px] flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent/50 bg-surface/95 px-5 py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.75)] backdrop-blur-xl"
         >
           <div className="flex items-center gap-2.5 text-sm font-medium text-ink-strong">
             <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_10px_var(--accent)]" />
@@ -335,11 +339,11 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
         </p>
       )}
       <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
-        Utkastmappe (umastrede låter, undermapper tillatt)
-        <input value={draft.draftDir ?? ''} onChange={(e) => set('draftDir', e.target.value || null)} placeholder="D:\Musikk\Utkast" className={`${field} font-mono text-[13px]`} spellCheck={false} />
+        Mappe for umastrede låter (undermapper tillatt)
+        <input value={draft.draftDir ?? ''} onChange={(e) => set('draftDir', e.target.value || null)} placeholder="D:\Musikk\Umastret" className={`${field} font-mono text-[13px]`} spellCheck={false} />
         <span className="text-xs leading-relaxed text-soft">
-          Låter herfra blir <b className="font-mono text-ink-strong">UTKAST</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med{' '}
-          <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-ink-strong">pnpm gh-ingest --backlog --drafts</code>. Du kan også dra filer inn på ingest-kortet («Importer som utkast»).
+          Låter herfra blir <b className="font-mono text-ink-strong">UMASTRET</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med{' '}
+          <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-ink-strong">pnpm gh-ingest --backlog --drafts</code>. Du kan også dra filer inn på ingest-kortet («Importer som umastret»).
         </span>
       </label>
       {check && !check.ok && (
@@ -563,7 +567,7 @@ function ColorsSection({ draft, set, busy, dirty }: { draft: Editable; set: <K e
   const [recolor, setRecolor] = useState<string | null>(null);
   const contrastFill = `${((draft.colors.minContrast - 3) / (7 - 3)) * 100}%`;
   return (
-    <Section title="Farger" hint="Standardfargen er grønn (#06B211). Låter du har gitt egen farge i Arkiv, røres aldri.">
+    <Section title="Farger" hint="Gjelder Kameleon-skinnene: fargen hentes fra coveret, og uten cover brukes standardfargen grønn (#06B211). Låter du har gitt egen farge i Arkiv, røres aldri.">
       <label className="flex flex-col gap-2.5 text-xs font-medium text-soft">
         Minste kontrast for aksentfarge
         <span className="flex flex-wrap items-center gap-4">

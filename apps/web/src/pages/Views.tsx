@@ -11,6 +11,7 @@ import { HeartButton, Panel } from '../components/Deck';
 import { ChevronDownIcon, PlayIcon } from '../components/Icons';
 import { buildListView, ColorDot, ListCover } from '../components/Playlists';
 import { useFavorites } from '../lib/library';
+import { skinTrackVars } from '../lib/skin';
 
 /**
  * Del 14: nye sider, enkle i første versjon. Hjem, DJ-verktøy og Analyse (egne avspillinger).
@@ -87,7 +88,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
       </div>
       {/* Mobil: fortsett-kort (desktop har dekket øverst) */}
       {resume?.t && (
-        <section aria-label="Fortsett der du slapp" className="gv-panel flex items-center gap-4 p-3 lg:hidden" style={paletteToCssVars(resume.a.manifest.palette) as CSSProperties}>
+        <section aria-label="Fortsett der du slapp" className="gv-panel flex items-center gap-4 p-3 lg:hidden" style={skinTrackVars(resume.a.manifest.palette) as CSSProperties}>
           <CoverArt src={assetUrl(resume.a, resume.a.manifest.files.coverThumb)} palette={resume.a.manifest.palette} title={resume.a.manifest.title} size={64} rounded={10} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="gv-label !text-[10px]">Fortsett der du slapp</span>

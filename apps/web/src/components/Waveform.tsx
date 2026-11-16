@@ -20,7 +20,6 @@ interface Props {
  */
 export function Waveform({ peaks, bars = 64, height = 56, progress, active, markers = [], onSeek, label = 'Seek' }: Props) {
   const heights = useMemo(() => downsample(peaks, bars).map((v) => Math.max(0.1, Math.pow(v, 0.8))), [peaks, bars]);
-  const playedColor = 'var(--accent)';
 
   return (
     <div className="relative flex items-center gap-[2px]" style={{ height }}>
@@ -30,8 +29,8 @@ export function Waveform({ peaks, bars = 64, height = 56, progress, active, mark
           <span
             key={i}
             aria-hidden="true"
-            className="flex-1 rounded-[2px] transition-colors duration-300"
-            style={{ height: Math.round(h * height), backgroundColor: played ? playedColor : 'rgba(255,255,255,0.14)' }}
+            className={`flex-1 rounded-[2px] transition-colors duration-300 ${played ? 'gv-wave-played' : ''}`}
+            style={{ height: Math.round(h * height), ...(played ? {} : { backgroundColor: 'rgba(255,255,255,0.14)' }) }}
           />
         );
       })}
@@ -44,7 +43,7 @@ export function Waveform({ peaks, bars = 64, height = 56, progress, active, mark
         >
           <span className="absolute inset-y-0 -left-px w-[1.5px] rounded-full" style={{ background: 'color-mix(in srgb, var(--accent) 65%, transparent)' }} />
           <span
-            className="absolute -top-3.5 -translate-x-1/2 whitespace-nowrap rounded bg-[#0A0C12]/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[1.2px] text-ink-strong shadow-sm"
+            className="absolute -top-3.5 -translate-x-1/2 whitespace-nowrap rounded bg-sunken/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[1.2px] text-ink-strong shadow-sm"
             style={{ border: '1px solid color-mix(in srgb, var(--accent) 55%, transparent)', color: 'var(--accent)' }}
           >
             {m.label}

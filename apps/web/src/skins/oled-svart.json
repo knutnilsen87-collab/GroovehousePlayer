@@ -1,0 +1,9 @@
+{
+  "id": "oled-svart",
+  "name": "OLED Svart",
+  "description": "Ren svart bakgrunn og minimal glød. Sparer batteri på OLED-skjermer (S22).",
+  "mode": "chameleon",
+  "background": { "base": "#000000", "surface": "#0A0A0A", "sunken": "#050505", "panelTint": "#FFFFFF", "panelAlpha": 2, "moon": null },
+  "glow": 8, "border": 18, "radius": 14,
+  "waveform": "accent", "goldFrame": false, "logo": "groovehouse"
+}

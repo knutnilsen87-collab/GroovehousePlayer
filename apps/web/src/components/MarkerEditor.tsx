@@ -145,7 +145,7 @@ export function MarkerEditor({ a, onSaved, onPlayAt }: { a: LoadedAsset; onSaved
               <span aria-hidden="true" className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 ${x.kind === 'drop' ? 'bg-[#FF6B5A]' : x.confirmed ? 'bg-accent' : 'bg-white/60'} ${sel ? 'gv-neon' : ''}`} />
               <span
                 aria-hidden="true"
-                className={`absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[10px] ${sel ? 'bg-accent text-on-accent' : x.confirmed ? 'bg-accent/20 text-ink-strong' : 'border border-dashed border-white/40 bg-[#0A0B0F] text-soft'}`}
+                className={`absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[10px] ${sel ? 'bg-accent text-on-accent' : x.confirmed ? 'bg-accent/20 text-ink-strong' : 'border border-dashed border-white/40 bg-sunken text-soft'}`}
               >
                 {x.label || KIND_NAME[x.kind]}
               </span>
@@ -164,7 +164,7 @@ export function MarkerEditor({ a, onSaved, onPlayAt }: { a: LoadedAsset; onSaved
               onChange={(e) => edit(x._id, { label: e.target.value.slice(0, 40) })}
               onFocus={() => setSelected(x._id)}
               aria-label={`Navn på markøren ved ${formatTimeMs(x.startMs)}`}
-              className="h-8 min-w-[120px] flex-1 rounded-md border border-white/10 bg-[#0A0B0F] px-2 text-sm text-ink focus:border-accent/60 focus:outline-none"
+              className="h-8 min-w-[120px] flex-1 rounded-md border border-white/10 bg-sunken px-2 text-sm text-ink focus:border-accent/60 focus:outline-none"
             />
             <span className={`text-[11px] ${x.source === 'manual' ? 'text-accent' : 'text-muted'}`}>{x.source === 'manual' ? 'manuell' : x.source === 'live_log' ? 'live-logg' : 'forslag'}</span>
             {x.confirmed ? (

@@ -29,12 +29,23 @@
 }
 
 :root {
-  /* Standard (FALLBACK_PALETTE): grønn (#06B211). Overstyres av coverets palett – gull bare i logoen. */
+  /* Standard før skinnet er lagt på (FALLBACK_PALETTE, grønn #06B211). Del 19: lib/skin.ts overstyrer alt under. */
   --accent: #06b211;
   --accent-2: #14e177;
+  --accent-3: #14e177;
   --on-accent: #07080b;
   --glow: rgba(6, 178, 17, 0.42);
   --glow-2: rgba(20, 225, 119, 0.18);
+  /* Skin (Kameleon): flater, paneler, glød (1 = 50 %), kantstyrke, radius, ramme og måne */
+  --c-obsidian: #07080b;
+  --c-surface: #0e1015;
+  --c-sunken: #0a0b0f;
+  --panel-bg: rgba(255, 255, 255, 0.03);
+  --glow-k: 1;
+  --border-pct: 24%;
+  --panel-radius: 16px;
+  --frame: color-mix(in srgb, var(--accent) var(--border-pct), transparent);
+  --moon: transparent;
   color-scheme: dark;
 }
 
@@ -46,7 +57,10 @@ body,
 
 body {
   margin: 0;
-  background: #07080b;
+  background-color: var(--c-obsidian);
+  /* Del 19: valgfri «måne» (Echo Groove Nights) øverst til høyre bak hovedpanelet */
+  background-image: radial-gradient(circle at 88% -6%, var(--moon) 0, transparent 38vmax);
+  background-attachment: fixed;
   color: #e9ecf2;
   font-family: Satoshi, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -67,11 +81,11 @@ body {
 
 /* Glasspanel: nøytral flate, tynn kant og svak ytre glød i aksentfargen. Ingen backdrop-filter (mobil/app). */
 .gv-panel {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
-  border-radius: 16px;
+  background: var(--panel-bg);
+  border: 1px solid var(--frame);
+  border-radius: var(--panel-radius);
   box-shadow:
-    0 0 28px color-mix(in srgb, var(--accent) 9%, transparent),
+    0 0 28px color-mix(in srgb, var(--accent) calc(9% * var(--glow-k)), transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 .gv-panel-quiet {
@@ -92,18 +106,58 @@ body {
 /* Aktivt element: full neon-glød (samme oppskrift som neonGlow i del 9). */
 .gv-neon {
   box-shadow:
-    0 0 6px var(--accent),
-    0 0 18px color-mix(in srgb, var(--accent) 60%, transparent),
-    0 0 36px color-mix(in srgb, var(--accent) 33%, transparent);
+    0 0 calc(6px * var(--glow-k)) var(--accent),
+    0 0 calc(18px * var(--glow-k)) color-mix(in srgb, var(--accent) 60%, transparent),
+    0 0 calc(36px * var(--glow-k)) color-mix(in srgb, var(--accent) 33%, transparent);
 }
 .gv-neon-soft {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent) 70%, transparent),
-    0 0 14px color-mix(in srgb, var(--accent) 35%, transparent),
-    inset 0 0 12px color-mix(in srgb, var(--accent) 18%, transparent);
+    0 0 calc(14px * var(--glow-k)) color-mix(in srgb, var(--accent) 35%, transparent),
+    inset 0 0 calc(12px * var(--glow-k)) color-mix(in srgb, var(--accent) 18%, transparent);
 }
 .gv-neon-text {
-  text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 70%, transparent);
+  text-shadow: 0 0 calc(10px * var(--glow-k)) color-mix(in srgb, var(--accent) 70%, transparent);
+}
+
+/* ---------------------------------------------------------------- Del 19: skins */
+
+/* Spilt del av bølgeformen: aksent (standard) eller rosa→fiolett-gradient (Echo Groove Nights). */
+.gv-wave-played {
+  background: var(--accent);
+}
+[data-wave='gradient'] .gv-wave-played {
+  background: linear-gradient(to top, var(--accent-2), var(--accent));
+}
+/* Paneletikett i sperret versal («MUSIC · PEOPLE · NIGHTS · NO LIMITS»). */
+.gv-brand-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--accent) 75%, #e9ecf2);
+}
+/* Neon-script: sparsomt, bare sitater og tomme tilstander. Selvhostet fil om den finnes, ellers kursiv. */
+.gv-script {
+  font-family: 'Gv Neon Script', 'Segoe Script', 'Brush Script MT', cursive;
+  font-style: italic;
+  color: color-mix(in srgb, var(--accent) 85%, white);
+  text-shadow:
+    0 0 6px color-mix(in srgb, var(--accent) 80%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+/* Hjerteslag (lasteanimasjon) */
+@keyframes gv-heartbeat {
+  0% { stroke-dashoffset: 120; }
+  60% { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -120; }
+}
+.gv-heartbeat-anim path {
+  stroke-dasharray: 120;
+  animation: gv-heartbeat 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gv-heartbeat-anim path { animation: none; stroke-dasharray: none; }
 }
 
 /* Fokusringer i aksent (tastaturnavigasjon). */

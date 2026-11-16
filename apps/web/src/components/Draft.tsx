@@ -1,6 +1,7 @@
 import { useState, type CSSProperties } from 'react';
 import { create } from 'zustand';
-import { FALLBACK_PALETTE, isDraft, paletteToCssVars, withAlpha, type AssetManifest, type StatusFilter } from '@gv/shared/web';
+import { isDraft, type AssetManifest, type StatusFilter } from '@gv/shared/web';
+import { skinTrackVars } from '../lib/skin';
 
 /**
  * Del 16: utkast holdes atskilt og er tydelig merket overalt:
@@ -11,38 +12,38 @@ import { FALLBACK_PALETTE, isDraft, paletteToCssVars, withAlpha, type AssetManif
 export function DraftBadge({ m, className = '' }: { m: Pick<AssetManifest, 'version' | 'status'>; className?: string }) {
   if (!isDraft(m)) return null;
   return (
-    <span title="Umastret utkast – holdes atskilt fra release-klare" className={`inline-flex flex-none items-center rounded border border-dashed border-white/40 px-1 py-px align-middle font-mono text-[9px] font-semibold tracking-[0.14em] text-soft ${className}`}>
-      UTKAST
+    <span title="Umastret – holdes atskilt fra release-klare" className={`inline-flex flex-none items-center rounded border border-dashed border-white/40 px-1 py-px align-middle font-mono text-[9px] font-semibold tracking-[0.14em] text-soft ${className}`}>
+      UMASTRET
     </span>
   );
 }
 
-/** CSS-variablene for en låt: manuell farge fra Studio, ellers standardfargen (grønn), med halv glød for utkast. */
+/**
+ * CSS-variablene for en låt i gjeldende skin (del 19): Kameleon bruker låtas palett (cover eller manuell farge),
+ * faste skins bruker sine egne aksenter. Utkast får halv glød (del 16).
+ */
 export function trackVars(m: Pick<AssetManifest, 'palette' | 'version' | 'status'>): CSSProperties {
-  const p = m.palette.source === 'manual' ? m.palette : FALLBACK_PALETTE;
-  const v = paletteToCssVars(p);
-  if (isDraft(m)) {
-    v['--glow'] = withAlpha(p.primary, 0.21);
-    v['--glow-2'] = withAlpha(p.secondary, 0.09);
-  }
-  return v as CSSProperties;
+  return skinTrackVars(m.palette, isDraft(m)) as CSSProperties;
 }
 
 // ---------------------------------------------------------------- Segment: Release-klar · Utkast · Alle
 
 const KEY = (view: string) => `gv:status:${view}`;
-const read = (view: string): StatusFilter => {
+const read = (view: string, dflt: StatusFilter): StatusFilter => {
   try {
     const v = localStorage.getItem(KEY(view));
-    return v === 'draft' || v === 'all' ? v : 'release';
+    return v === 'draft' || v === 'all' || v === 'release' ? v : dflt;
   } catch {
-    return 'release';
+    return dflt;
   }
 };
 
-/** Valget huskes per visning (bibliotek, hjem, dj, søk …). Standard: bare release-klare. */
-export function useStatusFilter(view: string): [StatusFilter, (f: StatusFilter) => void] {
-  const [f, setF] = useState<StatusFilter>(() => read(view));
+/**
+ * Valget huskes per visning (bibliotek, hjem, dj, søk …). Standard: bare release-klare, unntatt der
+ * Knut har bedt om begge (del 16, 2026-11-15): DJ-verktøy («Passer etter …») og Ctrl+K tar med umastrede.
+ */
+export function useStatusFilter(view: string, dflt: StatusFilter = 'release'): [StatusFilter, (f: StatusFilter) => void] {
+  const [f, setF] = useState<StatusFilter>(() => read(view, dflt));
   return [
     f,
     (next) => {
@@ -59,7 +60,7 @@ export function useStatusFilter(view: string): [StatusFilter, (f: StatusFilter) 
 export function StatusSegment({ value, onChange, counts }: { value: StatusFilter; onChange: (f: StatusFilter) => void; counts?: { release: number; draft: number } }) {
   const opts: Array<[StatusFilter, string]> = [
     ['release', 'Release-klar'],
-    ['draft', 'Utkast'],
+    ['draft', 'Umastret'],
     ['all', 'Alle']
   ];
   return (
@@ -81,7 +82,7 @@ export function StatusSegment({ value, onChange, counts }: { value: StatusFilter
   );
 }
 
-// ---------------------------------------------------------------- «Dette er et utkast – legg til likevel?»
+// ---------------------------------------------------------------- «Denne låta er umastret – legg til likevel?»
 
 interface ConfirmState {
   ask: { listId: string; listName: string; resolve: (ok: boolean) => void } | null;
@@ -118,10 +119,10 @@ export function DraftConfirmHost() {
   };
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-3 sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && done(false)}>
-      <div role="alertdialog" aria-modal="true" aria-label="Utkast i vanlig liste" className="gv-panel w-full max-w-md !bg-[#0E1117] p-5">
-        <h2 className="m-0 text-base font-semibold text-ink-strong">Dette er et utkast – legg til likevel?</h2>
+      <div role="alertdialog" aria-modal="true" aria-label="Umastret låt i vanlig liste" className="gv-panel w-full max-w-md !bg-surface p-5">
+        <h2 className="m-0 text-base font-semibold text-ink-strong">Denne låta er umastret – legg til likevel?</h2>
         <p className="m-0 mt-2 text-sm text-soft">
-          «{ask.listName}» er en vanlig liste. Utkast hører vanligvis hjemme i en Album-plan eller Sett-plan, så de ikke blandes med det som er klart for release.
+          «{ask.listName}» er en vanlig liste. Umastrede låter hører vanligvis hjemme i en Album-plan eller Sett-plan, så de ikke blandes med det som er klart for release.
         </p>
         <label className="mt-3 flex items-center gap-2 text-sm text-soft">
           <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} />

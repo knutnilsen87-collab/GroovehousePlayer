@@ -71,7 +71,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
         </div>
         {/* Live forhåndsvisning: spiller og drop-side */}
         <div className="flex gap-3" style={paletteToCssVars(preview) as CSSProperties} aria-label="Forhåndsvisning">
-          <div className="flex w-48 items-center gap-2 rounded-xl border border-white/10 bg-[#0E1015] p-2">
+          <div className="flex w-48 items-center gap-2 rounded-xl border border-white/10 bg-surface p-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold" style={{ background: primary, color: preview.onPrimary }}>
               ▶
             </span>

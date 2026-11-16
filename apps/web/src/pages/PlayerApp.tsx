@@ -29,6 +29,8 @@ import { App as CapApp } from '@capacitor/app';
 import { isApp } from '../lib/platform';
 import { loadPlaybackSettings } from '../lib/settings';
 import { UnreachableScreen } from './Connect';
+import { skinTrackVars, useSkinId, useTagline } from '../lib/skin';
+import { Heartbeat, useHeartbeatMotif } from '../components/Brand';
 
 type Filter = 'all' | 'track' | 'set';
 
@@ -147,7 +149,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   }, []);
 
   // Del 14: standardfargen (grønn) brukes med mindre låta har fått egen farge i Studio.
-  const vars = cur ? trackVars(cur.manifest) : (paletteToCssVars(NEUTRAL_PALETTE) as CSSProperties);
+  useSkinId(); // del 19: bytt skin uten omstart
 
   // Tastatur: Ctrl/Cmd+K søk, mellomrom spill/pause, Shift+←/→ forrige/neste del, Esc lukker fullskjerm
   useEffect(() => {
@@ -188,7 +190,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   // Del 16: Release-klar · Utkast · Alle – bare release-klare som standard, valget huskes per visning
   const [libStatus, setLibStatus] = useStatusFilter('library');
   const [homeStatus, setHomeStatus] = useStatusFilter('home');
-  const [djStatus, setDjStatus] = useStatusFilter('dj');
+  const [djStatus, setDjStatus] = useStatusFilter('dj', 'all');
   const byStatus = (f: StatusFilter) => tracks.filter((t) => matchesStatus(t.main.manifest, f));
   const statusCounts = { release: tracks.filter((t) => !isDraft(t.main.manifest)).length, draft: tracks.filter((t) => isDraft(t.main.manifest)).length };
   const homeTracks = useMemo(() => byStatus(homeStatus), [tracks, homeStatus]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -234,6 +236,8 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   if (isApp && catalogError) return <UnreachableScreen error={catalogError} onRetry={reload} onReconnect={() => onDisconnected?.()} />;
 
   const deckAsset = cur ?? newest[0]?.main;
+  // Del 14/19: låta i spilleren (også pauset), ellers låta som vises i dekket. Faste skins overstyrer i skinTrackVars.
+  const vars = deckAsset ? trackVars(deckAsset.manifest) : (skinTrackVars(null) as CSSProperties);
   const showDeck = (view === 'home' || view === 'library') && !!deckAsset && tracks.length > 0;
   /** Dekket før noe er spilt: play/spoling starter låta som vises. */
   const idle = cur ? undefined : (atMs?: number) => newest[0] && playFrom(newest.map((t) => t.main), 0, atMs);
@@ -269,7 +273,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
         <ResumeBanner tracks={tracks} />
 
         {loading ? (
-          <p className="text-sm text-muted">Åpner hvelvet …</p>
+          <LoadingVault />
         ) : tracks.length === 0 ? (
           <EmptyState />
         ) : (
@@ -457,8 +461,11 @@ function AmbientGlow() {
 }
 
 function EmptyState() {
+  const motif = useHeartbeatMotif();
+  const line = useTagline('', 1);
   return (
     <div className="rounded-2xl border border-dashed border-accent/30 p-8 text-center text-sm text-muted">
+      {motif && line && <p className="gv-script m-0 mb-3 text-2xl">{line}</p>}
       Hvelvet er tomt. Kjør <code className="text-ink">pnpm make-fixtures</code> og <code className="text-ink">pnpm gh-ingest fixtures/blue-fire</code>, eller bounce til eksportmappa med <code className="text-ink">pnpm gh-watch</code>.
     </div>
   );
@@ -698,7 +705,7 @@ function RecordedSets({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]
         const now = isCur ? sectionAt(m.markers, positionMs) : null;
         const single = now?.refSlug ? tracks.find((x) => x.slug === now.refSlug && x.main.manifest.kind === 'track') : undefined;
         return (
-          <article key={t.slug} className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-surface/80 p-4 lg:p-5" style={paletteToCssVars(m.palette) as CSSProperties}>
+          <article key={t.slug} className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-surface/80 p-4 lg:p-5" style={skinTrackVars(m.palette) as CSSProperties}>
             <div className="flex flex-wrap items-center gap-4">
               <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={64} rounded={10} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -780,7 +787,7 @@ function TransportButtons({ size = 'md' }: { size?: 'md' | 'lg' }) {
         onClick={toggle}
         className={`rounded-full bg-accent p-[3px] shadow-[0_8px_24px_var(--glow)] active:scale-95 ${big ? 'h-[76px] w-[76px]' : 'h-12 w-12'}`}
       >
-        <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0B0D12] text-accent">
+        <span className="flex h-full w-full items-center justify-center rounded-full bg-sunken text-accent">
           {playing ? <PauseIcon width={big ? 28 : 20} height={big ? 28 : 20} /> : <PlayIcon width={big ? 28 : 20} height={big ? 28 : 20} className="ml-0.5" />}
         </span>
       </button>
@@ -818,7 +825,7 @@ function Dock({ cur, track, onVariant, tracks, onPlay, onMore, hideOnDesktop = f
   const setNow = m.kind === 'set' ? sectionAt(m.markers, positionMs) : null;
   const single = setNow?.refSlug ? tracks.find((x) => x.slug === setNow.refSlug && x.main.manifest.kind === 'track') : undefined;
   return (
-    <div className={`fixed inset-x-0 bottom-0 z-30 hidden h-[112px] border-t border-accent/20 bg-[#0A0B0F]/95 lg:left-[272px] ${hideOnDesktop ? '' : 'lg:block'}`}>
+    <div className={`fixed inset-x-0 bottom-0 z-30 hidden h-[112px] border-t border-accent/20 bg-sunken/95 lg:left-[272px] ${hideOnDesktop ? '' : 'lg:block'}`}>
       <SubBassEdge />
       <div className="mx-auto flex h-full max-w-[1600px] items-center gap-6 px-6">
         <div className="flex w-[300px] min-w-0 items-center gap-3">
@@ -961,6 +968,19 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
       <div className="px-2 pb-1.5">
         <SpectralWaveform analysis={cur.analysis} durationMs={m.durationMs} progress={positionMs / m.durationMs} active={started} height={14} barPx={2} />
       </div>
+    </div>
+  );
+}
+
+/** Oppstart: «Åpner hvelvet …», eller i Echo Groove Nights hjerteslaget og en kort tekst i guidens tone. */
+function LoadingVault() {
+  const motif = useHeartbeatMotif();
+  const line = useTagline('Åpner hvelvet …', new Date().getDate());
+  if (!motif) return <p className="text-sm text-muted">Åpner hvelvet …</p>;
+  return (
+    <div className="flex flex-col items-center gap-3 py-16" role="status">
+      <Heartbeat width={120} height={40} animate />
+      <p className="gv-script m-0 text-2xl">{line}</p>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { computeCoverage, formatTime, paletteToCssVars, withAlpha, type AccessTier, type AssetManifest, type Palette, isDraft, versionName } from '@gv/shared/web';
+import { computeCoverage, formatTime, paletteToCssVars, withAlpha, type AccessTier, type AssetManifest, type Palette, isDraft, skinPalette, versionName } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
 import { ArchiveIcon, ChevronDownIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, StudioIcon, UploadIcon } from '../components/Icons';
@@ -13,7 +13,9 @@ import { Waveform } from '../components/Waveform';
 import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, uploadAssetCover, useCatalog, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
+import { useSkin, useSkinId } from '../lib/skin';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
+import { skinTrackVars } from '../lib/skin';
 
 type View = 'drops' | 'archive' | 'sets' | 'mobile' | 'settings';
 
@@ -242,7 +244,7 @@ function DraftImport() {
         const r = await fetch(`/api/drafts/import?name=${encodeURIComponent(f.name)}`, { method: 'POST', headers: { 'X-GV-Import': '1', 'Content-Type': f.type || 'application/octet-stream' }, body: f });
         if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${r.status}`);
       }
-      setMsg({ ok: true, text: `${list.length} fil${list.length > 1 ? 'er' : ''} importert som utkast – ingestes nå.` });
+      setMsg({ ok: true, text: `${list.length} fil${list.length > 1 ? 'er' : ''} importert som umastret – ingestes nå.` });
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
     } finally {
@@ -264,12 +266,12 @@ function DraftImport() {
       className={`flex min-h-32 flex-col items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-dashed p-4 text-center ${over ? 'border-accent bg-accent/[0.08]' : 'border-accent/35 bg-accent/[0.03]'}`}
     >
       <UploadIcon width={26} height={26} className="text-accent" strokeWidth={1.8} />
-      <span className="text-sm font-semibold">Importer som utkast</span>
+      <span className="text-sm font-semibold">Importer som umastret</span>
       <span className="text-xs text-muted">Dra umastrede låter hit (WAV/AIFF/FLAC + cover). De holdes atskilt fra de release-klare.</span>
       <button type="button" disabled={busy} onClick={() => input.current?.click()} className="mt-1 h-8 rounded-full border border-white/15 px-3 text-xs text-ink hover:border-accent/50 disabled:opacity-50">
         {busy ? 'Laster opp …' : 'Velg filer …'}
       </button>
-      <input ref={input} type="file" multiple accept=".wav,.wave,.aif,.aiff,.flac,image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Velg filer som skal importeres som utkast" onChange={(e) => e.target.files && void upload(e.target.files)} />
+      <input ref={input} type="file" multiple accept=".wav,.wave,.aif,.aiff,.flac,image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Velg filer som skal importeres som umastret" onChange={(e) => e.target.files && void upload(e.target.files)} />
       {msg && <span className={`text-xs ${msg.ok ? 'text-accent' : 'text-[#FF8A7A]'}`}>{msg.text}</span>}
     </div>
   );
@@ -464,7 +466,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
     );
   }
   const m = asset.manifest;
-  const vars = paletteToCssVars(m.palette) as CSSProperties;
+  const vars = skinTrackVars(m.palette) as CSSProperties;
   const recipient = drop.recipients[sel];
   const dropMs = m.markers.find((k) => k.kind === 'drop')?.startMs ?? null;
 
@@ -605,7 +607,7 @@ function RecipientRow({ r, asset, dropMs, maxDevices, selected, onSelect }: { r:
       </td>
       <td className="tabular px-2.5 font-mono text-soft">{opens ? `${opens}×` : '—'}</td>
       <td className="px-2.5 py-2">
-        <div className="relative flex h-[38px] w-[300px] items-center gap-[2px] rounded-lg border border-white/[0.05] bg-[#090B10] px-2 py-1" aria-label={`Hørt ${Math.round(cov.heardRatio * 100)} %`} role="img">
+        <div className="relative flex h-[38px] w-[300px] items-center gap-[2px] rounded-lg border border-white/[0.05] bg-obsidian px-2 py-1" aria-label={`Hørt ${Math.round(cov.heardRatio * 100)} %`} role="img">
           {/* Subtilt mørkegrått bakgrunnsriss av sporets faktiske bølgeform-konvolutt */}
           {envelopePoints && (
             <svg viewBox="0 0 300 38" preserveAspectRatio="none" aria-hidden="true" className="pointer-events-none absolute inset-x-2 inset-y-0 h-full w-[calc(100%-16px)]">
@@ -619,7 +621,7 @@ function RecipientRow({ r, asset, dropMs, maxDevices, selected, onSelect }: { r:
           })}
           {dropMs !== null && (
             <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-20 w-[1.5px] bg-[#E5B84B]" style={{ left: `${(dropMs / m.durationMs) * 100}%` }}>
-              <span className="absolute -top-2 -translate-x-1/2 rounded bg-[#090B10] px-1 font-mono text-[8px] font-bold tracking-wider text-[#F3CF7A]">DROP</span>
+              <span className="absolute -top-2 -translate-x-1/2 rounded bg-obsidian px-1 font-mono text-[8px] font-bold tracking-wider text-[#F3CF7A]">DROP</span>
             </span>
           )}
         </div>
@@ -693,27 +695,9 @@ function describeEvents(events: SeedRecipient['events'][string], m: AssetManifes
 
 // ---------------------------------------------------------------- Arkiv / Live-sett
 
-const CHAMELEON_STUDIO_PALETTES: Array<{ primary: string; secondary: string; onPrimary: '#07080B' | '#F5F7FA' }> = [
-  { primary: '#38BDF8', secondary: '#818CF8', onPrimary: '#07080B' },
-  { primary: '#E5B84B', secondary: '#FB923C', onPrimary: '#07080B' },
-  { primary: '#A855F7', secondary: '#EC4899', onPrimary: '#07080B' },
-  { primary: '#10B981', secondary: '#34D399', onPrimary: '#07080B' },
-  { primary: '#F43F5E', secondary: '#FB7185', onPrimary: '#07080B' },
-  { primary: '#6366F1', secondary: '#A855F7', onPrimary: '#F5F7FA' }
-];
-
-/** Chameleon-farge i Arkiv: låter med cover (eller manuell farge) får sin unike studio-identitet på Play-knapp og bølgeform. */
+/** Del 19: fargen i Arkiv følger skinnet – Kameleon bruker låtas egen palett (cover eller manuell), faste skins sin aksent. */
 function chameleonPalette(m: AssetManifest): Palette {
-  if (m.palette.source === 'manual' || (m.palette.source === 'cover' && m.palette.primary.toUpperCase() !== '#06B211')) {
-    return m.palette;
-  }
-  if (m.files.cover) {
-    let h = 0;
-    for (let i = 0; i < m.slug.length; i++) h = (h * 31 + m.slug.charCodeAt(i)) >>> 0;
-    const pick = CHAMELEON_STUDIO_PALETTES[h % CHAMELEON_STUDIO_PALETTES.length]!;
-    return { ...pick, source: 'cover' };
-  }
-  return m.palette;
+  return skinPalette(useSkin.getState().skin, m.palette);
 }
 
 function PinMarkerIcon({ width = 16, height = 16 }: { width?: number; height?: number }) {
@@ -916,7 +900,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
             </span>
           </div>
           <div
-            className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[#080A0F] px-2 py-1.5"
+            className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-obsidian px-2 py-1.5"
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
               const ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
@@ -959,7 +943,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
             </div>
           </div>
           <div
-            className="relative flex h-[64px] cursor-pointer items-center gap-[2px] overflow-hidden rounded-xl border border-white/[0.07] bg-[#080A0F] px-2.5 pt-4"
+            className="relative flex h-[64px] cursor-pointer items-center gap-[2px] overflow-hidden rounded-xl border border-white/[0.07] bg-obsidian px-2.5 pt-4"
             onClick={(e) => {
               const r = e.currentTarget.getBoundingClientRect();
               const localRatio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
@@ -988,7 +972,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
                 <span key={`${c.label}-${c.startMs}`} aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${localPct}%` }}>
                   <span className="absolute inset-y-0 -left-px w-[1.5px]" style={{ background: 'var(--accent)' }} />
                   <span
-                    className="absolute top-1 -translate-x-1/2 whitespace-nowrap rounded bg-[#0A0C12]/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-ink-strong shadow"
+                    className="absolute top-1 -translate-x-1/2 whitespace-nowrap rounded bg-sunken/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-ink-strong shadow"
                     style={{ border: '1px solid color-mix(in srgb, var(--accent) 60%, transparent)' }}
                   >
                     {formatTime(c.startMs)} · {c.label}
@@ -1118,7 +1102,8 @@ function ArchiveRow({
   };
 
   // Chameleon-farge: bruker låtas unike palett på Play-knapp og bølgeform i Arkiv
-  const rowPalette = useMemo(() => chameleonPalette(m), [m]);
+  const skinId = useSkinId();
+  const rowPalette = useMemo(() => chameleonPalette(m), [m, skinId]);
   const vars = useMemo(() => {
     const base = paletteToCssVars(rowPalette);
     base['--glow'] = withAlpha(rowPalette.primary, 0.38);
@@ -1368,7 +1353,7 @@ function ArchiveRow({
                         className={`flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition-colors ${
                           c.confirmed
                             ? 'border-accent/65 bg-accent/20 font-medium text-ink-strong hover:bg-accent/30'
-                            : 'border-dashed border-accent/45 bg-[#0A0C12] text-soft hover:border-accent hover:text-ink-strong'
+                            : 'border-dashed border-accent/45 bg-sunken text-soft hover:border-accent hover:text-ink-strong'
                         }`}
                       >
                         <span className="tabular font-mono text-[10.5px] text-soft">{formatTime(c.startMs)}</span>
@@ -1460,7 +1445,7 @@ function MiniPlayer() {
   if (!a) return null;
   const m = a.manifest;
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/[0.08] bg-sunken/95 px-6 py-3 backdrop-blur" style={paletteToCssVars(m.palette) as CSSProperties}>
+    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/[0.08] bg-sunken/95 px-6 py-3 backdrop-blur" style={skinTrackVars(m.palette) as CSSProperties}>
       <div className="mx-auto flex max-w-[1400px] items-center gap-4">
         <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={8} />
         <div className="flex w-48 min-w-0 flex-col">

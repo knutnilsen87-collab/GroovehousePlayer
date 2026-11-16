@@ -6,9 +6,10 @@ export default {
   theme: {
     extend: {
       colors: {
-        obsidian: '#07080B',
-        surface: '#0E1015',
-        sunken: '#0A0B0F',
+        // Del 19: flatene følger skinnet (CSS-variabler fra skinRootVars), med støtte for /alfa.
+        obsidian: fromVar('--c-obsidian'),
+        surface: fromVar('--c-surface'),
+        sunken: fromVar('--c-sunken'),
         ink: '#E9ECF2',
         'ink-strong': '#F5F7FA',
         muted: '#A3ACBA',
@@ -30,7 +31,7 @@ export default {
         gold: 'linear-gradient(135deg, #F0DC6A 0%, #F0C030 45%, #B06000 100%)'
       },
       borderRadius: {
-        panel: '16px'
+        panel: 'var(--panel-radius)'
       }
     }
   },

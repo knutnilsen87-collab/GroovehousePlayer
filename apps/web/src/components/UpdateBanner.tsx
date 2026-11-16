@@ -14,7 +14,7 @@ export function UpdateBanner() {
     if (r === 'permission') setExplain(true);
   };
   return (
-    <div role="status" className="fixed inset-x-3 top-[max(10px,env(safe-area-inset-top))] z-50 rounded-2xl border border-accent/40 bg-[#0C0E13]/97 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_20px_var(--glow-2)]">
+    <div role="status" className="fixed inset-x-3 top-[max(10px,env(safe-area-inset-top))] z-50 rounded-2xl border border-accent/40 bg-surface/97 p-3 shadow-[0_10px_30px_rgba(0,0,0,0.5),0_0_20px_var(--glow-2)]">
       <div className="flex items-center gap-3">
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm font-semibold text-ink-strong">Ny app-versjon</span>

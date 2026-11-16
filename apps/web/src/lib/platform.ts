@@ -3,6 +3,7 @@ import { authHeaders, clientHeaders, serverBase, setConnection } from './connect
 import { HtmlAudioEngine } from './engine/html';
 import { NativeEngine, type NativePlayerPlugin } from './engine/native';
 import { mergeSavedPositions, setEngineFactory } from './player';
+import { setNativeSkinHook } from './skin';
 
 /**
  * Web/desktop eller Android-appen (Capacitor, del 12). Importeres først i main.tsx.
@@ -18,6 +19,9 @@ export interface VaultAuthPlugin {
 }
 export const VaultAuth = registerPlugin<VaultAuthPlugin>('VaultAuth');
 export const NativePlayer = registerPlugin<NativePlayerPlugin>('NativePlayer');
+/** Del 19: statuslinje, navigasjonslinje og oppstartsskjerm etter skinnet (krever APK med SystemBarsPlugin). */
+const SystemBars = registerPlugin<{ set(o: { background: string; splash: string }): Promise<void> }>('SystemBars');
+if (isApp) setNativeSkinHook((background, splash) => void SystemBars.set({ background, splash }).catch(() => undefined));
 
 setEngineFactory(() => (isApp ? new NativeEngine(NativePlayer, authHeaders) : new HtmlAudioEngine()));
 

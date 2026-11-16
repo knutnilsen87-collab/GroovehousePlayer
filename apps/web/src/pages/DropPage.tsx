@@ -124,7 +124,7 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
             onClick={toggle}
             className="h-[72px] w-[72px] rounded-full bg-accent p-[3px] shadow-[0_10px_30px_var(--glow)] active:scale-95"
           >
-            <span className="flex h-full w-full items-center justify-center rounded-full bg-[#0B0D12] text-accent">
+            <span className="flex h-full w-full items-center justify-center rounded-full bg-sunken text-accent">
               {playing ? <PauseIcon width={26} height={26} /> : <PlayIcon width={26} height={26} className="ml-[3px]" />}
             </span>
           </button>

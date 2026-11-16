@@ -1,0 +1,9 @@
+{
+  "id": "cyan-studio",
+  "name": "Cyan Studio",
+  "description": "Fast cyan, som referansebildet «High-End Studio».",
+  "mode": "fixed", "accent": "#01E6FC", "accent2": "#3D8BFF",
+  "background": { "base": "#07080B", "surface": "#0D1117", "sunken": "#090C11", "panelTint": "#BFEFFF", "panelAlpha": 3, "moon": null },
+  "glow": 55, "border": 26, "radius": 16,
+  "waveform": "accent", "goldFrame": false, "logo": "groovehouse"
+}

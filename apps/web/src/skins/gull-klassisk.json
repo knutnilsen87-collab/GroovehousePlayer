@@ -1,0 +1,9 @@
+{
+  "id": "gull-klassisk",
+  "name": "Gull klassisk",
+  "description": "Gull som ramme og coveret som aksent – det opprinnelige uttrykket.",
+  "mode": "chameleon",
+  "background": { "base": "#07080B", "surface": "#0F0F10", "sunken": "#0A0A0B", "panelTint": "#FFF4D6", "panelAlpha": 3, "moon": null },
+  "glow": 45, "border": 30, "radius": 14,
+  "waveform": "accent", "goldFrame": true, "frame": "#F0C030", "logo": "groovehouse"
+}

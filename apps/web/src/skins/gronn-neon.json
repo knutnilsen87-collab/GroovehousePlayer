@@ -1,0 +1,9 @@
+{
+  "id": "gronn-neon",
+  "name": "Grønn Neon",
+  "description": "Fast grønn #06B211 / #14E177 (Antigravitys versjon).",
+  "mode": "fixed", "accent": "#06B211", "accent2": "#14E177",
+  "background": { "base": "#07080B", "surface": "#0E1015", "sunken": "#0A0B0F", "panelTint": "#FFFFFF", "panelAlpha": 3, "moon": null },
+  "glow": 55, "border": 24, "radius": 16,
+  "waveform": "accent", "goldFrame": false, "logo": "groovehouse"
+}
