@@ -26,6 +26,8 @@ import { toastError, usePlaylists, useToast } from '../lib/playlists';
 import { CoverArt } from './CoverArt';
 import { Panel } from './Deck';
 import { DraftBadge } from './Draft';
+import { TransitionFx } from './FxChip';
+import { fxCuesFor, transitionPreset, useFx } from '../lib/fx';
 
 /**
  * Del 17: settbygger. Velg varighet og kurve; Vault setter sammen tre forslag etter etablerte DJ-prinsipper
@@ -152,12 +154,57 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
     setTracks(cur!.tracks.filter((_, j) => j !== i));
   };
 
+  const ideas = useFx((s) => s.ideas);
+  const loadFx = useFx((s) => s.load);
+  useEffect(() => {
+    void loadFx();
+  }, [loadFx]);
+  const fxAt = (i: number) => {
+    const t = cur!.tracks[i]!;
+    const next = cur!.tracks[i + 1];
+    if (!next) return null;
+    const info = explainTransition(t, next);
+    return { info, ...transitionPreset(t, next, info, i + 1 === cur!.tracks.length - 1, ideas) };
+  };
+  /** Del 18 pkt. 11: «jukselapp» – én side per sett med låt, toneart, BPM og overgang (preset + steg). Skriv ut som PDF. */
+  const cheatSheet = () => {
+    const rows = cur!.tracks
+      .map((t, i) => {
+        const fx = fxAt(i);
+        const steps = fx ? fxCuesFor(fx.preset, t, cur!.tracks[i + 1]!, fx.info) : null;
+        const esc = (x: string) => x.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+        return `<tr><td>${i + 1}</td><td><b>${esc(t.title)}</b></td><td>${t.camelot ?? '–'}</td><td>${t.bpm ? t.bpm.toFixed(1) : '–'}</td><td>${
+          fx ? `<span style="color:${fx.preset.color}">${fx.preset.icon} ${esc(fx.preset.name)}</span><br><small>ut ${formatTime(fx.info.mix.outAtMs)} · ${[...steps!.a, ...steps!.b].map((c) => esc(c.name.split(' · ')[1] ?? c.name)).join(' → ')}</small>` : '<small>slutt</small>'
+        }</td></tr>`;
+      })
+      .join('');
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!doctype html><meta charset="utf-8"><title>${(name || 'Sett').replace(/</g, '')} – jukselapp</title><style>body{font:16px system-ui;margin:24px;background:#fff;color:#000}h1{font-size:22px}table{border-collapse:collapse;width:100%}td{border-bottom:1px solid #ccc;padding:8px 6px;vertical-align:top}td:nth-child(3),td:nth-child(4){font-family:monospace;font-size:18px}@media(max-width:600px){body{font-size:20px}}</style><h1>${(name || 'Sett').replace(/</g, '')}</h1><table>${rows}</table><script>setTimeout(()=>print(),300)</script>`);
+    w.document.close();
+  };
+
   const exportItems = () =>
     cur!.tracks.map((t, i) => {
       const a = byId.get(t.id)!.manifest;
       const prev = cur!.tracks[i - 1];
       const next = cur!.tracks[i + 1];
-      return { slug: a.slug, variant: a.variant, version: a.version, mixInMs: prev ? explainTransition(prev, t).mix.inAtMs : 0, mixOutMs: next ? explainTransition(t, next).mix.outAtMs : null, bars: next ? explainTransition(t, next).mix.bars : null };
+      // Del 18: presetet ut av denne (hot cue i presetets farge), presetet inn (M3U-kommentar) og stegene som memory cues
+      const out = fxAt(i);
+      const inn = i > 0 ? fxAt(i - 1) : null;
+      const cuesOut = out ? fxCuesFor(out.preset, t, next!, out.info).a : [];
+      const cuesIn = inn ? fxCuesFor(inn.preset, prev!, t, inn.info).b : [];
+      return {
+        slug: a.slug,
+        variant: a.variant,
+        version: a.version,
+        mixInMs: prev ? explainTransition(prev, t).mix.inAtMs : 0,
+        mixOutMs: next ? explainTransition(t, next).mix.outAtMs : null,
+        bars: next ? explainTransition(t, next).mix.bars : null,
+        fxOut: out ? { name: out.preset.name, color: out.preset.color } : null,
+        fxIn: inn ? inn.preset.name : null,
+        fxCues: [...cuesIn, ...cuesOut]
+      };
     });
   const download = async (format: 'rekordbox' | 'm3u') => {
     try {
@@ -378,6 +425,14 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
                           ut ved {formatTime(tr.mix.outAtMs)} / inn ved {formatTime(tr.mix.inAtMs)}
                           {tr.mix.bars ? `, ${tr.mix.bars} takter` : ', kort overgang'}
                         </span>
+                        {(() => {
+                          const fx = fxAt(i);
+                          return fx && next ? (
+                            <div className="w-full pt-1">
+                              <TransitionFx a={t} b={next} info={fx.info} preset={fx.preset} reason={fx.reason} learned={fx.learned} />
+                            </div>
+                          ) : null;
+                        })()}
                       </div>
                     )}
                   </li>
@@ -391,6 +446,9 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
               <input value={name} onChange={(e) => setName(e.target.value)} aria-label="Navn på settet" className="h-10 min-w-[200px] flex-1 rounded-lg border border-white/10 bg-sunken px-3 text-sm text-ink" />
               <button type="button" onClick={() => void save()} className="h-10 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">
                 Lagre under Planlagte sett
+              </button>
+              <button type="button" onClick={cheatSheet} className="h-10 rounded-full border border-white/15 px-4 text-sm text-ink">
+                Jukselapp (PDF)
               </button>
               <button type="button" onClick={() => void download('rekordbox')} className="h-10 rounded-full border border-white/15 px-4 text-sm text-ink">
                 rekordbox XML

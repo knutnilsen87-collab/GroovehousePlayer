@@ -14,6 +14,7 @@ import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type Playli
 import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
 import { transcribeLyricsForSlug } from './lyrics-sync';
 import { findBrandLogo, handleSkins } from './skins-store';
+import { handleFx } from './fx-store';
 import { BUILT_IN_SKIN_IDS } from '@gv/shared';
 import { handleDrops, type DropPublisher } from './drops-api';
 import { loadPlayback, savePoint } from './playback-store';
@@ -102,6 +103,11 @@ export function createApiHandler(opts: ApiOptions) {
     if (url.pathname === '/api/drops') {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
       return handleDrops({ mediaDir: opts.mediaDir, dataDir, publish: opts.publishDrop }, req, res);
+    }
+    // Del 18: overgangs-presets og idéer
+    if (url.pathname === '/api/fx' || url.pathname.startsWith('/api/fx/')) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return handleFx(dataDir, url, req, res, send, readJson);
     }
     // Del 19: egne skins (data/skins/) og «samme skin på alle enheter»
     if (url.pathname === '/api/skins' || url.pathname.startsWith('/api/skins/')) {

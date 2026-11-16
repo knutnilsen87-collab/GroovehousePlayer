@@ -20,6 +20,12 @@ export interface ExportItem {
   mixInMs?: number | null;
   mixOutMs?: number | null;
   bars?: number | null;
+  /** Del 18: overgangs-preset ut av denne låta (hot cue på mikspunktet i presetets farge). */
+  fxOut?: { name: string; color: string } | null;
+  /** Del 18: preset på overgangen inn i denne låta (kommentar i M3U). */
+  fxIn?: string | null;
+  /** Del 18: presetstegene som skjer i denne låta, som navngitte memory cues. */
+  fxCues?: Array<{ atMs: number; name: string }> | null;
 }
 export interface ResolvedItem {
   manifest: AssetManifest;
@@ -27,6 +33,20 @@ export interface ResolvedItem {
   mixInMs: number | null;
   mixOutMs: number | null;
   bars: number | null;
+  fxOut?: { name: string; color: string } | null;
+  fxIn?: string | null;
+  fxCues?: Array<{ atMs: number; name: string }>;
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+/** Rydder klientdata for del 18: navn maks 32 tegn, gyldige farger og tider, maks 16 cues. */
+function cleanFx(it: ExportItem): Pick<ResolvedItem, 'fxOut' | 'fxIn' | 'fxCues'> {
+  const fxOut = it.fxOut && typeof it.fxOut.name === 'string' ? { name: it.fxOut.name.slice(0, 32), color: HEX.test(String(it.fxOut.color)) ? it.fxOut.color : '#3CB4FF' } : null;
+  const fxCues = (Array.isArray(it.fxCues) ? it.fxCues : [])
+    .filter((c) => c && Number.isFinite(c.atMs) && c.atMs >= 0 && typeof c.name === 'string')
+    .slice(0, 16)
+    .map((c) => ({ atMs: Math.round(c.atMs), name: c.name.slice(0, 32) }));
+  return { fxOut, fxIn: typeof it.fxIn === 'string' ? it.fxIn.slice(0, 40) : null, fxCues };
 }
 
 /** Finn manifest og lydfil for hver låt i settet. */
@@ -42,11 +62,15 @@ export async function resolveItems(mediaDir: string, exportDir: string | null, i
     const original = src?.relPath && exportDir ? path.join(exportDir, src.relPath) : null;
     const file = original && existsSync(original) ? original : findMaster(dir);
     if (!file) throw new Error(`fant ingen lydfil for ${manifest.title}`);
-    out.push({ manifest, file: path.resolve(file), mixInMs: it.mixInMs ?? null, mixOutMs: it.mixOutMs ?? null, bars: it.bars ?? null });
+    out.push({ manifest, file: path.resolve(file), mixInMs: it.mixInMs ?? null, mixOutMs: it.mixOutMs ?? null, bars: it.bars ?? null, ...cleanFx(it) });
   }
   return out;
 }
 
+const rgb = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 /** file://localhost/F:/Musikk/Låt%20A.wav – rekordbox sitt format (prosentkodet sti, skråstreker). */
 export function rekordboxLocation(file: string): string {
@@ -77,8 +101,12 @@ export function rekordboxXml(name: string, items: ResolvedItem[]): string {
       }
       if (it.mixOutMs != null) {
         cues.push(`      <POSITION_MARK Name="Mix ut${it.bars ? ` (${it.bars} takter)` : ''}" Type="0" Start="${sec(it.mixOutMs)}" Num="-1"/>`);
-        cues.push(`      <POSITION_MARK Name="Mix ut" Type="0" Start="${sec(it.mixOutMs)}" Num="1" Red="230" Green="40" Blue="40"/>`);
+        // Del 18: hot cue på mikspunktet i presetets farge og med presetets navn
+        const [r, g, b] = it.fxOut ? rgb(it.fxOut.color) : [230, 40, 40];
+        cues.push(`      <POSITION_MARK Name="${esc(it.fxOut ? it.fxOut.name : 'Mix ut')}" Type="0" Start="${sec(it.mixOutMs)}" Num="1" Red="${r}" Green="${g}" Blue="${b}"/>`);
       }
+      // Del 18: hvert presetsteg som navngitt memory cue på riktig takt («Echo out · A ut»)
+      for (const c of it.fxCues ?? []) cues.push(`      <POSITION_MARK Name="${esc(c.name)}" Type="0" Start="${sec(c.atMs)}" Num="-1"/>`);
       const attrs = [
         `TrackID="${i + 1}"`,
         `Name="${esc(m.variantLabel ? `${m.title} (${m.variantLabel})` : m.title)}"`,
@@ -119,6 +147,8 @@ export function m3u(name: string, items: ResolvedItem[]): string {
   const lines = ['#EXTM3U', `#PLAYLIST:${name}`];
   for (const it of items) {
     const m = it.manifest;
+    // Del 18: presetnavnet på overgangen inn som kommentarlinje
+    if (it.fxIn) lines.push(`# Overgang inn: ${it.fxIn}`);
     lines.push(`#EXTINF:${Math.round(m.durationMs / 1000)},${m.artist ?? 'Echo Groove'} - ${m.variantLabel ? `${m.title} (${m.variantLabel})` : m.title}`);
     lines.push(path.resolve(it.file));
   }

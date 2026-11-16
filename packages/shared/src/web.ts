@@ -16,3 +16,4 @@ export * from './setbuilder';
 export * from './setinput';
 export * from './playback';
 export * from './skins';
+export * from './fxpresets';

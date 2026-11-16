@@ -11,6 +11,7 @@ import { HeartIcon, MoreIcon, NextIcon, OutputIcon, PauseIcon, PlayIcon, PrevIco
 import { BigWaveform, SpectrumView, ZoomWaveform } from './Visuals';
 import { Heartbeat, useHeartbeatMotif } from './Brand';
 import { useSkin } from '../lib/skin';
+import { FxReminder } from './FxReminder';
 
 /**
  * Del 14 «High-End Studio»: dekket øverst på Hjem og Bibliotek (desktop), og bitene fullskjermspilleren
@@ -716,6 +717,7 @@ export function NowPanel({ cur, onMore, extra, idle }: { cur: LoadedAsset; onMor
           {labels && <span className="gv-brand-label">{labels}</span>}
         </div>
       )}
+      <FxReminder compact />
       <div className="flex items-center gap-2">
         <Tabs tabs={DECK_TABS} value={tab} onChange={setTab} label="Visning" />
         <span className="flex-1" />

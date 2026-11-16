@@ -7,6 +7,7 @@ import { DraftBadge } from './Draft';
 import { BottomControls, Credits, DECK_TABS, HeartButton, LiveTime, LyricsView, Tabs, TrackInfoRows, Transport, type DeckTab } from './Deck';
 import { ChevronDownIcon, MoreIcon } from './Icons';
 import { BigWaveform, SpectrumView, ZoomWaveform } from './Visuals';
+import { FxReminder, IdeaButton } from './FxReminder';
 
 /**
  * Del 14 pkt. 10: fullskjermspilleren på mobil og i Android-appen, ovenfra og ned:
@@ -160,7 +161,8 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
         </button>
       )}
 
-      <div className="relative mt-4">
+      <div className="relative mt-4 flex flex-col gap-2">
+        <FxReminder />
         <Transport size="lg" />
       </div>
       <div className="relative mt-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-1.5">
@@ -168,7 +170,12 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
       </div>
 
       <div className="relative mt-4 min-h-[220px]">
-        {tab === 'now' && <Cards cur={cur} onSeek={seek} />}
+        {tab === 'now' && (
+          <div className="flex flex-col gap-3">
+            <IdeaButton cur={cur} />
+            <Cards cur={cur} onSeek={seek} />
+          </div>
+        )}
         {tab === 'queue' && <MobileQueue />}
         {/* Tekst-fanen vises som fullskjerm-scene (isLyricsStage over). */}
         {tab === 'credits' && (

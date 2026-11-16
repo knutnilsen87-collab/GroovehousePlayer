@@ -8,8 +8,10 @@ import { isDesktop, useUi, type ActionsRequest } from '../lib/ui';
 import { useTouchReorder } from '../lib/useTouchReorder';
 import { CoverArt } from './CoverArt';
 import { ChevronDownIcon, GripIcon, TrashIcon } from './Icons';
+import { PresetRow } from './FxChip';
+import { useFx } from '../lib/fx';
 
-type Panel = 'main' | 'variant' | 'version' | 'section' | 'info' | { extra: number };
+type Panel = 'main' | 'variant' | 'version' | 'section' | 'info' | 'fx' | { extra: number };
 
 interface Item {
   label: string;
@@ -93,6 +95,8 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
         ...(t && t.variants.length > 1 ? [{ label: 'Bytt variant', hint: variantName(a), sub: true, run: () => setPanel('variant') }] : []),
         ...(versions.length > 1 ? [{ label: 'Velg versjon', hint: `v${m.version}`, sub: true, run: () => setPanel('version') }] : []),
         ...(sections.length ? [{ label: 'Gå til seksjon', sub: true, run: () => setPanel('section') }] : []),
+        // Del 18: rask idéfangst – ett trykk åpner presetraden, ett trykk til lagrer
+        { label: 'Idé for overgang', sub: true, run: () => setPanel('fx') },
         { label: 'Info', sub: true, run: () => setPanel('info') },
         ...(desktop ? [{ label: 'Åpne i Studio', run: run(() => location.assign(`/studio#arkiv/${encodeURIComponent(m.slug)}`)) }] : [])
       ];
@@ -148,12 +152,19 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
     );
   } else if (panel === 'info') {
     body = <InfoPanel a={a} />;
+  } else if (panel === 'fx') {
+    body = (
+      <div className="flex flex-col gap-2 p-2">
+        <IdeaTarget a={a} />
+        <PresetRow onPick={(p) => run(() => void captureIdea(a, p.id))()} />
+      </div>
+    );
   } else if (typeof panel === 'object') {
     const x = req.extra?.[panel.extra];
     body = x && 'options' in x ? <Radio desktop={desktop} options={x.options.map((o) => ({ ...o, run: run(o.run) }))} /> : null;
   }
 
-  const title = panel === 'main' ? null : panel === 'variant' ? 'Bytt variant' : panel === 'version' ? 'Velg versjon' : panel === 'section' ? 'Gå til seksjon' : panel === 'info' ? 'Info' : (req.extra?.[(panel as { extra: number }).extra]?.label ?? '');
+  const title = panel === 'main' ? null : panel === 'variant' ? 'Bytt variant' : panel === 'version' ? 'Velg versjon' : panel === 'section' ? 'Gå til seksjon' : panel === 'info' ? 'Info' : panel === 'fx' ? 'Idé for overgang' : (req.extra?.[(panel as { extra: number }).extra]?.label ?? '');
   const pos: CSSProperties | undefined =
     desktop && req.anchor ? { left: Math.max(8, Math.min(req.anchor.x, window.innerWidth - 300)), top: Math.max(8, Math.min(req.anchor.y, window.innerHeight - 420)) } : undefined;
 
@@ -378,4 +389,24 @@ export function QueuePanel() {
     </div>,
     document.body
   );
+}
+
+/** Del 18: hvilken overgang idéen havner på – ut av låta som spilles, inn i neste i køen (eller «ut av denne»). */
+function ideaTargetOf(a: LoadedAsset): { from: string; to: string | null; toTitle: string | null } {
+  const { queue, index } = usePlayer.getState();
+  const isNow = queue[index]?.manifest.id === a.manifest.id;
+  const next = isNow ? queue[index + 1] : undefined;
+  return { from: a.manifest.slug, to: next?.manifest.slug ?? null, toTitle: next?.manifest.title ?? null };
+}
+function IdeaTarget({ a }: { a: LoadedAsset }) {
+  const t = ideaTargetOf(a);
+  return <p className="m-0 px-1 text-xs text-muted">{t.to ? `${a.manifest.title} → ${t.toTitle}` : `Ut av ${a.manifest.title} (foreslås når låta havner i et sett)`}</p>;
+}
+/** Lagrer uten dialog; meldingen har «Angre». */
+export async function captureIdea(a: LoadedAsset, preset: string) {
+  const t = ideaTargetOf(a);
+  const idea = await useFx.getState().saveIdea(t.from, t.to, preset);
+  const name = useFx.getState().lastSaved?.text ?? 'Idé lagret';
+  if (!idea) return void useToast.getState().show('Kunne ikke lagre idéen');
+  useToast.getState().show(name, { label: 'Angre', run: () => void useFx.getState().undo(idea.id) });
 }

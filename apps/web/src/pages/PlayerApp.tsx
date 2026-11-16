@@ -31,6 +31,7 @@ import { loadPlaybackSettings } from '../lib/settings';
 import { UnreachableScreen } from './Connect';
 import { skinTrackVars, useSkinId, useTagline } from '../lib/skin';
 import { Heartbeat, useHeartbeatMotif } from '../components/Brand';
+import { useFx } from '../lib/fx';
 
 type Filter = 'all' | 'track' | 'set';
 
@@ -150,6 +151,10 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
 
   // Del 14: standardfargen (grønn) brukes med mindre låta har fått egen farge i Studio.
   useSkinId(); // del 19: bytt skin uten omstart
+  // Del 18: presets og overgangsidéer (rask idéfangst og påminnelser)
+  useEffect(() => {
+    void useFx.getState().load();
+  }, []);
 
   // Tastatur: Ctrl/Cmd+K søk, mellomrom spill/pause, Shift+←/→ forrige/neste del, Esc lukker fullskjerm
   useEffect(() => {
