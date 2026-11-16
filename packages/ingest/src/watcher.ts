@@ -21,8 +21,11 @@ export interface WatcherOptions {
   mediaDir: string;
   config: VaultConfig;
   log?: (line: string) => void;
-  /** Kalles for hver variant som faktisk ble ingestet eller fikk nye tags. */
-  onIngested?: (res: IngestResult) => void;
+  /**
+   * Kalles for hver variant som faktisk ble ingestet eller fikk nye tags. `sourceFile` = lydfila i
+   * eksport-/utkastmappa (tekstkøen ser etter en .txt med samme navn ved siden av).
+   */
+  onIngested?: (res: IngestResult, sourceFile: string | null) => void;
   /**
    * Del 16: «draft» = utkastmappa (eller data/drafts-inbox). Alle lydfiler, også i undermapper (prosjekter),
    * behandles som flate filer i sin egen mappe og ingestes som utkast.
@@ -64,8 +67,12 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
     log(`  ${status === 'ok' ? '✓' : status === 'warn' ? '!' : '↷'} ${step.padEnd(10)} ${detail ?? ''}`);
   };
 
-  async function runJob(job: Job): Promise<IngestResult[]> {
-    if (job.kind === 'folder') return ingestFolder(job.folder, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status });
+  type Done = { res: IngestResult; sourceFile: string | null };
+  const withSources = (results: IngestResult[], masters: Array<{ path: string; variant: string | null }>): Done[] =>
+    results.map((res) => ({ res, sourceFile: masters.find((m) => (m.variant ?? null) === (res.manifest.variant ?? null))?.path ?? masters[0]?.path ?? null }));
+
+  async function runJob(job: Job): Promise<Done[]> {
+    if (job.kind === 'folder') return (await ingestFolder(job.folder, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status })).map((res) => ({ res, sourceFile: null }));
     // Utkast: fila tolkes i sin egen mappe (prosjektmapper); release: rett i eksportmappa som før
     const scan = await scanFlat(drafts ? path.dirname(job.file) : exportDir, opts.config);
     const isImage = IMAGE_RE.test(job.file);
@@ -75,7 +82,7 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
       return [];
     }
     for (const m of release.masters) await probe(m.path); // kaster hvis fila er halvskrevet
-    return ingestRelease(release, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status });
+    return withSources(await ingestRelease(release, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status }), release.masters);
   }
 
   async function drainLoop() {
@@ -84,11 +91,11 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
       const stamp = new Date().toLocaleTimeString('nb-NO');
       log(`[${stamp}] ${job.kind === 'flat' ? path.basename(job.file) : path.basename(job.folder) + path.sep}`);
       try {
-        for (const res of await runJob(job)) {
+        for (const { res, sourceFile } of await runJob(job)) {
           const m = res.manifest;
           log(`  ${res.status === 'unchanged' ? '↷ uendret' : '✓ klar'}: ${m.title}${m.variantLabel ? ` (${m.variantLabel})` : ''}${m.bpm ? ` – ${Math.round(m.bpm)} BPM` : ''}${m.key ? ` · ${m.key.camelot}` : ''}`);
           event(`${res.status === 'unchanged' ? 'uendret' : 'klar'}: ${m.title}${m.variantLabel ? ` (${m.variantLabel})` : ''}`);
-          if (res.status !== 'unchanged') opts.onIngested?.(res);
+          if (res.status !== 'unchanged') opts.onIngested?.(res, sourceFile);
         }
       } catch (err) {
         log(`  ✗ ${err instanceof Error ? err.message.split('\n')[0] : err}`);

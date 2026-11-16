@@ -801,7 +801,9 @@ Mål: ingen låt skal stå med tomt cover. Vault lager et passende cover automat
    - valgt **stilmal**, f.eks. «Echo Groove Nights» (`docs/design/reference/echo-groove-nights.jpg`): natt-lilla, magenta neon, måne og vann, krom
 
    Knut kan redigere prompten før generering, men trenger ikke.
-6. Bildet genereres **uten tekst**. Vault legger tittel og artist oppå med egen typografi (AI-modeller skriver tekst dårlig). Lag 4 varianter. Knut velger med ett trykk, eller «Lag nye».
+6. Bildet genereres **uten tekst**. Vault legger tittel og artist oppå med egen typografi (AI-modeller skriver tekst dårlig).
+   - **Med bulkIMG (førstevalg):** varianter, sammenligning og valg av vinner skjer i bulkIMG. Vault lager ikke egne varianter og har ingen egen velger; det Knut eksporterer, blir coveret.
+   - Bare ved direkte leverandør inne i Vault (fallback, se punkt 7): lag 4 varianter, og Knut velger med ett trykk eller «Lag nye».
 7. **Førstevalg (Knut, 2026-11-16): bulkIMG / AURORA Asset Studio**, Knuts eget lokale bildeverktøy, med løs kobling og uten API-nøkler i Vault:
    - «Lag AI-cover» (én eller batch) skriver en **CSV i bulkIMGs batchformat** (`filename,prompt,category,section`) med filnavn `<slug>__<variant|main>.png` og ferdig prompt, til en avtalt innboks-mappe.
    - Knut kjører batchen i bulkIMG, sammenligner generatorene, velger vinnere og eksporterer.

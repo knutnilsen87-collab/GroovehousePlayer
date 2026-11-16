@@ -4,6 +4,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findRoot, loadConfig, loadDotEnv } from '@gv/ingest/config';
 import { startWatcher } from '@gv/ingest/watcher';
+import { sharedLyricsQueue } from '@gv/ingest/lyrics-queue';
+import { receiveFromBulkImg, takeOverdueWarnings } from '@gv/ingest/bulkimg';
 import { credRead } from './credstore';
 import type { PinRecord } from './lan-auth';
 import { lanAddresses } from './lan';
@@ -54,6 +56,31 @@ async function main() {
     }
   };
   let watcher: ReturnType<typeof startWatcher> | null = null;
+  // Tekst etter ingest: bakgrunnskø (Demucs + WhisperX), stopper aldri ingest. Av/på i Innstillinger → Tekst.
+  const lyricsQueue = sharedLyricsQueue({ mediaDir, dataDir: path.join(root, 'data'), root, log });
+  // Del 23 nivå 2: AI-cover fra bulkIMG. Eksportmappa leses hvert minutt (bare det Vault har sendt tas imot),
+  // og et Windows-varsel vises hvis noe er sendt og ingenting er kommet tilbake etter 24 timer.
+  const dataDir = path.join(root, 'data');
+  let coverBusy = false;
+  const checkCovers = async () => {
+    if (coverBusy) return;
+    coverBusy = true;
+    try {
+      const cfg = loadConfig(root);
+      const got = await receiveFromBulkImg({ cfg, mediaDir, dataDir, log });
+      if (got.length) notify('AI-cover mottatt', `${got.length} nytt cover fra bulkIMG`, log);
+      const late = await takeOverdueWarnings(cfg, dataDir);
+      if (late.length) notify('Venter på bulkIMG', `${late.length} cover sendt for over 24 timer siden er ikke kommet tilbake (${late.slice(0, 3).join(', ')}${late.length > 3 ? ' …' : ''})`, log);
+    } catch (err) {
+      log(`! AI-cover: ${err instanceof Error ? err.message : err}`);
+    } finally {
+      coverBusy = false;
+    }
+  };
+  setTimeout(() => void checkCovers(), 5000);
+  setInterval(() => void checkCovers(), 60_000).unref();
+  const queueLyrics = (res: { manifest: { slug: string; title: string } }, sourceFile: string | null) =>
+    lyricsQueue.enqueue(res.manifest.slug, { title: res.manifest.title, audioFile: sourceFile });
   let port = config.ports.server;
 
   // Watcheren leser config ved start; startes på nytt når innstillingene endres (del 8).
@@ -70,9 +97,10 @@ async function main() {
       config: loadConfig(root),
       log,
       // Del 1 pkt. 8: Windows-varsel når en ny bounce er klar
-      onIngested: (res) => {
+      onIngested: (res, sourceFile) => {
         const msg = readyMessage(res.manifest);
         notify(msg.title, msg.body, log);
+        queueLyrics(res, sourceFile);
       }
     });
   };
@@ -90,7 +118,7 @@ async function main() {
     dirs.push(inbox);
     return dirs.map((dir) => {
       log(`Watcher for umastrede låter: ${dir} (leser bare)`);
-      return startWatcher({ exportDir: dir, mediaDir, config: loadConfig(root), log, status: 'draft' });
+      return startWatcher({ exportDir: dir, mediaDir, config: loadConfig(root), log, status: 'draft', onIngested: queueLyrics });
     });
   };
 

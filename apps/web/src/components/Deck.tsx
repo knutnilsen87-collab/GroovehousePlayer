@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { displayLabel, formatTime, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
+import { camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
 import { assetUrl, uploadAssetCover, variantName, type LoadedAsset } from '../lib/catalog';
-import { useFavorites, useIsFavorite, useLyrics } from '../lib/library';
+import { needsCheck, useFavorites, useIsFavorite, useLyrics } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
 import { isApp } from '../lib/platform';
 import { toastError, useToast } from '../lib/playlists';
@@ -150,6 +150,12 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
         }`}
       >
         <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={600} rounded={12} fluid draft={isDraft(m)} />
+        {/* Del 23: generert Vault-cover – et ekte cover (dra-og-slipp) erstatter det */}
+        {m.coverSource === 'generated' && !dragOver && (
+          <span title="Laget av Vault fra toneart, bølgeform og spektrum. Slipp et bilde her for ekte cover." className="absolute bottom-2.5 left-2.5 rounded-full bg-sunken/85 px-2.5 py-1 font-label text-[9px] font-bold uppercase tracking-[0.14em] text-soft">
+            Vault-cover
+          </span>
+        )}
 
         {/* Subtil knapp ved hover for å velge cover (eller vise at dra-og-slipp støttes) */}
         {!dragOver && !uploading && (
@@ -157,10 +163,10 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
             type="button"
             onClick={() => fileInput.current?.click()}
             aria-label={`Bytt cover for ${m.title}`}
-            className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full border border-white/15 bg-sunken/85 px-2.5 py-1 text-[11px] font-medium text-soft opacity-0 backdrop-blur-md transition-opacity hover:border-accent/60 hover:text-ink-strong focus-visible:opacity-100 group-hover:opacity-100"
+            className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full bg-sunken/85 px-2.5 py-1 text-[11px] font-medium text-soft opacity-0 transition-opacity hover:text-ink-strong focus-visible:opacity-100 group-hover:opacity-100"
           >
             <UploadIcon width={13} height={13} />
-            <span>{m.files.cover ? 'Bytt cover' : 'Slipp cover her'}</span>
+            <span>{m.files.cover && m.coverSource !== 'generated' ? 'Bytt cover' : 'Slipp ekte cover her'}</span>
           </button>
         )}
 
@@ -177,7 +183,7 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
 
         {/* Opplastingsindikator */}
         {uploading && (
-          <div className=" absolute inset-0 flex items-center justify-center rounded-xl bg-obsidian/80 text-xs font-semibold text-ink-strong backdrop-blur-sm">
+          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-obsidian/80 text-xs font-semibold text-ink-strong backdrop-blur-sm">
             Lagrer cover …
           </div>
         )}
@@ -194,7 +200,7 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
       </div>
       <div className="flex items-start gap-2 px-1 pb-1">
         <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-lg font-bold leading-tight text-ink-strong">
+          <span className="gv-display truncate text-[22px] font-semibold leading-tight text-ink-strong">
             {m.title}<DraftBadge m={m} className="ml-1.5" />
           </span>
           <span className="truncate text-[13px] text-soft">
@@ -225,12 +231,13 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
 export function Transport({ size = 'md', idle }: { size?: 'md' | 'lg'; idle?: (atMs?: number) => void }) {
   const { playing, toggle, next, prev, repeat, cycleRepeat, shuffleUpcoming, queue, index } = usePlayer();
   const big = size === 'lg';
-  const icon = big ? 28 : 26;
-  const subIcon = big ? 22 : 20;
-  const btn = `flex items-center justify-center rounded-full text-soft transition-colors hover:bg-white/[0.05] hover:text-ink-strong ${big ? 'h-13 w-13' : 'h-12 w-12'}`;
+  // Del 22: ikonene 15–20 % større og uten sirkel rundt; treffflate minst 44 px
+  const icon = big ? 33 : 30;
+  const subIcon = big ? 26 : 24;
+  const btn = 'flex h-12 w-12 items-center justify-center text-soft transition-colors hover:text-ink-strong';
   const repeatLabel = repeat === 'off' ? 'Gjenta: av' : repeat === 'all' ? 'Gjenta: hele køen' : 'Gjenta: denne låta';
   return (
-    <div className={`flex items-center justify-center py-1 ${big ? 'gap-6' : 'gap-8'}`}>
+    <div className={`flex items-center justify-center py-1 ${big ? 'gap-5' : 'gap-7'}`}>
       <button
         type="button"
         aria-label="Bland resten av køen"
@@ -250,10 +257,11 @@ export function Transport({ size = 'md', idle }: { size?: 'md' | 'lg'; idle?: (a
       <button
         type="button"
         aria-label={playing ? 'Pause' : 'Spill'}
+        data-playing={playing ? 'true' : 'false'}
         onClick={() => (!queue.length && idle ? idle() : toggle())}
-        className={`gv-neon-soft flex flex-none items-center justify-center rounded-full border-2 border-accent bg-accent/[0.1] text-accent transition-transform hover:bg-accent/[0.18] active:scale-95 ${big ? 'h-[80px] w-[80px]' : 'h-[70px] w-[70px]'}`}
+        className={`gv-play flex flex-none items-center justify-center rounded-full ${big ? 'h-[76px] w-[76px]' : 'h-[66px] w-[66px]'}`}
       >
-        {playing ? <PauseIcon width={big ? 34 : 30} height={big ? 34 : 30} /> : <PlayIcon width={big ? 34 : 30} height={big ? 34 : 30} className="ml-1" />}
+        {playing ? <PauseIcon width={big ? 32 : 28} height={big ? 32 : 28} /> : <PlayIcon width={big ? 32 : 28} height={big ? 32 : 28} className="ml-1" />}
       </button>
       <button type="button" aria-label="Neste spor" onClick={next} className={btn}>
         <NextIcon width={icon} height={icon} />
@@ -290,7 +298,7 @@ export function AbButton({ compact = false }: { compact?: boolean }) {
         } else setA(getPositionMs());
       }}
       className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3 font-mono text-[13px] tracking-[0.2em] ${
-        state === 'on' ? 'gv-neon-soft border-accent text-accent' : state === 'a' ? 'border-accent/60 text-ink-strong' : 'border-white/20 text-soft hover:border-white/40 hover:text-ink-strong'
+        state === 'on' ? 'border-transparent bg-accent/[0.16] text-accent shadow-[0_0_18px_-4px_var(--glow)]' : state === 'a' ? 'border-transparent bg-accent/[0.08] text-ink-strong' : 'border-transparent bg-white/[0.05] text-soft hover:bg-white/[0.09] hover:text-ink-strong'
       } ${compact ? 'min-w-[56px]' : 'min-w-[64px]'}`}
     >
       <span className={state !== 'off' ? 'text-accent' : ''}>A</span>
@@ -420,29 +428,39 @@ export function BottomControls({ cur }: { cur: LoadedAsset | undefined }) {
 
 // ---------------------------------------------------------------- Låtinfo, kreditering, tekst, kø
 
-export function TrackInfoRows({ cur }: { cur: LoadedAsset }) {
+/**
+ * Del 22: låtinfo som rutenett av pills (2 kolonner). Etikett over i Syncopate, verdi i Geist Mono, aksent 8–12 % bak.
+ * Camelot-pillen farges etter harmonien mot låta som kommer etter i køen (farger fra skin-variablene).
+ */
+export function TrackInfoRows({ cur, compact = false }: { cur: LoadedAsset; compact?: boolean }) {
   const m = cur.manifest;
-  const rows: Array<[string, ReactNode]> = [
-    ['BPM', m.bpm != null ? m.bpm.toFixed(1) : '–'],
-    ['Toneart', m.key ? `${keyShort(m.key.name)} · ${m.key.camelot}` : '–'],
-    ['LUFS', m.loudness.integratedLufs.toFixed(1)],
+  const nextM = usePlayer((s) => (s.queue[s.index]?.manifest.id === m.id ? s.queue[s.index + 1]?.manifest : undefined));
+  const rel = nextM ? camelotRelation(m.key?.camelot ?? null, nextM.key?.camelot ?? null) : null;
+  const harmony = rel == null || rel === 'unknown' ? undefined : rel === 'same' || rel === 'adjacent' || rel === 'relative' ? 'good' : rel === 'clash' ? 'clash' : 'boost';
+  const minus = (n: number) => n.toFixed(1).replace('-', '\u2212');
+  const pills: Array<{ k: string; v: string; title?: string; harmony?: string }> = [
+    { k: 'BPM', v: m.bpm != null ? m.bpm.toFixed(1) : '–' },
+    {
+      k: 'Toneart',
+    v: m.key ? `${keyShort(m.key.name)} · ${m.key.camelot}` : '–',
+      harmony,
+      title: nextM && rel ? `Mot «${nextM.title}» (${nextM.key?.camelot ?? '?'}): ${RELATION_TEXT[rel]}` : undefined
+    },
+    { k: 'LUFS', v: minus(m.loudness.integratedLufs) },
     // Del 16: utkast spilles normalisert (loudnorm); originalnivået står over
-    ...(m.loudness.normalizedLufs != null ? ([['Avspilling', `${m.loudness.normalizedLufs.toFixed(1)} (normalisert)`]] as Array<[string, ReactNode]>) : []),
-    ['Tid', formatTime(m.durationMs)],
-    ['Format', m.sourceFormat?.label ?? '–']
+    ...(m.loudness.normalizedLufs != null ? [{ k: 'Avspilling', v: `${minus(m.loudness.normalizedLufs)} norm.` }] : []),
+    { k: 'Tid', v: formatTime(m.durationMs) },
+    { k: 'Format', v: m.sourceFormat?.label ?? '–', title: 'Strømmes som AAC 256 kbps' }
   ];
   return (
-    <div className="flex flex-col">
-      <dl className="m-0 flex flex-col">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-baseline justify-between gap-3 border-b border-white/[0.07] py-2.5 last:border-0">
-            <dt className="font-mono text-[12px] font-medium uppercase tracking-[0.14em] text-soft">{k}</dt>
-            <dd className="m-0 truncate font-mono text-[14px] font-semibold text-ink-strong">{v}</dd>
+    <dl className={`m-0 grid grid-cols-2 ${compact ? 'gap-1.5' : 'gap-2'}`}>
+        {pills.map((p, i) => (
+        <div key={p.k} className={`gv-pill ${compact ? 'gv-pill-compact' : ''} ${i === pills.length - 1 && pills.length % 2 === 1 ? 'col-span-2' : ''}`} data-harmony={p.harmony} title={p.title}>
+          <dt>{p.k}</dt>
+          <dd>{p.v}</dd>
           </div>
         ))}
       </dl>
-      <p className="m-0 mt-1.5 text-right font-mono text-[11px] text-soft">Strømmes som AAC 256 kbps</p>
-    </div>
   );
 }
 
@@ -457,6 +475,8 @@ export function Credits({ cur }: { cur: LoadedAsset }) {
     ['Variant', m.variant ? variantName(cur) : 'Original'],
     ['Versjon', `${versionName(m)}${m.versionLabel && displayLabel(m.versionLabel) !== versionName(m) ? ` · ${displayLabel(m.versionLabel)}` : ''}`],
     ['Status', isDraft(m) ? 'Umastret' : 'Release-klar'],
+    // Del 23: hvor coveret kommer fra (distributører spør om AI-generert innhold)
+    ['Cover', m.coverSource === 'ai' ? `AI-generert${m.coverAi?.provider ? ` (${m.coverAi.provider}${m.coverAi.model ? ` · ${m.coverAi.model}` : ''})` : ''}` : m.coverSource === 'generated' ? 'Vault-cover (generert)' : m.files.cover ? 'Eget cover' : 'Mangler'],
     ['Ingestet', new Date(m.createdAt).toLocaleDateString('nb-NO', { dateStyle: 'medium' })],
     ['BPM-sikkerhet', pct(m.bpmConfidence)],
     ['Toneart-sikkerhet', pct(m.key?.confidence)],
@@ -559,6 +579,11 @@ export function LyricsView({ cur, className = '', stage = false, idle }: { cur: 
         stage ? 'pb-[48vh] pt-[8vh] text-xl font-bold leading-snug md:text-3xl md:leading-relaxed' : 'pb-[45%] pt-4 text-[16px] font-semibold leading-relaxed'
       } ${className}`}
     >
+      {needsCheck(data) && (
+        <p className="sticky top-0 z-10 m-0 mb-2 inline-block rounded-full bg-accent-2/[0.18] px-2.5 py-0.5 text-[11px] font-semibold text-ink-strong" title="Transkribert automatisk fra lyden. Godkjennes i Studio.">
+          Auto – sjekk teksten
+        </p>
+      )}
       {wordData.lines.map((line, li) => {
         const isLineActive = li === activeLineIdx;
         if (!wordData.synced || line.words.length === 0) {
@@ -642,13 +667,13 @@ function QueueList() {
               type="button"
               onClick={() => playIndex(i)}
               aria-current={cur ? 'true' : undefined}
-              className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left ${cur ? 'bg-accent/[0.12]' : 'hover:bg-white/[0.04]'}`}
+              className={`flex w-full items-center gap-3 rounded-r-lg px-2 py-1.5 text-left ${cur ? 'gv-row-active' : 'hover:bg-white/[0.04]'}`}
             >
-              <span className="w-6 flex-none text-right font-mono text-xs text-muted">{cur ? <span className="text-accent">{playing ? '▶' : '❚❚'}</span> : i + 1}</span>
+              <span className="w-6 flex-none text-right font-mono text-[13px] text-muted">{cur ? <span className="text-accent">{playing ? '▶' : '❚❚'}</span> : i + 1}</span>
               <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={32} rounded={5} />
               <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${cur ? 'text-accent' : 'text-ink-strong'}`}>{m.title}</span>
-              <span className="font-mono text-xs text-soft">{m.bpm ? Math.round(m.bpm) : '–'}</span>
-              <span className="w-12 text-right font-mono text-xs text-muted">{formatTime(m.durationMs)}</span>
+              <span className="font-mono text-[13px] text-soft">{m.bpm ? Math.round(m.bpm) : '–'}</span>
+              <span className="w-12 text-right font-mono text-[13px] text-muted">{formatTime(m.durationMs)}</span>
             </button>
           </li>
         );
@@ -672,7 +697,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, segmented
     <div
       role="tablist"
       aria-label={label}
-      className={`inline-flex min-w-0 items-center gap-1 rounded-xl border border-white/[0.08] bg-sunken/75 p-1 backdrop-blur-md ${segmented ? 'flex w-full' : ''}`}
+      className={`inline-flex min-w-0 items-center gap-1 rounded-xl bg-white/[0.035] p-1 ${segmented ? 'flex w-full' : ''}`}
     >
       {tabs.map(([id, name]) => (
         <button
@@ -693,7 +718,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, segmented
           data-tab={id}
           tabIndex={value === id ? 0 : -1}
           className={`h-8 whitespace-nowrap rounded-lg px-3.5 text-[13px] transition-all ${segmented ? 'flex-1' : ''} ${
-            value === id ? 'gv-neon-soft border border-accent/80 bg-accent/[0.15] font-semibold text-accent shadow-sm' : 'border border-transparent text-soft hover:bg-white/[0.04] hover:text-ink-strong'
+            value === id ? 'bg-accent/[0.14] font-semibold text-accent shadow-[0_0_18px_-4px_var(--glow)]' : 'text-soft hover:bg-white/[0.04] hover:text-ink-strong'
           }`}
         >
           {name}
@@ -741,13 +766,13 @@ export function NowPanel({ cur, onMore, extra, idle }: { cur: LoadedAsset; onMor
       </div>
       <div className="relative h-[168px]">
         {tab === 'now' && (
-          <div className="flex h-full flex-col justify-center gap-2">
-            <BigWaveform asset={cur} height={128} loop={loop} onSeek={(ms) => (idle ? idle(ms) : seek(ms))} onLoop={(a, b, snap) => !idle && setLoop(a, b, snap)} />
-            <div className="flex justify-between text-[13px] text-soft">
-              <LiveTime />
-              {loop && <span className="font-mono text-[11px] text-accent">A·B {formatTimeMs(loop.a)} – {formatTimeMs(loop.b)}</span>}
-              <span className="font-mono">{formatTimeMs(m.durationMs)}</span>
-            </div>
+          <div className="-mx-4 flex h-full flex-col justify-center">
+            {/* Del 22: kant til kant i panelet; tidene ligger oppå bølgeformen nederst i hjørnene */}
+            <BigWaveform asset={cur} height={168} loop={loop} onSeek={(ms) => (idle ? idle(ms) : seek(ms))} onLoop={(a, b, snap) => !idle && setLoop(a, b, snap)}>
+              <LiveTime className="pb-1 pl-4" />
+              {loop && <span className="pb-1 text-[11px] text-accent">A·B {formatTimeMs(loop.a)} – {formatTimeMs(loop.b)}</span>}
+              <span className="pb-1 pr-4">{formatTimeMs(m.durationMs)}</span>
+            </BigWaveform>
           </div>
         )}
         {tab === 'queue' && <QueueList />}
@@ -758,10 +783,8 @@ export function NowPanel({ cur, onMore, extra, idle }: { cur: LoadedAsset; onMor
           </div>
         )}
       </div>
-      <div className="border-t border-white/[0.06] pt-3">
         <Transport idle={idle} />
-      </div>
-      <div className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-2">
+      <div className="gv-well px-3 py-2">
         <BottomControls cur={cur} />
       </div>
       {extra}
@@ -807,7 +830,7 @@ export function AnalysisSidebarCard({ cur }: { cur: LoadedAsset }) {
         <TrackInfoRows cur={cur} />
       </div>
 
-      <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-3.5">
+      <div className="flex flex-col gap-3 pt-1">
         <div className="flex items-center justify-between gap-2">
           <Tabs
             label="Grafvisning"
@@ -822,14 +845,14 @@ export function AnalysisSidebarCard({ cur }: { cur: LoadedAsset }) {
           />
         </div>
         {(graphTab === 'both' || graphTab === 'zoom') && (
-          <div className="flex flex-col gap-1.5 rounded-xl border border-white/[0.06] bg-sunken/50 p-3">
-            <span className="gv-label !text-[10px]">Bølgeform-zoom</span>
+          <div className="gv-well flex flex-col gap-1.5 p-3">
+            <span className="gv-label">Bølgeform-zoom</span>
             <ZoomWaveform asset={cur} onSeek={seek} />
           </div>
         )}
         {(graphTab === 'both' || graphTab === 'spectrum') && (
-          <div className="flex flex-col gap-1.5 rounded-xl border border-white/[0.06] bg-sunken/50 p-3">
-            <span className="gv-label !text-[10px]">Spektrum (Hz)</span>
+          <div className="gv-well flex flex-col gap-1.5 p-3">
+            <span className="gv-label">Spektrum (Hz)</span>
             <SpectrumView asset={cur} />
           </div>
         )}
@@ -843,7 +866,7 @@ export function SideTabs({ cur }: { cur: LoadedAsset }) {
   const [tab, setTab] = useState<'info' | 'zoom' | 'spectrum'>('info');
   const seek = usePlayer((s) => s.seek);
   return (
-    <div className="flex flex-col gap-3 border-t border-white/[0.06] pt-3">
+    <div className="flex flex-col gap-3 pt-2">
       <Tabs
         label="Analyse"
         tabs={[

@@ -9,13 +9,14 @@ import { ingestFolder, ingestRelease, sha256File, type IngestResult, type StepSt
 import { backfillMasters } from './share';
 import { backfillAnalysis } from './spectrum';
 import { indexSources, readSources, sourcesFile } from './source-index';
-import { createLyricsStore } from './library';
-import { transcribeLyricsForSlug } from './lyrics-sync';
+import { createLyricsQueue } from './lyrics-queue';
+import { fillVaultCovers } from './vault-covers';
 import { readOverrides, scanDrafts, scanFlat, type ReleaseSource } from './sources';
 
 const HELP = `
 gh-ingest <mappe|fil> [--media <dir>] [--force] [--offset <ms>]
 gh-ingest --backlog [<eksportmappe>] [--skip <slug,slug>] [--yes] [--force]
+gh-ingest --vault-covers [<slug>] [--force]   (del 23: Vault-cover for låter uten cover; pnpm vault:covers)
 
   <mappe>        En release-mappe: <slug>/<slug>_v<N>.wav + valgfri cover.png/jpg,
                  live_log.json og meta.json
@@ -76,7 +77,10 @@ async function main() {
   const mediaDir = path.resolve(base, flag('--media') ?? process.env.GH_MEDIA_DIR ?? path.join(root, 'media'));
   const force = args.includes('--force');
   const t0 = Date.now();
-  let results: IngestResult[] = [];
+  let results: Array<IngestResult & { sourceFile?: string | null }> = [];
+  // Kildefila per variant (tekstkøen ser etter en .txt med samme navn)
+  const withSource = (rs: IngestResult[], masters: Array<{ path: string; variant: string | null }>) =>
+    rs.map((x) => ({ ...x, sourceFile: masters.find((mm) => (mm.variant ?? null) === (x.manifest.variant ?? null))?.path ?? null }));
 
   if (args.includes('--index-sources')) {
     // Engangskjøring: koble ingestede versjoner til kildefila i eksportmappa via hash (kun lesing der).
@@ -88,6 +92,23 @@ async function main() {
     for (const k of r.missing) console.log(`  ! ${k}: fant ingen fil med samme hash (endret eller flyttet etter ingest?)`);
     for (const s of r.skipped) console.log(`  ↷ ${s.fileName}: kunne ikke leses (${s.reason}) – hoppet over`);
     console.log(`\n${r.matched.length} koblet, ${r.missing.length} uten treff, ${r.scanned} filer lest. Lagret i data/sources.json (gitignored).`);
+    return;
+  }
+
+  if (args.includes('--vault-covers')) {
+    // Del 23 nivå 1: Vault-cover for alle versjoner uten cover (ekte cover røres aldri). --force lager dem på nytt.
+    console.log(`Lager Vault-cover (3000 px) for låter uten cover${force ? ' (også eksisterende Vault-cover)' : ''} …`);
+    const r = await fillVaultCovers({
+      mediaDir,
+      root,
+      cfg,
+      force,
+      only: target ? [target] : undefined,
+      onItem: (n, total, m, ms, err) =>
+        console.log(err ? `  ✗ [${n}/${total}] ${m.title}: ${err instanceof Error ? err.message : err}` : `  ✓ [${n}/${total}] ${m.title}${m.variantLabel ? ` (${m.variantLabel})` : ''} v${m.version} · ${m.key?.camelot ?? '–'} · ${m.palette.primary} · ${(ms / 1000).toFixed(1)} s`)
+    });
+    console.log(`
+${r.made} Vault-cover laget, ${r.failed} feilet, ${r.skipped} hadde cover fra før. ${((Date.now() - t0) / 1000).toFixed(0)} s totalt.`);
     return;
   }
 
@@ -161,7 +182,7 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
     for (const r of unique) {
       console.log(`\n── ${r.masters[0]!.fileName}`);
       try {
-        results.push(...(await ingestRelease(r, { mediaDir, force, config: cfg, report, status: drafts ? 'draft' : 'release' })));
+        results.push(...withSource(await ingestRelease(r, { mediaDir, force, config: cfg, report, status: drafts ? 'draft' : 'release' }), r.masters));
       } catch (err) {
         console.error(`  ✗ ${err instanceof Error ? err.message.split('\n')[0] : err}`);
       }
@@ -174,7 +195,7 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
       const scan = await scanFlat(path.dirname(abs), cfg);
       const release = scan.releases.find((r) => r.masters.some((m) => m.path === abs));
       if (!release) throw new Error(`Ikke en lydfil, eller en eldre versjon: ${abs}`);
-      results = await ingestRelease(release, { mediaDir, force, config: cfg, report });
+      results = withSource(await ingestRelease(release, { mediaDir, force, config: cfg, report }), release.masters);
     } else {
       results = await ingestFolder(abs, { mediaDir, force, config: cfg, offsetMs: flag('--offset') ? Number(flag('--offset')) : 0, report });
     }
@@ -189,15 +210,14 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
     console.log(`  → ${res.outDir}`);
     if (res.suno.length) console.log(`\x1b[33;1m  ! «suno» funnet og fjernet (${res.suno.length})\x1b[0m`);
     if (args.includes('--lyrics')) {
-      const dataDir = path.join(root, 'data');
-      const lyricsStore = createLyricsStore(path.join(dataDir, 'lyrics'));
-      try {
-        console.log(`  … Transkriberer vokal (Demucs + WhisperX) for ${m.slug} …`);
-        const tr = await transcribeLyricsForSlug({ mediaDir, dataDir, slug: m.slug, lyricsStore });
-        console.log(`  ✓ Tekst synkronisert på ordnivå (${tr.wordCount} ord) → data/lyrics/${m.slug}.lrc`);
-      } catch (err) {
-        console.log(`  ! Tekst-transkribering feilet: ${err instanceof Error ? err.message : err}`);
-      }
+      // Samme regler som bakgrunnskøen: tekst fra Studio eller .txt ved lydfila → bare ordtider; ellers transkribering
+      const lyricsQueue = createLyricsQueue({ mediaDir, dataDir: path.join(root, 'data'), root });
+      console.log(`  … Tekst (Demucs + WhisperX) for ${m.slug} …`);
+      const job = lyricsQueue.enqueue(m.slug, { title: m.title, reason: 'studio', audioFile: res.sourceFile ?? null })!;
+      const done = await lyricsQueue.wait(job);
+      const secs = ((done.ms ?? 0) / 1000).toFixed(1);
+      if (done.status === 'done') console.log(`  ✓ Tekst: ${done.words} ord, ${done.mode === 'auto' ? 'transkribert (Auto – sjekk teksten)' : 'ordtider for kjent tekst'} på ${secs} s → data/lyrics/${m.slug}.lrc`);
+      else console.log(`  ! Tekst ${done.status === 'skipped' ? 'hoppet over' : 'feilet'} etter ${secs} s: ${done.note}`);
     }
   }
   console.log(`  ${((Date.now() - t0) / 1000).toFixed(1)} s totalt`);

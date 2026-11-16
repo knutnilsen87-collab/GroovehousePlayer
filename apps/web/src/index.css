@@ -2,29 +2,50 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Del 14: selvhostet skrift (Satoshi: ITF Free Font License, JetBrains Mono: OFL – lisensene ligger ved siden av). */
+/*
+ * Del 22: selvhostet skrift, lisensene ligger ved siden av i public/fonts.
+ *  - Clash Display (ITF Free Font License): titler, sidetitler og store tall (--font-display).
+ *  - Syncopate Bold (Apache 2.0): seksjonsetiketter i versal, aldri brødtekst.
+ *  - Inter (OFL): brødtekst og lister.
+ *  - Geist Mono (OFL): data (BPM, toneart, LUFS, tider, format).
+ *  - Satoshi (ITF FFL): display-font i skin som overstyrer (Echo Groove Nights).
+ */
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/ClashDisplay-Variable.woff2') format('woff2');
+  font-weight: 200 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Syncopate';
+  src: url('/fonts/Syncopate-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Variable-latin.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Variable-latin-ext.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Geist Mono';
+  src: url('/fonts/GeistMono-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-display: swap;
+}
 @font-face {
   font-family: 'Satoshi';
   src: url('/fonts/Satoshi-Variable.woff2') format('woff2');
   font-weight: 300 900;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-Medium.woff2') format('woff2');
-  font-weight: 500;
-  font-display: swap;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/JetBrainsMono-SemiBold.woff2') format('woff2');
-  font-weight: 600 700;
   font-display: swap;
 }
 
@@ -46,6 +67,9 @@
   --panel-radius: 16px;
   --frame: color-mix(in srgb, var(--accent) var(--border-pct), transparent);
   --moon: transparent;
+  /* Del 22: display-font (skin kan overstyre) og glass (av i OLED Svart) */
+  --font-display: 'Clash Display', 'Inter', system-ui, sans-serif;
+  --glass-blur: blur(24px) saturate(140%);
   color-scheme: dark;
 }
 
@@ -62,8 +86,26 @@ body {
   background-image: radial-gradient(circle at 88% -6%, var(--moon) 0, transparent 38vmax);
   background-attachment: fixed;
   color: #e9ecf2;
-  font-family: Satoshi, system-ui, sans-serif;
+  font-family: Inter, system-ui, sans-serif;
+  font-feature-settings: 'cv11';
   -webkit-font-smoothing: antialiased;
+}
+
+/* Del 22: lister og tabeller med Inter får tabulære tall (tnum) i tillegg til cv11. Ikke globalt: tnum gjør
+   også bindestreken tabulær («Live - sett»). */
+ol,
+ul,
+table,
+.tabular {
+  font-feature-settings: 'tnum', 'cv11';
+}
+
+/* Del 22: titler, sidetitler og store tall */
+.font-display,
+.gv-display {
+  font-family: var(--font-display);
+  font-feature-settings: normal;
+  letter-spacing: -0.01em;
 }
 
 .tabular {
@@ -72,35 +114,165 @@ body {
 
 /* ---------------------------------------------------------------- Del 14: «High-End Studio» */
 
-/* Data (BPM, toneart, LUFS, tider, format): JetBrains Mono med tabulære tall. */
+/* Data (BPM, toneart, LUFS, tider, format): Geist Mono med tabulære tall (del 22). */
 .font-mono,
 .gv-data {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-family: 'Geist Mono', ui-monospace, monospace;
   font-variant-numeric: tabular-nums;
 }
 
-/* Glasspanel: nøytral flate, tynn kant og svak ytre glød i aksentfargen. Ingen backdrop-filter (mobil/app). */
+/*
+ * Del 22: glass uten rammer. Flaten er et 1–3 % lysere lag over skinnets bakgrunn, med en hårfin
+ * lyskant øverst og en myk, stor skygge i aksentfargen i stedet for kantlinje. Gullramme (Gull klassisk)
+ * beholdes som skinnets eget valg. Blur bare på desktop; på mobil/app bare på .gv-glass (minispiller og
+ * fullskjermspiller). OLED Svart setter --glass-blur: none.
+ */
 .gv-panel {
   background: var(--panel-bg);
-  border: 1px solid var(--frame);
+  border: 1px solid var(--panel-edge, transparent);
   border-radius: var(--panel-radius);
   box-shadow:
-    0 0 28px color-mix(in srgb, var(--accent) calc(9% * var(--glow-k)), transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 24px 60px -28px color-mix(in srgb, var(--accent) calc(22% * var(--glow-k)), transparent),
+    0 2px 10px rgba(0, 0, 0, 0.35);
+}
+@media (min-width: 1024px) {
+  .gv-panel {
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+}
+.gv-glass {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
 }
 .gv-panel-quiet {
   background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+/* Underflate i et panel: litt lysere lag, ingen kant */
+.gv-well {
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 12px;
 }
 
-/* Paneltitler: små versaler med sperring (TRACK INFO-stil). */
+/* Seksjonsetiketter: Syncopate Bold, små versaler med sperring, dempet farge. Aldri brødtekst. */
 .gv-label {
+  font-family: 'Syncopate', 'Inter', sans-serif;
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.2em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #b4bbc8;
+  color: #a3acba;
+}
+
+/* Del 22: låtinfo som pills. Etikett over (Syncopate, dempet), verdi i Geist Mono, aksent 8–12 % bak. */
+.gv-pill {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 12px 9px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.gv-pill > dt,
+.gv-pill > .gv-pill-k {
+  font-family: 'Syncopate', 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a3acba;
+}
+.gv-pill > dd,
+.gv-pill > .gv-pill-v {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'Geist Mono', ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  font-weight: 400;
+  color: #f5f7fa;
+}
+
+/* Mobil: lavere pills, så transporten holder seg innenfor skjermen */
+.gv-pill-compact {
+  gap: 1px;
+  padding: 6px 11px 7px;
+  border-radius: 10px;
+}
+.gv-pill-compact > dd {
+  font-size: 14px;
+}
+
+/* Camelot-pillen: harmoni mot neste låt i køen (godt = aksent, energiløft = aksent 2, brudd = nøytral) */
+.gv-pill[data-harmony='good'] {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+.gv-pill[data-harmony='boost'] {
+  background: color-mix(in srgb, var(--accent-2) 18%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-2) 45%, transparent);
+}
+.gv-pill[data-harmony='clash'] {
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+/* Del 22: aktiv rad i lister – 2 px aksentstripe til venstre og aksent på 5 % bak */
+.gv-row-active {
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* Del 22: transportknapper uten sirkel; play/pause er fylt sirkel i aksent med glød */
+.gv-play {
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow:
+    0 0 calc(18px * var(--glow-k)) color-mix(in srgb, var(--accent) 55%, transparent),
+    0 8px 28px -6px color-mix(in srgb, var(--accent) 60%, transparent);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.25s ease;
+}
+.gv-play:hover {
+  transform: scale(1.05);
+}
+.gv-play:hover,
+.gv-play[data-playing='true'] {
+  box-shadow:
+    0 0 calc(28px * var(--glow-k)) color-mix(in srgb, var(--accent) 75%, transparent),
+    0 10px 36px -6px color-mix(in srgb, var(--accent) 75%, transparent);
+}
+.gv-play:active {
+  transform: scale(0.96);
+}
+
+/* Del 22: glød-lag bak bølgeformen. 30 % i ro, 100 % når avspillingen går (0,7 s). Av ved redusert bevegelse. */
+.gv-wave-glow {
+  position: absolute;
+  inset: 8% 4%;
+  pointer-events: none;
+  border-radius: 999px;
+  background:
+    radial-gradient(60% 80% at 30% 50%, color-mix(in srgb, var(--accent) 55%, transparent), transparent 70%),
+    radial-gradient(60% 80% at 75% 50%, color-mix(in srgb, var(--accent-2) 45%, transparent), transparent 70%);
+  filter: blur(28px);
+  opacity: calc(0.3 * min(1, var(--glow-k)));
+  transition: opacity 0.7s ease;
+}
+.gv-wave-glow[data-on='true'] {
+  opacity: min(1, var(--glow-k));
+}
+@media (prefers-reduced-motion: reduce) {
+  .gv-wave-glow {
+    display: none;
+  }
 }
 
 /* Aktivt element: full neon-glød (samme oppskrift som neonGlow i del 9). */

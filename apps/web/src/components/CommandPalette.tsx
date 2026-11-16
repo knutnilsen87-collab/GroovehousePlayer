@@ -52,7 +52,7 @@ export function CommandPalette({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 px-4 pt-[12vh] backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Søk i katalogen" className="w-full max-w-[620px] overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
+      <div role="dialog" aria-modal="true" aria-label="Søk i katalogen" className="w-full max-w-[620px] overflow-hidden rounded-2xl bg-surface shadow-2xl">
         <label htmlFor="gv-search" className="sr-only">
           Søk
         </label>
@@ -78,7 +78,7 @@ export function CommandPalette({
           aria-activedescendant={results[sel] ? `gv-r-${sel}` : undefined}
           className="h-14 w-full border-b border-white/[0.08] bg-transparent px-5 text-[15px] text-ink-strong placeholder:text-muted focus:outline-none"
         />
-        <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-2">
+        <div className="flex items-center justify-between gap-2 px-4 py-2">
           <StatusSegment value={status} onChange={setStatus} />
           <span className="font-mono text-[10px] text-muted">{pool.length} treff mulig</span>
         </div>
@@ -112,7 +112,7 @@ export function CommandPalette({
           })}
         </ul>
         {onSaveSmart && q.trim() && saving === null && (
-          <button type="button" onClick={() => setSaving(q.trim())} className="flex min-h-11 w-full items-center gap-2 border-t border-white/[0.06] px-5 text-left text-sm font-semibold text-accent hover:bg-white/[0.04]">
+          <button type="button" onClick={() => setSaving(q.trim())} className="flex min-h-11 w-full items-center gap-2 px-5 text-left text-sm font-semibold text-accent hover:bg-white/[0.04]">
             <BoltIcon width={16} height={16} />
             Lagre som smart liste
             <span className="ml-auto truncate text-xs font-normal text-muted">«{q.trim()}» oppdaterer seg selv</span>
@@ -136,7 +136,7 @@ export function CommandPalette({
             </button>
           </form>
         )}
-        <p className="m-0 border-t border-white/[0.06] px-5 py-2.5 text-[11px] text-muted">↑↓ for å velge · Enter for å spille · Esc for å lukke</p>
+        <p className="m-0 px-5 py-2.5 text-[11px] text-muted">↑↓ for å velge · Enter for å spille · Esc for å lukke</p>
       </div>
     </div>
   );

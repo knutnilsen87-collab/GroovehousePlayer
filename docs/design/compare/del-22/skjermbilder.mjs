@@ -12,6 +12,14 @@ const PORT = 9333;
 const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 mkdirSync(outDir, { recursive: true });
 
+// Varm opp media-hurtigbufferen: første lesing fra disken kan ta sekunder per fil, og da rekker ikke katalogen å laste.
+{
+  const idx = await (await fetch(`${BASE}media/index.json`)).json();
+  const urls = idx.assets.flatMap((a) => [`${BASE}media/${a.manifest}`, `${BASE}media/${a.manifest.replace(/manifest\.json$/, 'analysis.json')}`]);
+  for (let i = 0; i < urls.length; i += 8) await Promise.all(urls.slice(i, i + 8).map((u) => fetch(u, { signal: AbortSignal.timeout(20000) }).then((r) => r.arrayBuffer()).catch(() => null)));
+  console.log(`(varmet opp ${urls.length} mediefiler)`);
+}
+
 const profile = mkdtempSync(join(tmpdir(), 'gv-edge-'));
 const edge = spawn(EDGE, ['--headless=new', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`, '--autoplay-policy=no-user-gesture-required', '--mute-audio', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -84,6 +92,9 @@ for (const skin of SKINS) {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(el, '450'); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
       await sleep(2500);
     }
+    // Vent på to frames, så lerretene (bølgeform) er tegnet før bildet tas
+    await evalJs('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(true))))');
+    await sleep(300);
     await shoot(`${tag}-${skin}-${form}`);
     if (!played) console.log('  (fant ingen play-knapp)');
   }

@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -77,19 +77,60 @@ export interface Lyrics {
   slug: string;
   format: 'lrc' | 'txt';
   text: string;
+  /** Hvor teksten kommer fra. Mangler = skrevet/limt inn av Knut. */
+  meta?: LyricsMeta | null;
+}
+/**
+ * data/lyrics/<slug>.meta.json. `auto` = transkribert fra lyden (vises som «Auto – sjekk teksten» til
+ * `approved`), `aligned` = Knuts tekst med beregnede ordtider, `manual` = skrevet/limt inn.
+ */
+export interface LyricsMeta {
+  source: 'auto' | 'aligned' | 'manual';
+  approved: boolean;
+  at: string;
 }
 const MAX_LYRICS = 200_000;
 
 export function createLyricsStore(dir: string) {
   const fileOf = (slug: string, format: 'lrc' | 'txt') => path.join(dir, `${checkSlug(slug)}.${format}`);
+  const metaOf = (slug: string) => path.join(dir, `${checkSlug(slug)}.meta.json`);
+  const readMeta = async (slug: string): Promise<LyricsMeta | null> => {
+    try {
+      return JSON.parse(await readFile(metaOf(slug), 'utf8')) as LyricsMeta;
+    } catch {
+      return null;
+    }
+  };
   const run = serial();
   return {
     async get(slug: string): Promise<Lyrics | null> {
       for (const format of ['lrc', 'txt'] as const) {
         const f = fileOf(slug, format);
-        if (existsSync(f)) return { slug, format, text: (await readFile(f, 'utf8')).replace(/^﻿/, '') };
+        if (existsSync(f)) return { slug, format, text: (await readFile(f, 'utf8')).replace(/^﻿/, ''), meta: await readMeta(slug) };
       }
       return null;
+    },
+    getMeta: readMeta,
+    /** Setter kilde/godkjenning (null fjerner). */
+    setMeta: (slug: string, meta: Omit<LyricsMeta, 'at'> | null) =>
+      run(async () => {
+        if (!meta) return void (await rm(metaOf(slug), { force: true }));
+        await mkdir(dir, { recursive: true });
+        await writeAtomic(metaOf(slug), JSON.stringify({ ...meta, at: new Date().toISOString() }, null, 2) + '\n');
+      }),
+    /** Knut har sjekket en automatisk transkribert tekst: merket «Auto – sjekk teksten» forsvinner. */
+    approve: (slug: string) =>
+      run(async (): Promise<LyricsMeta | null> => {
+        const m = await readMeta(slug);
+        if (!m) return null;
+        const next = { ...m, approved: true, at: new Date().toISOString() };
+        await writeAtomic(metaOf(slug), JSON.stringify(next, null, 2) + '\n');
+        return next;
+      }),
+    /** Slugs med tekst (lrc eller txt). */
+    async slugs(): Promise<Set<string>> {
+      if (!existsSync(dir)) return new Set();
+      return new Set((await readdir(dir)).map((n) => /^(.+)\.(lrc|txt)$/.exec(n)?.[1]).filter((s): s is string => !!s));
     },
     /** Tom tekst sletter. Ny lagring i ett format fjerner det andre (én tekst per låt). */
     put: (slug: string, format: unknown, text: unknown) =>
@@ -101,6 +142,7 @@ export function createLyricsStore(dir: string) {
         await rm(fileOf(slug, format === 'lrc' ? 'txt' : 'lrc'), { force: true });
         if (!clean) {
           await rm(fileOf(slug, format), { force: true });
+          await rm(metaOf(slug), { force: true });
           return null;
         }
         await writeAtomic(fileOf(slug, format), `${clean}\n`);

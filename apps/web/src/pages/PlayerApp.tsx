@@ -271,7 +271,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
       <main className={`relative z-10 min-w-0 px-4 pb-[168px] pt-4 lg:px-5 lg:pt-4 ${showDeck ? 'lg:pb-8' : 'lg:pb-[132px]'}`}>
         <header className="mb-5 flex items-center justify-between gap-4 lg:hidden">
           <Logo size={36} subtitle="VAULT" />
-          <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Søk" className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-soft">
+          <button type="button" onClick={() => setPaletteOpen(true)} aria-label="Søk" className="flex h-11 w-11 items-center justify-center rounded-full bg-white/[0.05] text-soft">
             <SearchIcon width={20} height={20} />
           </button>
         </header>
@@ -316,7 +316,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
               {view === 'library' && (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h1 className="m-0 text-[28px] font-bold tracking-tight text-ink-strong lg:hidden">Bibliotek</h1>
+                    <h1 className="gv-display m-0 text-[30px] font-semibold text-ink-strong lg:hidden">Bibliotek</h1>
                     <div className="flex flex-wrap items-center gap-2">
                       <StatusSegment value={libStatus} onChange={setLibStatus} counts={statusCounts} />
                       <Pills value={filter} onChange={setFilter} />
@@ -394,7 +394,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
           <button
             type="button"
             onClick={() => history.back()}
-            className="h-12 rounded-full border border-white/15 bg-[rgba(14,16,21,0.95)] px-4 text-sm text-ink backdrop-blur-xl"
+            className="gv-glass h-12 rounded-full bg-sunken/85 px-4 text-sm text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_24px_rgba(0,0,0,0.45)]"
           >
             Avbryt
           </button>
@@ -492,7 +492,7 @@ function Pills({ value, onChange }: { value: Filter; onChange: (f: Filter) => vo
           type="button"
           aria-pressed={value === id}
           onClick={() => onChange(id)}
-          className={`h-9 flex-none rounded-full px-4 text-xs font-semibold ${value === id ? 'bg-accent text-on-accent' : 'border border-white/10 bg-surface text-ink hover:border-white/20'}`}
+          className={`h-9 flex-none rounded-full px-4 text-xs font-semibold ${value === id ? 'bg-accent text-on-accent' : 'bg-white/[0.05] text-ink hover:bg-white/[0.09]'}`}
         >
           {label}
         </button>
@@ -594,7 +594,7 @@ function TrackList({
               }}
               onContextMenu={(e) => e.preventDefault()}
               aria-pressed={selectMode ? isSel : undefined}
-              className={`relative flex min-h-[64px] min-w-0 flex-1 select-none items-center gap-3 rounded-xl px-1.5 text-left [-webkit-touch-callout:none] active:bg-white/[0.05] ${isSel ? 'bg-white/[0.07]' : ''}`}
+              className={`relative flex min-h-[64px] min-w-0 flex-1 select-none items-center gap-3 rounded-xl px-1.5 text-left [-webkit-touch-callout:none] active:bg-white/[0.05] ${isSel ? 'bg-white/[0.07]' : isCur ? 'gv-row-active rounded-l-none' : ''}`}
               style={{ ...trackVars(m), ...(swipe?.slug === t.slug ? { transform: `translateX(${swipe.dx}px)`, background: '#15181F' } : {}) }}
             >
               {swipe?.slug === t.slug && swipe.dx > 0 && (
@@ -614,13 +614,13 @@ function TrackList({
               )}
               <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={48} rounded={8} draft={isDraft(m)} />
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className={`truncate text-[15px] font-semibold ${isCur ? 'text-accent' : 'text-ink-strong'}`}>
+                <span className={`truncate text-[15px] ${isCur ? 'font-bold text-accent' : 'font-semibold text-ink-strong'}`}>
                   {isCur && playing ? '▶ ' : ''}
                   {m.title}<DraftBadge m={m} className="ml-1.5" />
                 </span>
-                <span className="truncate font-mono text-[11px] text-muted">{meta}</span>
+                <span className="truncate font-mono text-[13px] text-muted">{meta}</span>
               </span>
-              <span className="font-mono text-[11px] text-muted">{formatTime(m.durationMs)}</span>
+              <span className="font-mono text-[13px] text-muted">{formatTime(m.durationMs)}</span>
             </button>
             {!selectMode && (
               <button type="button" onClick={() => onMore(t)} aria-label={`Flere valg for ${m.title}`} className="flex h-12 w-11 flex-none items-center justify-center rounded-full text-muted active:bg-white/[0.06]">
@@ -668,7 +668,7 @@ function SetsView({ sets, tracks, onPlay, onOpenList }: { sets: Track[]; tracks:
       <h1 className="m-0 font-display text-[30px] font-semibold uppercase tracking-[1.5px] text-ink-strong">Live-sett</h1>
       <div role="tablist" aria-label="Live-sett" className="flex flex-wrap gap-2">
         {SETS_TABS.map(([k, label]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pick(k)} className={`h-9 rounded-full px-4 text-sm ${tab === k ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : 'border border-white/10 text-soft hover:text-ink'}`}>
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pick(k)} className={`h-9 rounded-full px-4 text-sm ${tab === k ? 'bg-accent/[0.14] font-semibold text-accent shadow-[0_0_18px_-4px_var(--glow)]' : 'bg-white/[0.05] text-soft hover:text-ink'}`}>
             {label}
             {k === 'planned' && plans.length > 0 ? ` (${plans.length})` : ''}
           </button>
@@ -682,7 +682,7 @@ function SetsView({ sets, tracks, onPlay, onOpenList }: { sets: Track[]; tracks:
           <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-label="Planlagte sett">
             {plans.map((p) => (
               <li key={p.id}>
-                <button type="button" onClick={() => onOpenList(p.id)} className="gv-panel flex w-full items-center gap-3 px-4 py-3 text-left hover:border-accent/50">
+                <button type="button" onClick={() => onOpenList(p.id)} className="gv-panel flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.05]">
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-strong">{p.name}</span>
                   <span className="font-mono text-[11px] text-muted">{p.entries.length} låter</span>
                 </button>
@@ -710,11 +710,11 @@ function RecordedSets({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]
         const now = isCur ? sectionAt(m.markers, positionMs) : null;
         const single = now?.refSlug ? tracks.find((x) => x.slug === now.refSlug && x.main.manifest.kind === 'track') : undefined;
         return (
-          <article key={t.slug} className="relative overflow-hidden rounded-2xl border border-white/[0.07] bg-surface/80 p-4 lg:p-5" style={skinTrackVars(m.palette) as CSSProperties}>
+          <article key={t.slug} className="gv-panel relative overflow-hidden p-4 lg:p-5" style={skinTrackVars(m.palette) as CSSProperties}>
             <div className="flex flex-wrap items-center gap-4">
               <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={64} rounded={10} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <h2 className="m-0 text-base font-semibold text-ink-strong">{m.title}</h2>
+                <h2 className="gv-display m-0 text-[18px] font-semibold text-ink-strong">{m.title}</h2>
                 <span className="text-xs text-muted">{[m.venue, m.performedAt ? new Date(m.performedAt).toLocaleDateString('nb-NO') : null, formatTime(m.durationMs), `${chapters.length} låter`].filter(Boolean).join(' · ')}</span>
               </div>
               <button type="button" onClick={() => onPlay(t, a)} className="flex h-11 items-center gap-2 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">
@@ -727,7 +727,7 @@ function RecordedSets({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]
                 <span className="text-[10px] font-semibold tracking-[1.5px] text-accent">SPILLES NÅ I SETTET</span>
                 <span className="font-semibold text-ink-strong">{now.label}</span>
                 {single && (
-                  <button type="button" onClick={() => onPlay(single)} className="ml-auto h-8 rounded-full border border-white/15 px-3 text-xs text-ink hover:border-accent">
+                  <button type="button" onClick={() => onPlay(single)} className="ml-auto h-8 rounded-full bg-white/[0.06] px-3 text-xs text-ink hover:bg-accent/[0.14]">
                     Gå til enkeltlåt →
                   </button>
                 )}
@@ -752,7 +752,7 @@ function RecordedSets({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]
                     <button
                       type="button"
                       onClick={() => onPlay(t, a, c.startMs)}
-                      className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-[11px] ${now === c ? 'border-accent text-ink-strong' : 'border-white/10 text-ink hover:border-white/25'}`}
+                      className={`flex h-8 items-center gap-1.5 rounded-full border px-3 text-[11px] ${now === c ? 'border-transparent bg-accent/[0.16] text-ink-strong' : 'border-transparent bg-white/[0.04] text-ink hover:bg-white/[0.08]'}`}
                     >
                       <span className="tabular text-muted">{formatTime(c.startMs)}</span>
                       {c.label}
@@ -830,7 +830,7 @@ function Dock({ cur, track, onVariant, tracks, onPlay, onMore, hideOnDesktop = f
   const setNow = m.kind === 'set' ? sectionAt(m.markers, positionMs) : null;
   const single = setNow?.refSlug ? tracks.find((x) => x.slug === setNow.refSlug && x.main.manifest.kind === 'track') : undefined;
   return (
-    <div className={`fixed inset-x-0 bottom-0 z-30 hidden h-[112px] border-t border-accent/20 bg-sunken/95 lg:left-[272px] ${hideOnDesktop ? '' : 'lg:block'}`}>
+    <div className={`fixed inset-x-0 bottom-0 z-30 hidden h-[112px] bg-sunken/90 shadow-[0_-1px_0_rgba(255,255,255,0.06),0_-16px_40px_rgba(0,0,0,0.5)] lg:left-[272px] gv-glass ${hideOnDesktop ? '' : 'lg:block'}`}>
       <SubBassEdge />
       <div className="mx-auto flex h-full max-w-[1600px] items-center gap-6 px-6">
         <div className="flex w-[300px] min-w-0 items-center gap-3">
@@ -907,7 +907,7 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
   const hold = useRef<{ timer: number; fired: boolean; x: number; y: number } | null>(null);
   return (
     <div
-      className="fixed inset-x-3 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 overflow-hidden rounded-2xl border border-accent/30 bg-[rgba(12,14,19,0.97)] shadow-[0_12px_40px_rgba(0,0,0,0.5),0_0_24px_var(--glow-2)] lg:hidden"
+      className="fixed inset-x-3 bottom-[calc(64px+env(safe-area-inset-bottom))] z-30 gv-glass overflow-hidden rounded-2xl bg-sunken/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_12px_40px_rgba(0,0,0,0.55),0_0_28px_var(--glow-2)] lg:hidden"
       onTouchStart={(e) => {
         const t = e.touches[0];
         startX.current = t?.clientX ?? null;
@@ -966,7 +966,7 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
             <NowLabel cur={cur} />
           </span>
         </button>
-        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} className="gv-neon-soft flex h-11 w-11 flex-none items-center justify-center rounded-full border-2 border-accent text-accent">
+        <button type="button" onClick={toggle} aria-label={playing ? 'Pause' : 'Spill'} data-playing={playing ? 'true' : 'false'} className="gv-play flex h-11 w-11 flex-none items-center justify-center rounded-full">
           {playing ? <PauseIcon width={18} height={18} /> : <PlayIcon width={18} height={18} className="ml-0.5" />}
         </button>
       </div>

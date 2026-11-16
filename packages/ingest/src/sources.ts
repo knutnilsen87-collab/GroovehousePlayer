@@ -34,6 +34,8 @@ export interface MetaFile {
   liveOffsetMs?: number;
   /** Del 17: energiscore for settbyggeren (1–10), overstyrt i Studio. */
   energy?: number;
+  /** Del 23 punkt 9: AI-cover – nok til å gjenskape det (bulkIMG lagrer ikke frø, så seed er null). */
+  aiCover?: { source: 'bulkimg'; provider: string | null; model: string | null; prompt: string | null; seed: null; exportId: string | null; receivedAt: string };
 }
 
 export interface MasterSource {

@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { contrastRatio } from '@gv/shared/web';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -53,7 +54,34 @@ describe('designregel: gull bare i logoen, cyan som standard (del 14)', () => {
     const html = readFileSync(path.join(REPO, 'apps/web/index.html'), 'utf8');
     expect(html).not.toMatch(/fonts\.(googleapis|gstatic)|api\.fontshare/);
     const css = readFileSync(path.join(REPO, 'apps/web/src/index.css'), 'utf8');
-    expect(css).toMatch(/url\('\/fonts\/Satoshi-Variable\.woff2'\)/);
-    expect(css).toMatch(/url\('\/fonts\/JetBrainsMono-Regular\.woff2'\)/);
+    // Del 22: Clash Display, Syncopate, Inter og Geist Mono (Satoshi beholdes som display-font for Echo Groove Nights)
+    for (const f of ['ClashDisplay-Variable', 'Syncopate-Bold', 'Inter-Variable-latin', 'GeistMono-Variable', 'Satoshi-Variable']) {
+      expect(css).toContain(`url('/fonts/${f}.woff2')`);
+      expect(existsSync(path.join(REPO, 'apps/web/public/fonts', `${f}.woff2`))).toBe(true);
+    }
+    expect(css).not.toMatch(/https?:\/\//);
+    // Lisensfil ved hver font
+    for (const l of ['ClashDisplay-FFL.txt', 'Syncopate-Apache-2.0.txt', 'Inter-OFL.txt', 'GeistMono-OFL.txt', 'Satoshi-FFL.txt']) expect(existsSync(path.join(REPO, 'apps/web/public/fonts', l))).toBe(true);
+  });
+
+  it('del 22: kontrast ≥ 4,5:1 på data og ≥ 3:1 på etiketter i alle ferdige skins', () => {
+    const skinsDir = path.join(REPO, 'apps/web/src/skins');
+    // Data-tekst (#F5F7FA) og etiketter (#A3ACBA) mot skinnets bakgrunn og mot en pill (aksent 10 % over bakgrunnen)
+    const mix = (a: string, b: string, t: number) => {
+      const n = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+      const [x, y] = [n(a), n(b)];
+      return '#' + x.map((v, i) => Math.round(v * t + y[i]! * (1 - t)).toString(16).padStart(2, '0')).join('');
+    };
+    const bad: string[] = [];
+    for (const f of readdirSync(skinsDir).filter((n) => n.endsWith('.json'))) {
+      const s = JSON.parse(readFileSync(path.join(skinsDir, f), 'utf8'));
+      const bg: string = s.background.base;
+      const accent: string = s.accent ?? '#06B211';
+      for (const surf of [bg, mix(accent, bg, 0.2)]) {
+        if (contrastRatio('#F5F7FA', surf) < 4.5) bad.push(`${f}: data ${contrastRatio('#F5F7FA', surf).toFixed(2)}:1 på ${surf}`);
+        if (contrastRatio('#A3ACBA', surf) < 3) bad.push(`${f}: etikett ${contrastRatio('#A3ACBA', surf).toFixed(2)}:1 på ${surf}`);
+      }
+    }
+    expect(bad).toEqual([]);
   });
 });

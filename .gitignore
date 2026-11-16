@@ -27,3 +27,6 @@ fixtures/**/*.wav
 
 # Del 8: forrige versjon av config (lages ved lagring fra Studio)
 /groovehouse.config.backup.json
+
+# Del: tekst-transkribering (Demucs + WhisperX), egen Python-venv
+.venv-lyrics/

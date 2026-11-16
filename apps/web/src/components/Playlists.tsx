@@ -318,7 +318,7 @@ const SheetHeading = ({ children }: { children: ReactNode }) => <h3 className="m
 export function IconPicker({ value, hasCover, onPick, onClose }: { value: string | null; hasCover: boolean; onPick: (id: string | null) => void; onClose: () => void }) {
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Velg ikon" className="fixed inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[12vh] lg:w-[560px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
+      <div role="dialog" aria-modal="true" aria-label="Velg ikon" className="fixed inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[12vh] lg:w-[560px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-base font-semibold text-ink-strong">Velg ikon</h2>
           <button type="button" onClick={onClose} className="h-10 rounded-full px-3 text-sm text-muted hover:text-ink">
@@ -365,10 +365,10 @@ export function ColorPicker({ value, onPick, onClose }: { value: string; onPick:
   // Portal til body: lista ligger i <main> (egen stablingskontekst), og arket må over minispilleren og bunnmenyen.
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Velg farge" className="fixed inset-x-0 bottom-0 rounded-t-2xl border-t border-white/10 bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[20vh] lg:w-[380px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
+      <div role="dialog" aria-modal="true" aria-label="Velg farge" className="fixed inset-x-0 bottom-0 rounded-t-2xl bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[20vh] lg:w-[380px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
         <div role="tablist" aria-label="Fargegruppe" className="mb-4 flex gap-2">
           {(Object.keys(PLAYLIST_COLOR_GROUPS) as Array<'neon' | 'candy'>).map((g) => (
-            <button key={g} type="button" role="tab" aria-selected={group === g} onClick={() => setGroup(g)} className={`h-9 rounded-full px-4 text-xs font-semibold ${group === g ? 'bg-white/[0.12] text-ink-strong' : 'border border-white/10 text-muted'}`}>
+            <button key={g} type="button" role="tab" aria-selected={group === g} onClick={() => setGroup(g)} className={`h-9 rounded-full px-4 text-xs font-semibold ${group === g ? 'bg-white/[0.12] text-ink-strong' : ' text-muted'}`}>
               {PLAYLIST_COLOR_GROUPS[g]}
             </button>
           ))}
@@ -454,7 +454,7 @@ export function PlaylistsOverview({ tracks, onOpen, vctx }: { tracks: Track[]; o
         {builtins.map((v) => smartRow(v, BUILTIN_SUB[v.id] ?? 'Smart'))}
         {smart.map((p) => smartRow(buildListView(p.id, playlists, tracks)!, `Smart · «${p.query}»`))}
       </ul>
-      <div className="my-3 border-t border-white/[0.06]" />
+      <div className="my-3" />
       {loaded && manual.length === 0 && <p className="px-1.5 text-sm text-muted">Ingen egne lister ennå. Trykk «Ny liste», eller ⋯ på en låt → Legg til i spilleliste.</p>}
       <ul className="m-0 list-none p-0">
         {manual.map((p) => {
@@ -574,7 +574,7 @@ export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]
       <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-0.5 overflow-y-auto p-0 pr-1">
         {BUILTIN_SMART.map((b) => item(b.id, b.name, colorById(BUILTIN_COLORS[b.id]), true, null))}
         {smart.map((p) => item(p.id, p.name, colorById(p.color), true, null))}
-        {manual.length > 0 && <li aria-hidden="true" className="mx-3 my-1.5 border-t border-white/[0.07]" />}
+        {manual.length > 0 && <li aria-hidden="true" className="mx-3 my-1.5" />}
         {manual.map((p) => item(p.id, p.name, colorById(p.color), false, p))}
       </ul>
       {tracks.length > 0 && <p className="m-0 px-3 pt-1.5 text-[11px] text-muted">Dra låter hit for å legge dem til</p>}
@@ -696,12 +696,12 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
               <PlayIcon width={18} height={18} />
               Spill
             </button>
-            <button type="button" disabled={v.assets.length < 2} onClick={shuffle} className="flex h-12 items-center gap-2 rounded-full border border-white/12 px-4 text-sm text-ink hover:border-white/25 disabled:opacity-40">
+            <button type="button" disabled={v.assets.length < 2} onClick={shuffle} className="flex h-12 items-center gap-2 rounded-full bg-white/[0.04] px-4 text-sm text-ink hover:bg-white/[0.07] disabled:opacity-40">
               <ShuffleIcon width={16} height={16} />
               Bland
             </button>
             {resumeAsset && resumeAt > 0 && !isNow && (
-              <button type="button" onClick={() => play(resumeAt)} className="flex h-12 min-w-0 items-center gap-2 rounded-full border border-white/12 px-4 text-sm text-ink hover:border-white/25">
+              <button type="button" onClick={() => play(resumeAt)} className="flex h-12 min-w-0 items-center gap-2 rounded-full bg-white/[0.04] px-4 text-sm text-ink hover:bg-white/[0.07]">
                 <span className="truncate">Fortsett: {resumeAsset.manifest.title}</span>
               </button>
             )}
@@ -711,7 +711,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
                   <MoreIcon width={20} height={20} />
                 </button>
                 {menu && (
-                  <ul role="menu" className="absolute right-0 top-12 z-20 m-0 w-52 max-w-[calc(100vw-32px)] lg:left-0 lg:right-auto list-none rounded-xl border border-white/10 bg-[#15181F] p-1.5 shadow-2xl">
+                  <ul role="menu" className="absolute right-0 top-12 z-20 m-0 w-52 max-w-[calc(100vw-32px)] lg:left-0 lg:right-auto list-none rounded-xl bg-[#15181F] p-1.5 shadow-2xl">
                     {(
                       [
                         ['Gi nytt navn', () => setRenaming(true)],
@@ -1063,7 +1063,7 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
   return (
     <>
       {lockLabel && (
-        <span className="flex-none rounded border border-white/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[1px] text-soft" title={all.find((o) => o.value === current)?.label}>
+        <span className="flex-none rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[1px] text-soft" title={all.find((o) => o.value === current)?.label}>
           {lockLabel}
         </span>
       )}
@@ -1091,7 +1091,7 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
       {sheet &&
         createPortal(
         <div className="fixed inset-0 z-50 bg-black/55 lg:hidden" onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) setSheet(false); }}>
-          <div role="dialog" aria-modal="true" aria-label="Versjon og variant" className="fixed inset-x-0 bottom-0 max-h-[75svh] overflow-y-auto rounded-t-2xl border-t border-white/10 bg-surface px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+          <div role="dialog" aria-modal="true" aria-label="Versjon og variant" className="fixed inset-x-0 bottom-0 max-h-[75svh] overflow-y-auto rounded-t-2xl bg-surface px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
             <div aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/15" />
             <h2 className="m-0 px-3 pb-2 text-sm font-semibold text-ink-strong">{t?.main.manifest.title ?? r.entry.slug}</h2>
             <ul role="radiogroup" aria-label="Spill" className="m-0 list-none p-0">
@@ -1143,7 +1143,7 @@ function PlanSummary({ v, missingOnly, onMissingOnly }: { v: ListView; missingOn
   const rows = v.assets.map((a) => ({ status: isDraft(a.manifest) ? ('draft' as const) : ('release' as const), durationMs: a.manifest.durationMs, bpm: a.manifest.bpm, camelot: a.manifest.key?.camelot ?? null, title: a.manifest.title }));
   const st = planStats(rows);
   return (
-    <div className="mt-1 flex flex-col gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+    <div className="mt-1 flex flex-col gap-2 rounded-xl bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-3">
         <span className="font-mono text-sm text-ink-strong" data-testid="plan-status">
           {st.mastered} av {st.total} mastret

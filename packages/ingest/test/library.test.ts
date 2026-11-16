@@ -61,11 +61,11 @@ describe('sangtekst (del 14)', () => {
   it('lagrer LRC, bytter til ren tekst (én fil per låt), tom tekst sletter', async () => {
     expect((await call('GET', '/api/lyrics/blue-fire')).status).toBe(404);
     const put = await call('PUT', '/api/lyrics/blue-fire', { format: 'lrc', text: '[00:01.00]Hei\r\n[00:02.00]Hå' });
-    expect(put.json.lyrics).toEqual({ slug: 'blue-fire', format: 'lrc', text: '[00:01.00]Hei\n[00:02.00]Hå\n' });
+    expect(put.json.lyrics).toMatchObject({ slug: 'blue-fire', format: 'lrc', text: '[00:01.00]Hei\n[00:02.00]Hå\n', meta: { source: 'manual', approved: true } });
     expect((await call('GET', '/api/lyrics/blue-fire')).json.format).toBe('lrc');
     await call('PUT', '/api/lyrics/blue-fire', { format: 'txt', text: 'Bare tekst' });
     expect(existsSync(path.join(tmp, 'data', 'lyrics', 'blue-fire.lrc'))).toBe(false);
-    expect((await call('GET', '/api/lyrics/blue-fire')).json).toEqual({ slug: 'blue-fire', format: 'txt', text: 'Bare tekst\n' });
+    expect((await call('GET', '/api/lyrics/blue-fire')).json).toMatchObject({ slug: 'blue-fire', format: 'txt', text: 'Bare tekst\n', meta: { source: 'manual' } });
     expect((await call('PUT', '/api/lyrics/blue-fire', { format: 'txt', text: '   ' })).json.lyrics).toBeNull();
     expect((await call('GET', '/api/lyrics/blue-fire')).status).toBe(404);
     expect((await call('PUT', '/api/lyrics/blue-fire', { format: 'srt', text: 'x' })).status).toBe(400);

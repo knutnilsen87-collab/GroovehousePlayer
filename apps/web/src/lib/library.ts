@@ -55,7 +55,16 @@ export interface LyricsData {
   format: 'lrc' | 'txt';
   text: string;
   parsed: ParsedLyrics;
+  /** auto = transkribert fra lyden; vises som «Auto – sjekk teksten» til den er godkjent. */
+  meta?: LyricsMeta | null;
 }
+export interface LyricsMeta {
+  source: 'auto' | 'aligned' | 'manual';
+  approved: boolean;
+  at: string;
+}
+/** Teksten er transkribert automatisk og ikke godkjent ennå. */
+export const needsCheck = (d: LyricsData | null | undefined) => d?.meta?.source === 'auto' && !d.meta.approved;
 const lyricsCache = new Map<string, Promise<LyricsData | null>>();
 const lyricsListeners = new Set<(slug: string) => void>();
 
@@ -71,7 +80,7 @@ export function fetchLyrics(slug: string, fresh = false): Promise<LyricsData | n
       .then(async (r) => {
         if (r.status === 404) return null;
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const j = (await r.json()) as { format: 'lrc' | 'txt'; text: string };
+        const j = (await r.json()) as { format: 'lrc' | 'txt'; text: string; meta?: LyricsMeta | null };
         return { ...j, parsed: parseLyrics(j.text) };
       })
       .catch(() => {
@@ -85,7 +94,7 @@ export function fetchLyrics(slug: string, fresh = false): Promise<LyricsData | n
 
 export async function saveLyrics(slug: string, format: 'lrc' | 'txt', text: string): Promise<LyricsData | null> {
   const r = await fetch(`/api/lyrics/${encodeURIComponent(slug)}`, { method: 'PUT', headers: json, body: JSON.stringify({ format, text }) });
-  const j = (await r.json().catch(() => ({}))) as { lyrics?: { format: 'lrc' | 'txt'; text: string } | null; error?: string };
+  const j = (await r.json().catch(() => ({}))) as { lyrics?: { format: 'lrc' | 'txt'; text: string; meta?: LyricsMeta | null } | null; error?: string };
   if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
   const data = j.lyrics ? { ...j.lyrics, parsed: parseLyrics(j.lyrics.text) } : null;
   lyricsCache.set(slug, Promise.resolve(data));
@@ -94,18 +103,68 @@ export async function saveLyrics(slug: string, format: 'lrc' | 'txt', text: stri
 }
 
 /** Kjører Demucs + WhisperX på serveren og lagrer ord-synkronisert tekst. */
-export async function transcribeLyrics(slug: string): Promise<{ data: LyricsData; wordCount: number }> {
+export async function transcribeLyrics(slug: string): Promise<{ data: LyricsData; wordCount: number; mode: 'auto' | 'aligned'; ms: number }> {
   const r = await fetch(`/api/lyrics/${encodeURIComponent(slug)}/transcribe`, {
     method: 'POST',
     headers: json,
     body: '{}'
   });
-  const j = (await r.json().catch(() => ({}))) as { lyrics?: { format: 'lrc' | 'txt'; text: string }; wordCount?: number; error?: string };
+  const j = (await r.json().catch(() => ({}))) as { lyrics?: { format: 'lrc' | 'txt'; text: string; meta?: LyricsMeta | null }; wordCount?: number; mode?: 'auto' | 'aligned'; ms?: number; error?: string };
   if (!r.ok || !j.lyrics) throw new Error(j.error ?? `HTTP ${r.status}`);
-  const data: LyricsData = { format: j.lyrics.format, text: j.lyrics.text, parsed: parseLyrics(j.lyrics.text) };
+  const data: LyricsData = { format: j.lyrics.format, text: j.lyrics.text, parsed: parseLyrics(j.lyrics.text), meta: j.lyrics.meta ?? null };
   lyricsCache.set(slug, Promise.resolve(data));
   notifyLyrics(slug);
-  return { data, wordCount: j.wordCount ?? 0 };
+  return { data, wordCount: j.wordCount ?? 0, mode: j.mode ?? 'auto', ms: j.ms ?? 0 };
+}
+
+/** Knut har sjekket en automatisk transkribert tekst. */
+export async function approveLyrics(slug: string): Promise<void> {
+  const r = await fetch(`/api/lyrics/${encodeURIComponent(slug)}/approve`, { method: 'POST', headers: json, body: '{}' });
+  if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${r.status}`);
+  await fetchLyrics(slug, true);
+  notifyLyrics(slug);
+}
+
+export interface LyricsJob {
+  slug: string;
+  title: string;
+  status: 'waiting' | 'running' | 'done' | 'skipped' | 'failed';
+  stage: 'start' | 'demucs' | 'language' | 'transcribe' | 'align' | 'write' | null;
+  mode: 'auto' | 'aligned' | null;
+  reason: 'ingest' | 'studio' | 'pasted';
+  queuedAt: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  ms: number | null;
+  words: number | null;
+  note: string | null;
+}
+export interface LyricsQueueStatus {
+  enabled: boolean;
+  python: string | null;
+  jobs: LyricsJob[];
+}
+/** Tekstkøen (Studio): hentes hvert 2. sekund mens noe står i kø eller kjører, ellers hvert 15. */
+export function useLyricsQueue(): LyricsQueueStatus | null {
+  const [q, setQ] = useState<LyricsQueueStatus | null>(null);
+  useEffect(() => {
+    let stop = false;
+    let t = 0;
+    const tick = async () => {
+      const r = await fetch('/api/lyrics-queue', { cache: 'no-store' }).catch(() => null);
+      const j = r?.ok ? ((await r.json().catch(() => null)) as LyricsQueueStatus | null) : null;
+      if (stop) return;
+      setQ(j);
+      const active = j?.jobs.some((x) => x.status === 'waiting' || x.status === 'running');
+      t = window.setTimeout(tick, active ? 2000 : 15000);
+    };
+    void tick();
+    return () => {
+      stop = true;
+      clearTimeout(t);
+    };
+  }, []);
+  return q;
 }
 
 /** undefined = laster, null = ingen tekst. */

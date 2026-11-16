@@ -6,6 +6,7 @@ import { PlayerApp } from './pages/PlayerApp';
 import { isApp, loadConnection } from './lib/platform';
 import { startUpdater } from './lib/updater';
 import { UpdateBanner } from './components/UpdateBanner';
+import { AiCoverDialog } from './components/AiCover';
 import { applySkin, BUILT_IN_SKINS, useSkin } from './lib/skin';
 
 /** Minimal ruter: / er din spiller, /studio er Command Center, /drop/<slug> er lyttersiden. */
@@ -43,11 +44,18 @@ export function App() {
     applySkin(BUILT_IN_SKINS[0]!);
   }
   if (m && !isApp) return <DropPage dropSlug={m[1]!} recipient={new URLSearchParams(window.location.search).get('r')} />;
-  if (path.startsWith('/studio')) return <CommandCenter />;
+  if (path.startsWith('/studio'))
+    return (
+      <>
+        <CommandCenter />
+        <AiCoverDialog />
+      </>
+    );
   return (
     <>
       {isApp && <UpdateBanner />}
       <PlayerApp onDisconnected={() => setConn('none')} />
+      {!isApp && <AiCoverDialog />}
     </>
   );
 }

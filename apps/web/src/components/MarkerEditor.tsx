@@ -106,7 +106,7 @@ export function MarkerEditor({ a, onSaved, onPlayAt }: { a: LoadedAsset; onSaved
 
   const unconfirmed = items.filter((x) => !x.confirmed).length;
   return (
-    <section aria-label={`Markører for ${m.title}`} className="flex flex-col gap-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+    <section aria-label={`Markører for ${m.title}`} className="flex flex-col gap-3 rounded-xl bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="gv-label m-0">Markører</h3>
         <span className="font-mono text-[11px] text-muted">
@@ -189,7 +189,7 @@ export function MarkerEditor({ a, onSaved, onPlayAt }: { a: LoadedAsset; onSaved
         <button type="button" disabled={!dirty || busy} onClick={() => void save()} className="h-9 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent disabled:opacity-40">
           Lagre markører
         </button>
-        <button type="button" disabled={!unconfirmed} onClick={() => change((xs) => xs.map((y) => ({ ...y, confirmed: true })))} className="h-9 rounded-full border border-white/15 px-3 text-sm text-ink disabled:opacity-40">
+        <button type="button" disabled={!unconfirmed} onClick={() => change((xs) => xs.map((y) => ({ ...y, confirmed: true })))} className="h-9 rounded-full bg-white/[0.04] px-3 text-sm text-ink disabled:opacity-40">
           Godkjenn alle{unconfirmed ? ` (${unconfirmed})` : ''}
         </button>
         {dirty && (

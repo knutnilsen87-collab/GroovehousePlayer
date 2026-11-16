@@ -37,7 +37,7 @@ export function PresetRow({ onPick, active }: { onPick: (p: FxPreset) => void; a
         </button>
       ))}
       {!more && (
-        <button type="button" onClick={() => setMore(true)} className="min-h-[40px] rounded-full border border-white/15 px-3 text-[13px] text-soft hover:text-ink">
+        <button type="button" onClick={() => setMore(true)} className="min-h-[40px] rounded-full bg-white/[0.04] px-3 text-[13px] text-soft hover:text-ink">
           Flere…
         </button>
       )}

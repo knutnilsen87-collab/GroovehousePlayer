@@ -246,7 +246,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-24 text-xs text-muted">Varighet</span>
             {DURATIONS.map((d) => (
-              <button key={d} type="button" aria-pressed={durationMin === d} onClick={() => setDuration(d)} className={`h-9 rounded-lg px-3 font-mono text-sm ${durationMin === d ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] text-accent' : 'border border-white/10 text-soft'}`}>
+              <button key={d} type="button" aria-pressed={durationMin === d} onClick={() => setDuration(d)} className={`h-9 rounded-lg px-3 font-mono text-sm ${durationMin === d ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] text-accent' : ' text-soft'}`}>
                 {d} min
               </button>
             ))}
@@ -258,7 +258,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-24 text-xs text-muted">Kurve</span>
             {(Object.keys(CURVE_NAMES) as CurveKind[]).map((c) => (
-              <button key={c} type="button" aria-pressed={curve === c} onClick={() => setCurve(c)} className={`h-9 rounded-lg px-3 text-sm ${curve === c ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : 'border border-white/10 text-soft'}`}>
+              <button key={c} type="button" aria-pressed={curve === c} onClick={() => setCurve(c)} className={`h-9 rounded-lg px-3 text-sm ${curve === c ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : ' text-soft'}`}>
                 {CURVE_NAMES[c]}
               </button>
             ))}
@@ -360,7 +360,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
                 <button type="button" onClick={play} className="h-9 rounded-full border border-accent/60 px-3 text-xs font-semibold text-accent">
                   Spill
                 </button>
-                <button type="button" onClick={rebuild} disabled={!locked.size} title="Låste plasser beholdes, resten regnes om" className="h-9 rounded-full border border-white/15 px-3 text-xs text-ink disabled:opacity-40">
+                <button type="button" onClick={rebuild} disabled={!locked.size} title="Låste plasser beholdes, resten regnes om" className="h-9 rounded-full bg-white/[0.04] px-3 text-xs text-ink disabled:opacity-40">
                   Lås og bygg på nytt ({locked.size})
                 </button>
               </div>
@@ -388,7 +388,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
                       <button type="button" aria-pressed={locked.has(i)} onClick={() => setLocked((s) => (s.has(i) ? new Set([...s].filter((x) => x !== i)) : new Set([...s, i])))} className={`h-8 rounded-full px-2 text-xs ${locked.has(i) ? 'text-accent' : 'text-muted hover:text-ink'}`} aria-label={`${locked.has(i) ? 'Lås opp' : 'Lås'} ${t.title}`}>
                         {locked.has(i) ? '🔒 låst' : 'lås'}
                       </button>
-                      <button type="button" onClick={() => setSwapAt(swapAt === i ? null : i)} className="h-8 rounded-full border border-white/10 px-2.5 text-xs text-soft hover:text-ink" aria-expanded={swapAt === i}>
+                      <button type="button" onClick={() => setSwapAt(swapAt === i ? null : i)} className="h-8 rounded-full bg-white/[0.04] px-2.5 text-xs text-soft hover:text-ink" aria-expanded={swapAt === i}>
                         Bytt ut
                       </button>
                       <button type="button" onClick={() => move(i, -1)} aria-label={`Flytt ${t.title} opp`} className="h-8 w-7 text-muted hover:text-ink">
@@ -402,7 +402,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
                       </button>
                     </div>
                     {swapAt === i && (
-                      <ul aria-label={`Alternativer til ${t.title}`} className="m-0 ml-9 flex list-none flex-col gap-1 rounded-xl border border-white/10 bg-white/[0.02] p-2">
+                      <ul aria-label={`Alternativer til ${t.title}`} className="m-0 ml-9 flex list-none flex-col gap-1 rounded-xl bg-white/[0.02] p-2">
                         {replacementsFor(cur.tracks, i, pool, options()).map(({ track: r }) => (
                           <li key={r.id}>
                             <button type="button" onClick={() => replace(i, r)} className="flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-sm hover:bg-white/[0.05]">
@@ -447,13 +447,13 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
               <button type="button" onClick={() => void save()} className="h-10 rounded-full bg-accent px-4 text-sm font-semibold text-on-accent">
                 Lagre under Planlagte sett
               </button>
-              <button type="button" onClick={cheatSheet} className="h-10 rounded-full border border-white/15 px-4 text-sm text-ink">
+              <button type="button" onClick={cheatSheet} className="h-10 rounded-full bg-white/[0.04] px-4 text-sm text-ink">
                 Jukselapp (PDF)
               </button>
-              <button type="button" onClick={() => void download('rekordbox')} className="h-10 rounded-full border border-white/15 px-4 text-sm text-ink">
+              <button type="button" onClick={() => void download('rekordbox')} className="h-10 rounded-full bg-white/[0.04] px-4 text-sm text-ink">
                 rekordbox XML
               </button>
-              <button type="button" onClick={() => void download('m3u')} className="h-10 rounded-full border border-white/15 px-4 text-sm text-ink">
+              <button type="button" onClick={() => void download('m3u')} className="h-10 rounded-full bg-white/[0.04] px-4 text-sm text-ink">
                 M3U
               </button>
             </div>
@@ -525,7 +525,7 @@ function TrackPicker({
           const t = pool.find((x) => x.id === id);
           const pos = positions?.find((p) => p.id === id)?.position ?? null;
           return (
-            <span key={id} className="flex items-center gap-1 rounded-full border border-white/15 px-2 py-0.5 text-xs text-ink">
+            <span key={id} className="flex items-center gap-1 rounded-full bg-white/[0.04] px-2 py-0.5 text-xs text-ink">
               {t?.title}
               {setPosition && (
                 <input

@@ -13,6 +13,12 @@ export interface VaultConfig {
   audio: { targetLufs: number };
   /** Del 8: kategorisering. Lengre enn grensen = live-sett; regler på filnavn kan sette type/variant. */
   ingest: { setThresholdMinutes: number; rules: IngestRule[] };
+  /**
+   * Tekst etter ingest: låta legges i en bakgrunnskø (Demucs + WhisperX). Har Knut tekst fra før
+   * (limt inn i Studio, eller .txt med samme navn som lydfila), beregnes bare ordtidene.
+   * `language` null = oppdages automatisk.
+   */
+  lyrics: { auto: boolean; model: string; language: string | null };
   /** Del 8: farger fra cover. */
   colors: { minContrast: number; colorFallback: boolean };
   /** Del 8: standarder for drops (lagres nå, brukes i delingsfasen). */
@@ -26,6 +32,12 @@ export interface VaultConfig {
   exportDir: string | null;
   /** Del 16: utkastmappa (umastrede låter, undermapper tillatt). Lokal; ellers GH_DRAFT_DIR. Kun lesing. */
   draftDir: string | null;
+  /**
+   * Del 23 nivå 2: AI-cover via bulkIMG / AURORA Asset Studio (løs kobling, ingen nøkler i Vault).
+   * Vault skriver CSV-er til `bulkimgInbox` og leser eksporter (med manifest.json) fra `bulkimgExports`.
+   * Maskinspesifikt: lagres bare i groovehouse.local.json.
+   */
+  covers: { bulkimgInbox: string; bulkimgExports: string };
 }
 
 /** «* (Live *)» → set. Mønster med * som jokertegn, uten hensyn til store/små bokstaver. */
@@ -56,11 +68,13 @@ const FALLBACK: VaultConfig = {
   titleCleanup: { remove: ['suno ai', 'suno'] },
   audio: { targetLufs: -14 },
   ingest: { setThresholdMinutes: 20, rules: [] },
+  lyrics: { auto: true, model: 'large-v2', language: null },
   colors: { minContrast: 4.5, colorFallback: true },
   drops: { tier: 'partner', ttlDays: 30, maxDevices: 2, watermark: true },
   analysis: { keyMethod: 'krumhansl' },
   exportDir: null,
-  draftDir: null
+  draftDir: null,
+  covers: { bulkimgInbox: 'F:\\prosjekter_MAIN\\bulkIMG\\imports\\groovehouse', bulkimgExports: 'F:\\prosjekter_MAIN\\bulkIMG\\repo\\exports' }
 };
 export const DEFAULTS: Readonly<VaultConfig> = FALLBACK;
 
@@ -115,12 +129,17 @@ export function loadConfig(root = findRoot()): VaultConfig {
     titleCleanup: { remove: l.titleCleanup?.remove ?? j.titleCleanup?.remove ?? FALLBACK.titleCleanup.remove },
     audio: { ...FALLBACK.audio, ...(j.audio ?? {}), ...(l.audio ?? {}) },
     ingest: { ...FALLBACK.ingest, ...(j.ingest ?? {}), ...(l.ingest ?? {}) },
+    lyrics: { ...FALLBACK.lyrics, ...(j.lyrics ?? {}), ...(l.lyrics ?? {}) },
     colors: legacyColors({ ...FALLBACK.colors, ...(j.colors ?? {}), ...(l.colors ?? {}) }),
     drops: { ...FALLBACK.drops, ...(j.drops ?? {}), ...(l.drops ?? {}) },
     analysis: { keyMethod: (l.analysis?.keyMethod ?? j.analysis?.keyMethod) === 'edma' ? 'edma' : 'krumhansl' },
     // Eksportmappa er maskinspesifikk: bare fra den lokale fila (eller .env)
     exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null,
-    draftDir: typeof l.draftDir === 'string' && l.draftDir ? l.draftDir : process.env.GH_DRAFT_DIR ?? null
+    draftDir: typeof l.draftDir === 'string' && l.draftDir ? l.draftDir : process.env.GH_DRAFT_DIR ?? null,
+    covers: {
+      bulkimgInbox: typeof l.covers?.bulkimgInbox === 'string' && l.covers.bulkimgInbox ? l.covers.bulkimgInbox : FALLBACK.covers.bulkimgInbox,
+      bulkimgExports: typeof l.covers?.bulkimgExports === 'string' && l.covers.bulkimgExports ? l.covers.bulkimgExports : FALLBACK.covers.bulkimgExports
+    }
   };
 }
 

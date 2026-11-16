@@ -5,7 +5,7 @@
   "mode": "fixed", "accent": "#EE5FD6", "accent2": "#A35BFF", "accent3": "#7F8CFF",
   "background": { "base": "#05030C", "surface": "#120A22", "sunken": "#0A0617", "panelTint": "#C9A2FF", "panelAlpha": 4, "moon": "#E645C6" },
   "glow": 75, "border": 32, "radius": 18,
-  "waveform": "gradient", "goldFrame": false, "logo": "echo-groove",
+  "waveform": "gradient", "displayFont": "satoshi", "goldFrame": false, "logo": "echo-groove",
   "brand": {
     "labels": "MUSIC · PEOPLE · NIGHTS · NO LIMITS",
     "taglines": ["Let the music find you", "Music lives here", "Deeper · Louder · Hotter", "House music for late nights"],

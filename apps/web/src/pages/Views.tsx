@@ -20,7 +20,7 @@ import { skinTrackVars } from '../lib/skin';
 
 type PlayFn = (t: Track, v?: LoadedAsset, atMs?: number) => void;
 
-const H1 = ({ children }: { children: ReactNode }) => <h1 className="m-0 text-[28px] font-bold tracking-tight text-ink-strong lg:text-[32px]">{children}</h1>;
+const H1 = ({ children }: { children: ReactNode }) => <h1 className="gv-display m-0 text-[30px] font-semibold text-ink-strong lg:text-[34px]">{children}</h1>;
 
 function useListens(): ListenLog | null | undefined {
   const [log, setLog] = useState<ListenLog | null | undefined>(undefined);
@@ -97,7 +97,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
               {formatTime(resume.at)} / {formatTime(resume.a.manifest.durationMs)}
             </span>
           </span>
-          <button type="button" aria-label={`Fortsett ${resume.a.manifest.title}`} onClick={() => onPlay(resume.t!, resume.a, resume.at)} className="gv-neon-soft flex h-12 w-12 flex-none items-center justify-center rounded-full border-2 border-accent text-accent">
+          <button type="button" aria-label={`Fortsett ${resume.a.manifest.title}`} onClick={() => onPlay(resume.t!, resume.a, resume.at)} className="gv-play flex h-12 w-12 flex-none items-center justify-center rounded-full">
             <PlayIcon width={20} height={20} className="ml-0.5" />
           </button>
         </section>
@@ -179,7 +179,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
                   <button
                     type="button"
                     onClick={() => onOpenList(v.id)}
-                    className="flex w-full flex-col gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-2.5 text-left transition-all hover:border-white/[0.16] hover:bg-white/[0.045]"
+                    className="flex w-full flex-col gap-2 rounded-2xl bg-white/[0.025] p-2.5 text-left transition-all hover:bg-white/[0.06]"
                   >
                     <span className="w-full overflow-hidden rounded-xl [&>*]:!h-auto [&>*]:!w-full [&>*]:aspect-square">
                       <ListCover v={v} size={160} rounded={12} />
@@ -403,7 +403,7 @@ export function StatsView({ tracks, onPlay }: { tracks: Track[]; onPlay: PlayFn 
                 return (
                   <li key={s}>
                     <button type="button" onClick={() => onPlay(t)} className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-white/[0.03]">
-                      <span className="w-5 text-right font-mono text-xs text-muted">{i + 1}</span>
+                      <span className="w-5 text-right font-mono text-[13px] text-muted">{i + 1}</span>
                       <span className="w-36 truncate text-sm text-ink-strong sm:w-48">{t.main.manifest.title}</span>
                       <span className="relative h-2 flex-1 overflow-hidden rounded-full bg-white/[0.05]">
                         <span className="gv-neon absolute inset-y-0 left-0 rounded-full bg-accent" style={{ width: `${(v.plays / maxPlays) * 100}%` }} />
@@ -436,7 +436,7 @@ export function StatsView({ tracks, onPlay }: { tracks: Track[]; onPlay: PlayFn 
             {[...camelots.entries()]
               .sort((a, b) => b[1] - a[1])
               .map(([c, ms]) => (
-                <span key={c} className="rounded-lg border border-white/10 px-2.5 py-1 font-mono text-[12px] text-ink">
+                <span key={c} className="rounded-lg bg-white/[0.05] px-2.5 py-1 font-mono text-[13px] text-ink">
                   {c} <span className="text-muted">{hours(ms)}</span>
                 </span>
               ))}

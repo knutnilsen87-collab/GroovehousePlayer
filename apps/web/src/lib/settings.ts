@@ -11,6 +11,10 @@ export interface IngestRule {
 export interface Editable {
   audio: { targetLufs: number };
   ingest: { setThresholdMinutes: number; rules: IngestRule[] };
+  /** Tekst etter ingest (Demucs + WhisperX i bakgrunnen). language null = automatisk. */
+  lyrics: { auto: boolean; model: string; language: string | null };
+  /** Del 23: bulkIMG (lagres lokalt på denne PC-en). */
+  covers: { bulkimgInbox: string; bulkimgExports: string };
   colors: { minContrast: number; colorFallback: boolean };
   drops: { tier: Tier; ttlDays: number; maxDevices: number; watermark: boolean };
   defaults: { artist: string | null; label: string | null; copyright: string | null };

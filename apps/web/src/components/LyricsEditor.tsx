@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatTimeMs, parseLyrics, parseLyricWords } from '@gv/shared/web';
 import type { LoadedAsset } from '../lib/catalog';
-import { fetchLyrics, saveLyrics, transcribeLyrics } from '../lib/library';
+import { approveLyrics, fetchLyrics, saveLyrics, transcribeLyrics, type LyricsMeta } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
 
 /** «[01:02.50]» fra posisjonen nå – til å synkronisere linje for linje mens låta spilles. */
@@ -18,6 +18,7 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
   const [busy, setBusy] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [meta, setMeta] = useState<LyricsMeta | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const isCur = usePlayer((s) => s.queue[s.index]?.manifest.slug === slug);
   useEffect(() => {
@@ -26,6 +27,7 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
       if (!alive) return;
       setText(l?.text.trimEnd() ?? '');
       setSaved(l?.text.trimEnd() ?? '');
+      setMeta(l?.meta ?? null);
     });
     return () => {
       alive = false;
@@ -67,10 +69,34 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
   };
 
   return (
-    <section aria-label="Sangtekst" className="flex flex-col gap-2 rounded-xl border border-white/[0.07] bg-white/[0.02] p-3">
+    <section aria-label="Sangtekst" className="flex flex-col gap-2 rounded-xl bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="gv-label m-0">Tekst & Karaoke-synk</h3>
+          {meta?.source === 'auto' && !meta.approved && (
+            <span className="flex items-center gap-1.5">
+              <span title="Teksten er transkribert automatisk fra lyden. Les den gjennom, rett feil og godkjenn." className="rounded-full bg-accent-2/[0.18] px-2 py-0.5 text-[11px] font-semibold text-ink-strong">
+                Auto – sjekk teksten
+              </span>
+              <button
+                type="button"
+                disabled={busy || dirty}
+                title={dirty ? 'Lagre endringene først' : 'Teksten er sjekket'}
+                onClick={async () => {
+                  try {
+                    await approveLyrics(slug);
+                    setMeta({ ...meta, approved: true });
+                    setMsg({ ok: true, text: 'Teksten er godkjent.' });
+                  } catch (err) {
+                    setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
+                  }
+                }}
+                className="h-7 rounded-full bg-accent/[0.16] px-3 text-[11px] font-semibold text-accent hover:bg-accent/25 disabled:opacity-40"
+              >
+                Godkjenn
+              </button>
+            </span>
+          )}
           {wordParsed.wordSynced && (
             <span className="rounded-full border border-accent/40 bg-accent/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-accent">
               ORD-SYNK ({wordParsed.words.length} ord)
@@ -92,13 +118,19 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
             disabled={transcribing || busy}
             onClick={async () => {
               setTranscribing(true);
-              setMsg({ ok: true, text: 'Isolerer vokal (Demucs) og synkroniserer ord (WhisperX) …' });
+              setMsg({ ok: true, text: text.trim() && !wordParsed.wordSynced ? 'Beregner ordtider for teksten din (Demucs + WhisperX) …' : 'Isolerer vokal (Demucs) og transkriberer (WhisperX) …' });
               try {
+                // Ulagret tekst lagres først, så den brukes (bare ordtider) i stedet for å transkribere lyden
+                if (dirty && text.trim()) {
+                  await saveLyrics(slug, 'txt', text);
+                  setSaved(text);
+                }
                 const res = await transcribeLyrics(slug);
                 const clean = res.data.text.trimEnd();
                 setText(clean);
                 setSaved(clean);
-                setMsg({ ok: true, text: `Ferdig! ${res.wordCount} ord synkronisert og lagret.` });
+                setMeta(res.data.meta ?? null);
+                setMsg({ ok: true, text: `Ferdig på ${Math.round(res.ms / 1000)} s: ${res.wordCount} ord ${res.mode === 'auto' ? 'transkribert – sjekk teksten' : 'med ordtider'}.` });
               } catch (err) {
                 setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
               } finally {
@@ -107,7 +139,7 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
             }}
             className="h-7 rounded-full border border-accent/50 bg-accent/10 px-3 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/20 disabled:opacity-40"
           >
-            {transcribing ? 'Transkriberer …' : 'Auto-transkriber (Demucs + WhisperX)'}
+            {transcribing ? 'Jobber …' : text.trim() && !wordParsed.wordSynced ? 'Synkroniser ordtider' : 'Auto-transkriber (Demucs + WhisperX)'}
           </button>
           <button
             type="button"
@@ -165,7 +197,7 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
           Lagre tekst
         </button>
         {dirty && (
-          <button type="button" onClick={() => setText(saved)} className="h-9 rounded-full border border-white/10 px-3 text-sm text-soft hover:text-ink">
+          <button type="button" onClick={() => setText(saved)} className="h-9 rounded-full bg-white/[0.04] px-3 text-sm text-soft hover:text-ink">
             Angre endringer
           </button>
         )}

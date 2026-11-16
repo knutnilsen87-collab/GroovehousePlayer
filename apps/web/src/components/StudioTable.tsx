@@ -64,7 +64,7 @@ export function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedA
         </select>
         <ChevronDownIcon width={12} height={12} className="pointer-events-none absolute right-0 text-soft" />
       </span>
-      <span aria-hidden="true" className="rounded border border-white/10 px-1 font-mono text-[9px] tracking-[1px]">
+      <span aria-hidden="true" className="rounded bg-white/[0.04] px-1 font-mono text-[9px] tracking-[1px]">
         {t.variants.length} VAR
       </span>
     </label>
@@ -111,13 +111,13 @@ export function StudioTable({
           <button
             type="button"
             onClick={() => onSort(active ? (sort!.dir === 1 ? { key, dir: -1 } : { key: 'none', dir: 1 }) : { key, dir: key === 'bpm' ? -1 : 1 })}
-            className={`inline-flex items-center gap-1 font-semibold uppercase tracking-[0.16em] ${active ? 'text-accent' : 'text-soft hover:text-ink-strong'}`}
+            className={`inline-flex items-center gap-1 font-label text-[11px] font-bold uppercase tracking-[0.16em] ${active ? 'text-accent' : 'text-muted hover:text-ink-strong'}`}
           >
             {name}
             {active && <ChevronDownIcon width={11} height={11} className={sort!.dir === 1 ? 'rotate-180' : ''} />}
           </button>
         ) : (
-          <span className="font-semibold uppercase tracking-[0.16em] text-soft">{name}</span>
+          <span className="font-label text-[11px] font-bold uppercase tracking-[0.16em] text-muted">{name}</span>
         )}
       </th>
     );
@@ -127,7 +127,7 @@ export function StudioTable({
       {selected.length > 1 && <p className="m-0 mb-2 text-[11px] text-soft">{selected.length} valgt · dra til en liste i sidemenyen, eller høyreklikk → Legg til i spilleliste · Esc fjerner valget</p>}
       <table aria-label={label} className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
-          <tr className="border-b border-white/[0.08] text-left font-mono text-[11px] font-semibold text-soft">
+          <tr className="text-left font-label text-[11px] font-bold text-muted">
             <th scope="col" className="w-10 pb-3 pl-2.5 font-semibold">
               #
             </th>
@@ -176,8 +176,8 @@ export function StudioTable({
                   e.preventDefault();
                   onContext(t.slug, { x: e.clientX, y: e.clientY });
                 }}
-                className={`group border-t border-white/[0.05] transition-colors first:border-t-0 ${
-                  isCur ? 'gv-neon-soft bg-accent/[0.16] [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg' : sel ? 'bg-white/[0.08]' : 'hover:bg-white/[0.035]'
+                className={`group transition-colors [&>td:last-child]:rounded-r-lg ${
+                  isCur ? 'bg-accent/[0.05] [&>td:first-child]:shadow-[inset_2px_0_0_var(--accent)]' : sel ? 'bg-white/[0.08] [&>td:first-child]:rounded-l-lg' : 'hover:bg-white/[0.035] [&>td:first-child]:rounded-l-lg'
                 }`}
                 style={isCur ? undefined : trackVars(m)}
               >
@@ -189,9 +189,9 @@ export function StudioTable({
                 </td>
                 <td className="py-2.5 pr-4">
                   <div className="flex min-w-0 flex-col">
-                    <button type="button" onClick={() => onPlay(t)} className={`truncate text-left text-[14.5px] font-semibold ${isCur ? 'text-ink-strong' : 'text-ink-strong'} hover:underline`}>
+                    <button type="button" onClick={() => onPlay(t)} className={`truncate text-left text-[14.5px] ${isCur ? 'font-bold text-accent' : 'font-semibold text-ink-strong'} hover:underline`}>
                       {m.title}
-                      {m.kind === 'set' && <span className="ml-2 rounded border border-white/15 px-1 align-middle font-mono text-[9px] tracking-[1px] text-soft">LIVE</span>}
+                      {m.kind === 'set' && <span className="ml-2 rounded bg-white/[0.08] px-1 align-middle font-label text-[9px] font-bold tracking-[0.14em] text-soft">LIVE</span>}
                       <DraftBadge m={m} className="ml-2" />
                     </button>
                     <VariantSelect t={t} value={a} onChange={(v) => onPlay(t, v)} />

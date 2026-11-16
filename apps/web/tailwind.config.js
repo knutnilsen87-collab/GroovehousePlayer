@@ -23,9 +23,11 @@ export default {
         'on-accent': 'var(--on-accent)'
       },
       fontFamily: {
-        display: ['Satoshi', 'system-ui', 'sans-serif'],
-        sans: ['Satoshi', 'system-ui', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
+        // Del 22: Clash Display (via --font-display, skin kan overstyre), Inter, Geist Mono og Syncopate til etiketter
+        display: ['var(--font-display)'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['"Geist Mono"', 'ui-monospace', 'monospace'],
+        label: ['Syncopate', 'Inter', 'sans-serif']
       },
       backgroundImage: {
         gold: 'linear-gradient(135deg, #F0DC6A 0%, #F0C030 45%, #B06000 100%)'

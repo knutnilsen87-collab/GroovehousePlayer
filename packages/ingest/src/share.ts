@@ -5,6 +5,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { isDraft, draftTitle, DRAFT_ALBUM, shareFileName, type AssetManifest, type ShareKind } from '@gv/shared';
 import { FFMPEG, FFPROBE, run } from './ffmpeg';
+import { coverInputOf, readAnalysis, renderVaultCover, VAULT_COVER_VERSION } from './vault-cover';
 
 /**
  * Del 10: Vaults egen tapsfrie kopi av masteren, og filene som deles (WhatsApp, e-post …).
@@ -56,21 +57,15 @@ export interface ShareFile {
 
 const yearOf = (m: AssetManifest) => Number((m.copyright ?? '').match(/\b(19|20)\d{2}\b/)?.[0] ?? new Date(m.createdAt).getFullYear());
 
-/** Reservecover for låter uten cover: mørk bunn, ring i standardfargen (grønn), merket og tittelen. Bare for delte filer. */
-async function fallbackCover(dir: string, m: AssetManifest, logo: string | null): Promise<string> {
-  const out = path.join(dir, `cover-fallback-${createHash('sha1').update(m.title).digest('hex').slice(0, 10)}.jpg`);
+/**
+ * Reservecover for låter uten cover (eldre versjoner fra før del 23): samme Vault-cover som spilleren
+ * bruker, laget av låtas toneart, bølgeform og spektrum. Nye låter har det allerede som cover.jpg.
+ */
+async function fallbackCover(dir: string, versionDir: string, m: AssetManifest, logo: string | null): Promise<string> {
+  const out = path.join(dir, `cover-vault-v${VAULT_COVER_VERSION}.jpg`);
   if (existsSync(out)) return out;
-  const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-  const title = m.title.length > 28 ? `${m.title.slice(0, 27)}…` : m.title;
-  const svg = Buffer.from(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200"><rect width="1200" height="1200" fill="#07080B"/>` +
-      `<circle cx="600" cy="520" r="360" fill="none" stroke="#06B211" stroke-width="10" opacity="0.85"/>` +
-      `<text x="600" y="1030" font-family="Oswald, Arial Narrow, Arial, sans-serif" font-size="72" font-weight="600" fill="#F4EEDD" text-anchor="middle" letter-spacing="4">${esc(title.toUpperCase())}</text>` +
-      `<text x="600" y="1110" font-family="Inter, Arial, sans-serif" font-size="34" fill="#C9B98E" text-anchor="middle" letter-spacing="8">ECHO GROOVE · GROOVEHOUSE RECORDS</text></svg>`
-  );
-  const layers: sharp.OverlayOptions[] = [];
-  if (logo && existsSync(logo)) layers.push({ input: await sharp(logo).resize(520, 520, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } }).toBuffer(), left: 340, top: 260 });
-  await sharp(svg).composite(layers).jpeg({ quality: 88, mozjpeg: true }).toFile(`${out}.tmp`);
+  const png = await renderVaultCover(coverInputOf(m, await readAnalysis(versionDir, m.files.analysis)), { size: 1500, logo });
+  await sharp(png).jpeg({ quality: 90, mozjpeg: true }).toFile(`${out}.tmp`);
   await rename(`${out}.tmp`, out);
   return out;
 }
@@ -117,7 +112,7 @@ export async function ensureShareFile(o: { versionDir: string; manifest: AssetMa
         await run(FFMPEG, ['-y', '-v', 'error', '-i', master, '-map', '0:a:0', '-map_metadata', '-1', '-c:a', bits > 16 ? 'pcm_s24le' : 'pcm_s16le', ...tags, '-write_bext', '0', tmp]);
       }
     } else {
-      const cover = m.files.cover ? path.join(o.versionDir, m.files.cover) : await fallbackCover(dir, m, o.logo ?? null);
+      const cover = m.files.cover ? path.join(o.versionDir, m.files.cover) : await fallbackCover(dir, o.versionDir, m, o.logo ?? null);
       const audioIn = o.kind === 'full' ? findMaster(o.versionDir) : m.files.preview ? path.join(o.versionDir, m.files.preview) : null;
       if (!audioIn) throw new ShareError(409, o.kind === 'full' ? 'Vault har ikke en kopi av masteren for denne versjonen ennå (kjør «pnpm gh-ingest --backfill-masters»).' : 'Fant ikke smakebiten (preview.m4a).');
       const audioCodec = o.kind === 'full' ? ['-c:a', 'aac', '-b:a', '256k'] : ['-c:a', 'copy'];

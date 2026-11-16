@@ -10,6 +10,12 @@ import type { Palette } from './types';
  */
 export type SkinMode = 'chameleon' | 'fixed';
 export type WaveformStyle = 'accent' | '3band' | 'gradient';
+/** Del 22: selvhostede display-fonter et skin kan velge. */
+export type DisplayFont = 'clash' | 'satoshi';
+export const DISPLAY_FONTS: Record<DisplayFont, string> = {
+  clash: "'Clash Display', 'Inter', system-ui, sans-serif",
+  satoshi: "'Satoshi', 'Inter', system-ui, sans-serif"
+};
 
 export interface SkinBrand {
   /** Paneletikett i sperret versal, f.eks. «MUSIC · PEOPLE · NIGHTS · NO LIMITS». */
@@ -58,6 +64,10 @@ export interface Skin {
   frame?: string | null;
   /** Logo i sidemeny og oppstart. echo-groove faller tilbake til Groovehouse til fila finnes. */
   logo: 'groovehouse' | 'echo-groove';
+  /** Del 22: display-font for titler og store tall. Standard Clash Display; resten av skriften er felles. */
+  displayFont?: DisplayFont;
+  /** Del 22: glass (backdrop-blur). false = ingen blur (OLED Svart). Standard på. */
+  glass?: boolean;
   brand?: SkinBrand | null;
   /** Ferdig skin (i kode) eller eget (data/skins/). */
   builtIn?: boolean;
@@ -148,6 +158,8 @@ export function validateSkin(input: unknown): Skin {
     goldFrame: s.goldFrame === true,
     frame: hexOr(s.frame, null),
     logo: s.logo === 'echo-groove' ? 'echo-groove' : 'groovehouse',
+    displayFont: s.displayFont === 'satoshi' ? 'satoshi' : 'clash',
+    glass: s.glass !== false,
     brand: null,
     builtIn: false
   };
@@ -210,7 +222,11 @@ export function skinRootVars(skin: Skin): Record<string, string> {
     '--border-pct': `${skin.border}%`,
     '--panel-radius': `${skin.radius}px`,
     '--moon': b.moon ? withAlpha(b.moon, 0.22) : 'transparent',
-    '--frame': skin.goldFrame && skin.frame ? skin.frame : 'color-mix(in srgb, var(--accent) var(--border-pct), transparent)'
+    '--frame': skin.goldFrame && skin.frame ? skin.frame : 'color-mix(in srgb, var(--accent) var(--border-pct), transparent)',
+    // Del 22: ingen panelkanter, bortsett fra skin som velger ramme selv (Gull klassisk)
+    '--panel-edge': skin.goldFrame && skin.frame ? withAlpha(skin.frame, 0.55) : 'transparent',
+    '--font-display': DISPLAY_FONTS[skin.displayFont ?? 'clash'],
+    '--glass-blur': skin.glass === false ? 'none' : 'blur(24px) saturate(140%)'
   };
 }
 

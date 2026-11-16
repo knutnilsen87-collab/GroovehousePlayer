@@ -117,16 +117,41 @@ const posFor = (a: LoadedAsset) => {
 
 // ---------------------------------------------------------------- Stor bølgeform
 
+/** Del 22: stolpene i den store bølgeformen (fra Knuts utkast): 3 px bredde, 2 px mellomrom, 2 px avrunding. */
+export const WAVE_BAR = 3;
+export const WAVE_GAP = 2;
+export const WAVE_RADIUS = 2;
+/** Antall stolper som får plass i en bredde, kant til kant. */
+export const waveBarCount = (w: number) => Math.max(16, Math.floor((w + WAVE_GAP) / (WAVE_BAR + WAVE_GAP)));
+
+/** Stolpene som én sti (bygges når bredde/høyde/låt endres, ikke i hver frame). Vertikalt normalisert: høyeste stolpe fyller hele høyden. */
+function barPath(bars: number[], height: number): Path2D {
+  const p = new Path2D();
+  const max = Math.max(1e-6, ...bars);
+  const mid = height / 2;
+  const round = typeof p.roundRect === 'function';
+  bars.forEach((v, i) => {
+    const h = Math.max(2, (v / max) * height);
+    const x = i * (WAVE_BAR + WAVE_GAP);
+    if (round) p.roundRect(x, mid - h / 2, WAVE_BAR, h, Math.min(WAVE_RADIUS, h / 2));
+    else p.rect(x, mid - h / 2, WAVE_BAR, h);
+  });
+  return p;
+}
+
 /**
- * Spilt del i aksent med glød, uspilt i grått, tynn spillehode-linje, A·B-løkke som markert felt.
+ * Del 22: stolpe-bølgeform fra analysis.json (ingen Web Audio), kant til kant. Uspilt del i aksent-2 på 30 %,
+ * spilt del i aksent på 90 % (Echo Groove Nights: gradient), skarpt hvitt spillehode med svak glød og et
+ * glød-lag bak som tennes når avspillingen går. `children` legges oppå (tidene i hjørnene).
  * Klikk = spol. Dra = sett A·B-løkke (festes til takter; hold Shift for å slå av).
  * Tastatur: ←/→ 5 s, Shift+←/→ 1 s.
  */
-export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop }: { asset: LoadedAsset; height?: number; loop: Loop | null; onSeek: (ms: number) => void; onLoop: (a: number, b: number, snap: boolean) => void }) {
+export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop, children }: { asset: LoadedAsset; height?: number; loop: Loop | null; onSeek: (ms: number) => void; onLoop: (a: number, b: number, snap: boolean) => void; children?: React.ReactNode }) {
   const { ref, w } = useCanvasSize();
   const m = asset.manifest;
   const dur = m.durationMs;
-  const bars = useMemo(() => shaped(asset, Math.max(32, Math.floor(w / 3))), [asset, w]);
+  const bars = useMemo(() => shaped(asset, waveBarCount(w)), [asset, w]);
+  const path = useMemo(() => barPath(bars, height), [bars, height]);
   const sections = useMemo(() => sectionsOf(m.markers), [m.markers]);
   const drag = useRef<{ x0: number; x: number; moved: boolean } | null>(null);
   const [, force] = useState(0);
@@ -134,6 +159,8 @@ export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop }: { ass
   useEffect(() => {
     colors.current = null;
   }, [asset]);
+  const isCur = usePlayer((s) => s.queue[s.index]?.manifest.id === m.id);
+  const playing = usePlayer((s) => s.playing) && isCur;
 
   useFrames(
     ref,
@@ -143,10 +170,7 @@ export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop }: { ass
       const ctx = prep(c, w, height);
       const col = (colors.current ??= accentOf(c));
       const pos = posFor(asset);
-      const px = (pos / dur) * w;
-      const mid = height / 2;
-      const step = w / bars.length;
-      const bw = Math.max(1, step - 1);
+      const px = Math.min(w, (pos / dur) * w);
       // A·B-løkke
       const l = drag.current?.moved ? { a: (Math.min(drag.current.x0, drag.current.x) / w) * dur, b: (Math.max(drag.current.x0, drag.current.x) / w) * dur } : loop;
       if (l) {
@@ -158,38 +182,41 @@ export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop }: { ass
         ctx.fillRect(x0, 0, 1, height);
         ctx.fillRect(x1 - 1, 0, 1, height);
       }
-      // Uspilt (grått)
-      ctx.fillStyle = 'rgba(255,255,255,0.26)';
-      ctx.beginPath();
-      bars.forEach((v, i) => {
-        const x = i * step;
-        if (x + bw <= px) return;
-        const h = v * (height - 6);
-        ctx.rect(x, mid - h / 2, bw, h);
-      });
-      ctx.fill();
-      // Spilt (aksent med glød)
+      // Uspilt: aksent-2 på ca. 30 %
       ctx.save();
-      ctx.shadowColor = rgba(col.a, 0.9);
-      ctx.shadowBlur = 10;
-      ctx.fillStyle = col.a;
       ctx.beginPath();
-      bars.forEach((v, i) => {
-        const x = i * step;
-        if (x >= px) return;
-        const h = v * (height - 6);
-        ctx.rect(x, mid - h / 2, Math.min(bw, px - x), h);
-      });
-      ctx.fill();
+      ctx.rect(px, 0, w - px, height);
+      ctx.clip();
+      ctx.fillStyle = rgba(col.b, 0.3);
+      ctx.fill(path);
       ctx.restore();
+      // Spilt: aksent på ca. 90 % (gradient-skin: aksent → aksent-2 nedover)
+      if (px > 0) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, px, height);
+        ctx.clip();
+        if (document.documentElement.dataset.wave === 'gradient') {
+          const g = ctx.createLinearGradient(0, 0, 0, height);
+          g.addColorStop(0, rgba(col.a, 0.9));
+          g.addColorStop(1, rgba(col.b, 0.9));
+          ctx.fillStyle = g;
+        } else ctx.fillStyle = rgba(col.a, 0.9);
+        ctx.fill(path);
+        ctx.restore();
+      }
       // Seksjonsstreker
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      for (const s of sections) if (s.startMs > 0) ctx.fillRect((s.startMs / dur) * w, 0, 1, 6);
-      // Spillehode
-      ctx.fillStyle = '#F5F7FA';
-      ctx.fillRect(Math.round(px) - 1, 0, 2, height);
+      ctx.fillStyle = 'rgba(255,255,255,0.22)';
+      for (const s of sections) if (s.startMs > 0) ctx.fillRect(Math.round((s.startMs / dur) * w), 0, 1, 5);
+      // Spillehode: 2 px hvitt med svak glød
+      ctx.save();
+      ctx.shadowColor = 'rgba(255,255,255,0.7)';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(Math.max(0, Math.min(w - 2, Math.round(px) - 1)), 0, 2, height);
+      ctx.restore();
     },
-    [w, height, bars, loop, asset]
+    [w, height, path, loop, asset]
   );
 
   const ratioAt = (clientX: number) => {
@@ -206,6 +233,8 @@ export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop }: { ass
   };
   const pos = usePlayer((s) => s.positionMs);
   return (
+    <div className="relative" style={{ height }}>
+    <span aria-hidden="true" className="gv-wave-glow" data-on={playing ? 'true' : 'false'} />
     <canvas
       ref={ref}
       role="slider"
@@ -236,9 +265,11 @@ export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop }: { ass
         else onSeek(ratioAt(e.clientX) * dur);
         force((n) => n + 1);
       }}
-      className="block w-full cursor-pointer touch-none rounded-lg"
+      className="relative block w-full cursor-pointer touch-none"
       style={{ height }}
     />
+    {children && <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 font-mono text-[13px] text-ink-strong [text-shadow:0_1px_6px_rgba(0,0,0,0.85)]">{children}</div>}
+    </div>
   );
 }
 
@@ -299,7 +330,7 @@ export function ZoomWaveform({ asset, height = 96, onSeek }: { asset: LoadedAsse
         ctx.fillRect(x, mid - h / 2, step - 0.5, h);
       }
       // Seksjoner
-      ctx.font = '600 9px "JetBrains Mono", monospace';
+      ctx.font = '600 9px "Geist Mono", monospace';
       for (const s of sections) {
         const x = (s.startMs - t0) / msPerPx;
         if (x < -40 || x > w) continue;

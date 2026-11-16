@@ -46,7 +46,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
   const hex = /^#[0-9A-F]{6}$/i;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-white/[0.08] bg-sunken/60 p-3">
+    <div className="flex flex-col gap-4 rounded-xl bg-sunken/60 p-3">
       <fieldset className="m-0 flex flex-wrap items-start gap-4 border-0 p-0">
         <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Farge {m.palette.source === 'manual' ? '· valgt manuelt' : '· standard (grønn)'}</legend>
         {(
@@ -71,7 +71,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
         </div>
         {/* Live forhåndsvisning: spiller og drop-side */}
         <div className="flex gap-3" style={paletteToCssVars(preview) as CSSProperties} aria-label="Forhåndsvisning">
-          <div className="flex w-48 items-center gap-2 rounded-xl border border-white/10 bg-surface p-2">
+          <div className="flex w-48 items-center gap-2 rounded-xl bg-surface p-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full text-xs font-bold" style={{ background: primary, color: preview.onPrimary }}>
               ▶
             </span>
@@ -94,7 +94,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
             Lagre farge
           </button>
           {m.palette.source === 'manual' && (
-            <button type="button" disabled={busy} onClick={() => run({ palette: null }, 'Tilbake til automatisk')} className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50">
+            <button type="button" disabled={busy} onClick={() => run({ palette: null }, 'Tilbake til automatisk')} className="min-h-11 rounded-full bg-white/[0.04] px-4 text-xs font-semibold text-ink hover:border-accent/50">
               Tilbakestill til automatisk
             </button>
           )}
@@ -120,7 +120,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
             <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
               {markers.slice(0, 40).map((k) => (
                 <li key={`${k.kind}-${k.startMs}`}>
-                  <button type="button" onClick={() => playFrom([a], 0, shifted(k.startMs))} className="flex h-8 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-[11px] hover:border-accent/50" aria-label={`Spill fra ${k.label ?? k.kind} ${formatTime(shifted(k.startMs))}`}>
+                  <button type="button" onClick={() => playFrom([a], 0, shifted(k.startMs))} className="flex h-8 items-center gap-1.5 rounded-full bg-white/[0.04] px-2.5 text-[11px] hover:border-accent/50" aria-label={`Spill fra ${k.label ?? k.kind} ${formatTime(shifted(k.startMs))}`}>
                     ▶ <span className="tabular text-muted">{formatTime(shifted(k.startMs))}</span> {k.label ?? k.kind}
                   </button>
                 </li>

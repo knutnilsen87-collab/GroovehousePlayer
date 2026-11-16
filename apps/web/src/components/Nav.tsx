@@ -15,7 +15,7 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
   const [open, setOpen] = useState(true);
   const cls = (active: boolean) =>
     `flex min-h-[46px] w-full items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-left text-[15px] transition-colors ${
-      active ? 'gv-neon-soft border border-accent/70 bg-accent/[0.14] font-semibold text-ink-strong [&>svg]:text-accent' : 'border border-transparent text-soft hover:bg-white/[0.04] hover:text-ink-strong [&>svg]:text-soft hover:[&>svg]:text-ink-strong'
+      active ? 'gv-row-active bg-accent/[0.12] font-semibold text-ink-strong [&>svg]:text-accent' : 'text-soft hover:bg-white/[0.04] hover:text-ink-strong [&>svg]:text-soft hover:[&>svg]:text-ink-strong'
     }`;
   const item = (id: View, label: string, Icon: IconT) => (
     <button type="button" aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)} className={cls(view === id)}>
@@ -32,11 +32,11 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
         type="button"
         onClick={onSearch}
         aria-label="Søk i biblioteket"
-        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl border border-white/[0.09] bg-sunken/80 px-3.5 py-2 text-left text-[14px] text-soft shadow-inner transition-colors hover:border-accent/50 hover:bg-white/[0.04] hover:text-ink-strong"
+        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl bg-white/[0.04] px-3.5 py-2 text-left text-[14px] text-soft transition-colors hover:bg-white/[0.07] hover:text-ink-strong"
       >
         <SearchIcon width={18} height={18} className="flex-none text-soft" />
         <span className="truncate">Søk…</span>
-        <kbd className="ml-auto rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-muted">Ctrl K</kbd>
+        <kbd className="ml-auto rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-muted">Ctrl K</kbd>
       </button>
       <nav aria-label="Hovedmeny" className="gv-scroll -mx-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-1">
         {item('home', 'Hjem', HomeIcon)}
@@ -57,7 +57,7 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
               <ChevronDownIcon width={16} height={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
             </button>
           </div>
-          {open && <div className="ml-5 mt-1.5 border-l border-white/[0.09] pl-3">{playlists}</div>}
+          {open && <div className="ml-5 mt-1.5 pl-3">{playlists}</div>}
         </div>
         {item('sets', 'Live-sett', PulseIcon)}
         {item('dj', 'DJ-verktøy', DjIcon)}
@@ -68,7 +68,7 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
           <span className="ml-auto font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Studio</span>
         </a>
       </nav>
-      <div className="flex flex-col gap-1 border-t border-white/[0.07] pt-3">
+      <div className="flex flex-col gap-1 pt-3">
         <a href="/studio/innstillinger" className={`${cls(false)} no-underline`}>
           <SettingsIcon width={20} height={20} className="flex-none" />
           Innstillinger
@@ -89,7 +89,7 @@ export function BottomNav({ view, setView }: { view: View; setView: (v: View) =>
     </button>
   );
   return (
-    <nav aria-label="Hovedmeny" className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.07] bg-sunken/95 pb-[env(safe-area-inset-bottom)] lg:hidden">
+    <nav aria-label="Hovedmeny" className="fixed inset-x-0 bottom-0 z-30 flex bg-sunken/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-1px_0_rgba(255,255,255,0.05),0_-12px_30px_rgba(0,0,0,0.45)] lg:hidden">
       {tab('home', 'Hjem', HomeIcon)}
       {tab('library', 'Bibliotek', LibraryIcon)}
       {tab('sets', 'Live-sett', PulseIcon)}

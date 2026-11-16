@@ -9,6 +9,8 @@ import { useTouchReorder } from '../lib/useTouchReorder';
 import { CoverArt } from './CoverArt';
 import { ChevronDownIcon, GripIcon, TrashIcon } from './Icons';
 import { PresetRow } from './FxChip';
+import { useAiCover } from './AiCover';
+import { isApp } from '../lib/platform';
 import { useFx } from '../lib/fx';
 
 type Panel = 'main' | 'variant' | 'version' | 'section' | 'info' | 'fx' | { extra: number };
@@ -98,7 +100,9 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
         // Del 18: rask idéfangst – ett trykk åpner presetraden, ett trykk til lagrer
         { label: 'Idé for overgang', sub: true, run: () => setPanel('fx') },
         { label: 'Info', sub: true, run: () => setPanel('info') },
-        ...(desktop ? [{ label: 'Åpne i Studio', run: run(() => location.assign(`/studio#arkiv/${encodeURIComponent(m.slug)}`)) }] : [])
+        ...(desktop ? [{ label: 'Åpne i Studio', run: run(() => location.assign(`/studio#arkiv/${encodeURIComponent(m.slug)}`)) }] : []),
+        // Del 23: AI-cover via bulkIMG (bare på PC-en, der bulkIMG kjører)
+        ...(desktop && !isApp ? [{ label: 'Lag AI-cover …', run: run(() => useAiCover.getState().open({ slugs: [m.slug] })) }] : [])
       ];
   const extras: Item[] = (req.extra ?? []).map((x, i) =>
     'options' in x ? { label: x.label, sub: true, run: () => setPanel({ extra: i }) } : { label: x.label, danger: x.danger, run: run(x.run) }
@@ -109,7 +113,7 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
     body = (
       <>
         <ItemList items={mainItems} desktop={desktop} />
-        {extras.length > 0 && <div className="my-1 border-t border-white/[0.07]" />}
+        {extras.length > 0 && <div className="my-1" />}
         <ItemList items={extras} desktop={desktop} />
       </>
     );

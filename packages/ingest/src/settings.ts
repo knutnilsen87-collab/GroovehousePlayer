@@ -14,6 +14,8 @@ import { paletteFrom } from './cover';
 export interface SettingsPatch {
   audio?: Partial<VaultConfig['audio']>;
   ingest?: Partial<VaultConfig['ingest']>;
+  lyrics?: Partial<VaultConfig['lyrics']>;
+  covers?: Partial<VaultConfig['covers']>;
   colors?: Partial<VaultConfig['colors']>;
   drops?: Partial<VaultConfig['drops']>;
   /** Metadata: standard artist/label/copyright-mal ({år}, {label}). */
@@ -26,16 +28,19 @@ export interface SettingsPatch {
   draftDir?: string | null;
 }
 
-export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir' | 'draftDir'>;
+export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'lyrics' | 'covers' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir' | 'draftDir'>;
 
 export const BACKUP_FILE = 'groovehouse.config.backup.json';
 const TIERS = ['partner', 'inner_circle', 'supporter', 'teaser'] as const;
 
 export function editableOf(cfg: VaultConfig): Editable {
-  return { audio: cfg.audio, ingest: cfg.ingest, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir, draftDir: cfg.draftDir };
+  return { audio: cfg.audio, ingest: cfg.ingest, lyrics: cfg.lyrics, covers: cfg.covers, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir, draftDir: cfg.draftDir };
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
+
+/** WhisperX-modeller som kan velges i Innstillinger (større = bedre og tregere). */
+export const LYRICS_MODELS = ['small', 'medium', 'large-v2', 'large-v3'];
 
 /** Returnerer feilmeldinger (tom liste = gyldig). Sjekker hele resultatet, ikke bare endringen. */
 export function validateSettings(patch: SettingsPatch, base: VaultConfig): string[] {
@@ -55,6 +60,13 @@ export function validateSettings(patch: SettingsPatch, base: VaultConfig): strin
       if (r.variant !== undefined && r.variant !== '' && !/^[a-z0-9-]{1,40}$/.test(r.variant)) e.push(`Regel ${n}: variant kan bare ha a–z, 0–9 og bindestrek`);
       if (r.kind === undefined && !r.variant) e.push(`Regel ${n}: sett type eller variant`);
     });
+  for (const [k, label] of [['bulkimgInbox', 'Innboks for bulkIMG'], ['bulkimgExports', 'Eksportmappe for bulkIMG']] as const) {
+    const v = next.covers[k];
+    if (typeof v !== 'string' || !v.trim() || !path.isAbsolute(v.trim()) || v.includes('\0') || v.split(/[\\/]+/).includes('..')) e.push(`${label} må være en full sti (f.eks. F:\\...)`);
+  }
+  if (typeof next.lyrics.auto !== 'boolean') e.push('Automatisk tekst må være av eller på');
+  if (!LYRICS_MODELS.includes(next.lyrics.model)) e.push(`Tekstmodell må være en av ${LYRICS_MODELS.join(', ')}`);
+  if (next.lyrics.language !== null && !/^[a-z]{2}$/.test(String(next.lyrics.language))) e.push('Språk for tekst må være en tobokstavskode (f.eks. en, no) eller automatisk');
   const c = num(next.colors.minContrast);
   if (!(c >= 3 && c <= 7)) e.push('Minste kontrast må være mellom 3 og 7');
   if (typeof next.colors.colorFallback !== 'boolean') e.push('Standardfarge for fargeløse cover må være av eller på');
@@ -90,6 +102,8 @@ function applyPatch(base: VaultConfig, p: SettingsPatch): VaultConfig {
     ...base,
     audio: { ...base.audio, ...(p.audio ?? {}) },
     ingest: { ...base.ingest, ...(p.ingest ?? {}) },
+    lyrics: { ...base.lyrics, ...(p.lyrics ?? {}) },
+    covers: { ...base.covers, ...(p.covers ?? {}) },
     colors: { ...base.colors, ...(p.colors ?? {}) },
     drops: { ...base.drops, ...(p.drops ?? {}) },
     defaults: { ...base.defaults, ...(p.defaults ?? {}) },
@@ -115,10 +129,10 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
   const shared = path.join(root, CONFIG_FILE);
   const j = existsSync(shared) ? (JSON.parse(readFileSync(shared, 'utf8')) as Record<string, unknown>) : {};
   if (existsSync(shared)) copyFileSync(shared, path.join(root, BACKUP_FILE));
-  for (const k of ['audio', 'ingest', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) if (patch[k]) j[k] = next[k];
+  for (const k of ['audio', 'ingest', 'lyrics', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) if (patch[k]) j[k] = next[k];
   writeAtomic(shared, j);
 
-  if (patch.exportDir !== undefined || patch.draftDir !== undefined) {
+  if (patch.exportDir !== undefined || patch.draftDir !== undefined || patch.covers !== undefined) {
     const local = path.join(root, LOCAL_CONFIG_FILE);
     const l = existsSync(local) ? (JSON.parse(readFileSync(local, 'utf8')) as Record<string, unknown>) : {};
     if (patch.exportDir !== undefined) {
@@ -129,6 +143,7 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
       if (next.draftDir) l.draftDir = next.draftDir;
       else delete l.draftDir;
     }
+    if (patch.covers !== undefined) l.covers = { bulkimgInbox: next.covers.bulkimgInbox.trim(), bulkimgExports: next.covers.bulkimgExports.trim() };
     writeAtomic(local, l);
   }
   return loadConfig(root);

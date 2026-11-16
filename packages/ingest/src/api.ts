@@ -9,10 +9,11 @@ import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
 import { retagSlug, setAssetCover, updateCatalog } from './ingest';
 import { ensureShareFile, ShareError } from './share';
-import { DRAFT_BASE, manualPalette, statusOf, validPoint, validateMarkers, versionName, type AssetManifest, type ShareKind } from '@gv/shared';
+import { DRAFT_BASE, manualPalette, statusOf, validPoint, validateMarkers, versionName, type AssetManifest, type CatalogIndex, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
-import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
-import { transcribeLyricsForSlug } from './lyrics-sync';
+import { createFavoritesStore, createListenStore, LibraryError } from './library';
+import { hasWordTimes, sharedLyricsQueue } from './lyrics-queue';
+import { buildCoverPrompt, bulkImgStatus, COVER_STYLES, receiveFromBulkImg, sendToBulkImg } from './bulkimg';
 import { findBrandLogo, handleSkins } from './skins-store';
 import { handleFx } from './fx-store';
 import { BUILT_IN_SKIN_IDS } from '@gv/shared';
@@ -76,7 +77,9 @@ export function createApiHandler(opts: ApiOptions) {
   const dataDir = opts.dataDir ?? path.join(root, 'data');
   const playlists = createPlaylistStore(path.join(dataDir, 'playlists.json'));
   const favorites = createFavoritesStore(path.join(dataDir, 'favorites.json'));
-  const lyrics = createLyricsStore(path.join(dataDir, 'lyrics'));
+  // Tekstkøen (Demucs + WhisperX) deles med watcheren i serveren; samme lager, så skrivingene går i rekkefølge
+  const lyricsQueue = sharedLyricsQueue({ mediaDir: opts.mediaDir, dataDir, root });
+  const lyrics = lyricsQueue.store;
   const listens = createListenStore(path.join(dataDir, 'listens.json'));
   let version = '0.0.0';
   try {
@@ -238,24 +241,80 @@ export function createApiHandler(opts: ApiOptions) {
       return send(res, 200, { manifest: next });
     }
 
-    // Automatisk vokal-separering + ord-synkronisert transkribering (Demucs + WhisperX)
-    const tr = url.pathname.match(/^\/api\/lyrics\/([a-z0-9][a-z0-9-]{0,120})\/transcribe$/);
-    if (tr && req.method === 'POST') {
+    // Del 23 nivå 2: AI-cover via bulkIMG (CSV ut til innboksen, cover inn fra eksportmappa)
+    if (url.pathname.startsWith('/api/ai-covers')) {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const cfg = config();
       try {
-        const body = (req.headers['content-type'] ?? '').startsWith('application/json') ? ((await readJson(req).catch(() => ({}))) as { model?: string; language?: string }) : {};
-        const resLyrics = await transcribeLyricsForSlug({
-          mediaDir: opts.mediaDir,
-          dataDir,
-          slug: tr[1]!,
-          lyricsStore: lyrics,
-          model: typeof body.model === 'string' ? body.model : undefined,
-          language: typeof body.language === 'string' ? body.language : undefined
-        });
-        return send(res, 200, { lyrics: { slug: tr[1]!, format: resLyrics.format, text: resLyrics.text }, wordCount: resLyrics.wordCount });
+        if (url.pathname === '/api/ai-covers' && req.method === 'GET') return send(res, 200, await bulkImgStatus(cfg, dataDir));
+        if (url.pathname === '/api/ai-covers/check' && req.method === 'POST') {
+          const got = await receiveFromBulkImg({ cfg, mediaDir: opts.mediaDir, dataDir });
+          return send(res, 200, { received: got.length, status: await bulkImgStatus(cfg, dataDir) });
+        }
+        if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+        const body = ((await readJson(req, 400_000).catch(() => ({}))) ?? {}) as { slugs?: unknown; all?: unknown; style?: unknown; items?: unknown };
+        if (url.pathname === '/api/ai-covers/preview' && req.method === 'POST') {
+          // Låtene (nyeste versjon per variant) med automatisk prompt. Knut kan redigere prompten før sending.
+          const idx = JSON.parse(await readFile(path.join(opts.mediaDir, 'index.json'), 'utf8')) as CatalogIndex;
+          const want = Array.isArray(body.slugs) ? new Set(body.slugs.filter((s): s is string => typeof s === 'string')) : null;
+          const latest = new Map<string, CatalogIndex['assets'][number]>();
+          for (const a of idx.assets) {
+            if (want && !want.has(a.slug)) continue;
+            const k = `${a.slug}::${a.variant ?? ''}`;
+            const cur = latest.get(k);
+            if (!cur || a.version > cur.version) latest.set(k, a);
+          }
+          const items = [];
+          for (const a of latest.values()) {
+            const m = JSON.parse(await readFile(path.join(opts.mediaDir, a.manifest), 'utf8')) as AssetManifest;
+            // «Lag for alle uten cover»: bare låter uten ekte cover (Vault-cover eller ingen)
+            if (body.all === true && (m.coverSource === 'file' || m.coverSource === 'ai' || (m.files.cover && !m.coverSource))) continue;
+            if (m.kind === 'set') continue;
+            const l = await lyrics.get(m.slug);
+            items.push({ slug: m.slug, variant: m.variant, title: m.title, prompt: buildCoverPrompt(m, { lyrics: l?.text, style: typeof body.style === 'string' ? body.style : undefined }) });
+          }
+          return send(res, 200, { items, styles: Object.entries(COVER_STYLES).map(([id, s]) => ({ id, name: s.name })), inbox: cfg.covers.bulkimgInbox });
+        }
+        if (url.pathname === '/api/ai-covers/send' && req.method === 'POST') {
+          const raw = Array.isArray(body.items) ? (body.items as Array<{ slug?: unknown; variant?: unknown; prompt?: unknown }>) : [];
+          const idx = JSON.parse(await readFile(path.join(opts.mediaDir, 'index.json'), 'utf8')) as CatalogIndex;
+          const items: Array<{ manifest: AssetManifest; prompt: string }> = [];
+          for (const it of raw.slice(0, 500)) {
+            if (typeof it.slug !== 'string' || typeof it.prompt !== 'string' || !it.prompt.trim() || it.prompt.length > 4000) continue;
+            const variant = typeof it.variant === 'string' ? it.variant : null;
+            const a = idx.assets.filter((x) => x.slug === it.slug && (x.variant ?? null) === variant).sort((x, y) => y.version - x.version)[0];
+            if (!a) continue;
+            items.push({ manifest: JSON.parse(await readFile(path.join(opts.mediaDir, a.manifest), 'utf8')) as AssetManifest, prompt: it.prompt.replace(/\s+/g, ' ').trim() });
+          }
+          if (!items.length) return send(res, 400, { error: 'ingen gyldige låter å sende' });
+          const r = await sendToBulkImg({ cfg, dataDir, items });
+          return send(res, 200, { ...r, status: await bulkImgStatus(cfg, dataDir) });
+        }
+        return send(res, 405, { error: 'method not allowed' });
       } catch (err) {
         return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
       }
+    }
+
+    // Tekst: kø, «Synkroniser nå» og godkjenning av automatisk transkribert tekst
+    if (url.pathname === '/api/lyrics-queue' && req.method === 'GET') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return send(res, 200, lyricsQueue.status());
+    }
+    const tr = url.pathname.match(/^\/api\/lyrics\/([a-z0-9][a-z0-9-]{0,120})\/(transcribe|approve)$/);
+    if (tr && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const slug = tr[1]!;
+      if (tr[2] === 'approve') {
+        const meta = await lyrics.approve(slug);
+        return meta ? send(res, 200, { meta }) : send(res, 404, { error: 'ingen automatisk tekst å godkjenne' });
+      }
+      // Går gjennom samme kø som automatikken (én GPU-jobb om gangen), og svarer når jobben er ferdig
+      const job = lyricsQueue.enqueue(slug, { reason: 'studio' })!;
+      const done = await lyricsQueue.wait(job);
+      if (done.status !== 'done') return send(res, 400, { error: done.note ?? 'transkriberingen feilet' });
+      const l = await lyrics.get(slug);
+      return send(res, 200, { lyrics: l, wordCount: done.words ?? 0, mode: done.mode, ms: done.ms });
     }
 
     // Del 14: favoritter, sangtekst og egne avspillinger
@@ -277,7 +336,15 @@ export function createApiHandler(opts: ApiOptions) {
           }
           if (req.method === 'PUT') {
             const body = (await readJson(req, 400_000)) as { format?: unknown; text?: unknown };
-            return send(res, 200, { lyrics: await lyrics.put(slug, body.format, body.text) });
+            const saved = await lyrics.put(slug, body.format, body.text);
+            if (saved && saved.format === 'txt') {
+              // Tekst limt inn i Studio: Knuts egen tekst. Ordtidene beregnes i bakgrunnen (hvis automatikken er på).
+              await lyrics.setMeta(slug, { source: 'manual', approved: true });
+              lyricsQueue.enqueue(slug, { reason: 'pasted' });
+            } else if (saved && !hasWordTimes(saved.text) && !(await lyrics.getMeta(slug))) {
+              await lyrics.setMeta(slug, { source: 'manual', approved: true });
+            }
+            return send(res, 200, { lyrics: saved ? { ...saved, meta: await lyrics.getMeta(slug) } : null });
           }
         } else if (what === 'listens' && !slug) {
           if (req.method === 'GET') return send(res, 200, await listens.read());

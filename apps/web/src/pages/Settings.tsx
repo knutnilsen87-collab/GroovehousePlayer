@@ -118,7 +118,7 @@ export function SettingsView() {
               style={{ ['--fill' as string]: lufsFill }}
               aria-label="Målnivå i LUFS"
             />
-            <span className="tabular rounded-lg border border-white/[0.08] bg-sunken px-2.5 py-1 font-mono text-sm font-semibold text-ink-strong">{draft.audio.targetLufs} LUFS</span>
+            <span className="tabular rounded-lg bg-sunken px-2.5 py-1 font-mono text-sm font-semibold text-ink-strong">{draft.audio.targetLufs} LUFS</span>
           </span>
         </label>
         <p className="m-0 text-xs leading-relaxed text-soft">
@@ -126,6 +126,8 @@ export function SettingsView() {
         </p>
         <p className="m-0 font-mono text-xs text-muted">HLS: {state.server.hls} (info, ikke en innstilling).</p>
       </Section>
+      <LyricsSection draft={draft} set={set} />
+      <CoverSection draft={draft} set={set} />
       <MetadataSection draft={draft} set={set} />
       <ColorsSection draft={draft} set={set} busy={busy} dirty={dirty('colors')} />
       <AccessSection state={state} onChanged={load} />
@@ -228,7 +230,7 @@ function Devices({ app }: { app: SettingsState['app'] }) {
           const appOld = !!(c && app.apk && c.versionCode < app.apk.versionCode);
           const bundleOld = !!(c && app.bundle && (c.bundle ?? 0) < app.bundle.version && c.versionCode >= app.bundle.minNative);
           return (
-            <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2 text-sm">
+            <li key={d.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white/[0.02] px-3 py-2 text-sm">
               <span className="min-w-[140px] flex-1 font-semibold text-ink-strong">{d.name}</span>
               <span className="font-mono text-xs text-soft">
                 {c ? (
@@ -252,7 +254,7 @@ function Devices({ app }: { app: SettingsState['app'] }) {
 
 function Section({ title, hint, right, children }: { title: string; hint?: string; right?: ReactNode; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-surface p-6 sm:p-8">
+    <section aria-label={title} className="flex flex-col gap-4 rounded-2xl bg-surface p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex flex-col gap-1">
           <h2 className="m-0 text-base font-semibold text-ink-strong">{title}</h2>
@@ -270,7 +272,7 @@ function NumberField({ label, value, min, max, step = 1, onChange }: { label: st
   return (
     <label className="flex max-w-[180px] flex-col gap-1.5 text-xs font-medium text-soft">
       {label}
-      <span className="inline-flex h-11 items-center overflow-hidden rounded-xl border border-white/10 bg-sunken focus-within:border-accent/60">
+      <span className="inline-flex h-11 items-center overflow-hidden rounded-xl border border-transparent bg-sunken focus-within:border-accent/60">
         <button
           type="button"
           aria-label={`Reduser ${label}`}
@@ -364,7 +366,7 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
           </button>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/[0.08] bg-sunken/75 px-4 py-3 text-xs">
+      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-sunken/75 px-4 py-3 text-xs">
         <span className="flex items-center gap-2.5 font-semibold text-ink-strong">
           <span aria-hidden="true" className="relative flex h-2.5 w-2.5 items-center justify-center">
             {w && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />}
@@ -423,7 +425,7 @@ function PreviewTable({ p, columns }: { p: { rows: PreviewRow[]; total: number }
       <summary className="cursor-pointer font-medium text-soft hover:text-ink-strong">
         Forhåndsvisning på {Math.min(p.rows.length, columns === 'rules' ? p.rows.length : 12)} av {p.total} filer i eksportmappa
       </summary>
-      <div className="gv-scroll mt-2.5 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-sunken/50">
+      <div className="gv-scroll mt-2.5 max-h-72 overflow-auto rounded-xl bg-sunken/50">
         <table className="w-full border-collapse text-left">
           <thead className="sticky top-0 bg-sunken font-mono text-[11px] uppercase tracking-[0.12em] text-soft">
             <tr>
@@ -441,7 +443,7 @@ function PreviewTable({ p, columns }: { p: { rows: PreviewRow[]; total: number }
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.file} className="border-t border-white/[0.05] hover:bg-white/[0.02]">
+              <tr key={r.file} className="hover:bg-white/[0.02]">
                 <td className="max-w-[260px] truncate px-3 py-2 font-mono text-[11.5px] text-soft">{r.file}</td>
                 <td className="px-3 py-2 font-medium text-ink-strong">{r.title}</td>
                 {columns === 'rules' ? (
@@ -509,6 +511,59 @@ function RulesSection({ draft, set }: { draft: Editable; set: <K extends keyof E
   );
 }
 
+function CoverSection({ draft, set }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void }) {
+  const c = draft.covers;
+  return (
+    <Section
+      title="Cover"
+      hint="Låter uten cover får et Vault-cover automatisk. AI-cover lages i bulkIMG / AURORA Asset Studio: Vault skriver en CSV til innboksen, du kjører batchen og eksporterer vinneren, og Vault henter coveret fra eksportmappa. Lagres bare på denne PC-en."
+    >
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-3.5">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
+          Innboks for CSV (bulkIMG)
+          <input value={c.bulkimgInbox} onChange={(e) => set('covers', { ...c, bulkimgInbox: e.target.value })} className={`${field} font-mono`} spellCheck={false} />
+        </label>
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
+          Eksportmappe (bulkIMG, med manifest.json)
+          <input value={c.bulkimgExports} onChange={(e) => set('covers', { ...c, bulkimgExports: e.target.value })} className={`${field} font-mono`} spellCheck={false} />
+        </label>
+      </div>
+    </Section>
+  );
+}
+
+function LyricsSection({ draft, set }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void }) {
+  const l = draft.lyrics;
+  return (
+    <Section
+      title="Tekst"
+      hint="Etter ingest legges låta i en bakgrunnskø (Demucs + WhisperX på skjermkortet). Ingest venter ikke på den. Har du tekst fra før (limt inn i Studio, eller en .txt med samme navn som lydfila), brukes den, og bare ordtidene beregnes."
+    >
+      <Toggle label="Lag tekst automatisk etter ingest" checked={l.auto} onChange={(v) => set('lyrics', { ...l, auto: v })} />
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
+          Modell (større = bedre og tregere)
+          <select value={l.model} onChange={(e) => set('lyrics', { ...l, model: e.target.value })} className={field}>
+            {['small', 'medium', 'large-v2', 'large-v3'].map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
+          Språk
+          <select value={l.language ?? ''} onChange={(e) => set('lyrics', { ...l, language: e.target.value || null })} className={field}>
+            <option value="">Automatisk</option>
+            <option value="en">Engelsk</option>
+            <option value="no">Norsk</option>
+          </select>
+        </label>
+      </div>
+    </Section>
+  );
+}
+
 function MetadataSection({ draft, set }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void }) {
   const preview = usePreview(draft, ['titleCleanup', 'defaults']);
   const [word, setWord] = useState('');
@@ -535,7 +590,7 @@ function MetadataSection({ draft, set }: { draft: Editable; set: <K extends keyo
         <span className="text-xs font-medium text-soft">Fjernes fra titler (uansett store/små bokstaver)</span>
         <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
           {words.map((w) => (
-            <li key={w} className="flex h-8 items-center gap-1 rounded-full border border-white/10 bg-sunken/60 pl-3 pr-1 font-mono text-xs text-ink">
+            <li key={w} className="flex h-8 items-center gap-1 rounded-full bg-sunken/60 pl-3 pr-1 font-mono text-xs text-ink">
               {w}
               <button type="button" onClick={() => set('titleCleanup', { remove: words.filter((x) => x !== w) })} aria-label={`Fjern «${w}»`} className="h-7 w-7 rounded-full text-soft hover:text-ink-strong">
                 ×
@@ -582,7 +637,7 @@ function ColorsSection({ draft, set, busy, dirty }: { draft: Editable; set: <K e
             style={{ ['--fill' as string]: contrastFill }}
             aria-label="Minste kontrast"
           />
-          <span className="tabular rounded-lg border border-white/[0.08] bg-sunken px-2.5 py-1 font-mono text-sm font-semibold text-ink-strong">{draft.colors.minContrast.toFixed(1)}:1</span>
+          <span className="tabular rounded-lg bg-sunken px-2.5 py-1 font-mono text-sm font-semibold text-ink-strong">{draft.colors.minContrast.toFixed(1)}:1</span>
         </span>
       </label>
       <Toggle label="Fargeløse cover får standardfargen (grønn)" checked={draft.colors.colorFallback} onChange={(v) => set('colors', { ...draft.colors, colorFallback: v })} />
@@ -683,7 +738,7 @@ function AccessSection({ state, onChanged }: { state: SettingsState; onChanged: 
           <span className="text-xs text-muted">Alle mobiler må taste den nye PIN-en.</span>
         </form>
       )}
-      <div className="flex flex-wrap items-start gap-4 rounded-xl border border-white/[0.06] bg-sunken/60 p-3 text-xs">
+      <div className="flex flex-wrap items-start gap-4 rounded-xl bg-sunken/60 p-3 text-xs">
         <div className="flex flex-col gap-1">
           <span className="font-semibold text-ink">Tailscale</span>
           {!state.remote.running ? (

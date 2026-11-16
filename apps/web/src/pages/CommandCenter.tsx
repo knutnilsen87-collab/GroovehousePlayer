@@ -11,6 +11,8 @@ import { loadPlaybackSettings } from '../lib/settings';
 import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
 import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, uploadAssetCover, useCatalog, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
+import { useLyricsQueue } from '../lib/library';
+import { AiCoverCard } from '../components/AiCover';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { useSkin, useSkinId } from '../lib/skin';
@@ -76,7 +78,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
     { id: 'settings', label: 'Innstillinger', Icon: StudioIcon }
   ];
   return (
-    <aside className="flex max-w-[260px] flex-[1_1_220px] flex-col gap-7 border-r border-white/[0.06] bg-sunken px-[18px] py-6">
+    <aside className="flex max-w-[260px] flex-[1_1_220px] flex-col gap-7 bg-sunken px-[18px] py-6">
       <Logo size={48} subtitle="COMMAND CENTER" />
       <nav aria-label="Hovedmeny" className="flex flex-col gap-0.5">
         {items.map(({ id, label, Icon }) => {
@@ -98,7 +100,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
       <a href="/" className="flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-sm text-muted no-underline hover:text-ink-strong">
         ← Tilbake til spilleren
       </a>
-      <div className="mt-auto flex flex-col gap-1.5 rounded-xl border border-white/[0.06] bg-surface p-3.5">
+      <div className="mt-auto flex flex-col gap-1.5 rounded-xl bg-surface p-3.5">
         <div className="flex items-center gap-2 text-xs font-semibold">
           <span aria-hidden="true" className="h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_var(--glow)]" />
           {t.watcher}
@@ -140,7 +142,7 @@ function MobileView() {
       {status === null && <p className="text-sm text-muted">Henter status…</p>}
       {status === 'unavailable' && <p className="text-sm text-muted">{t.mobileDevOnly}</p>}
       {status && status !== 'unavailable' && !status.enabled && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-white/[0.06] bg-surface p-5 text-sm">
+        <div className="flex flex-col gap-2 rounded-2xl bg-surface p-5 text-sm">
           <p className="m-0 font-semibold">{t.mobileOff}</p>
           <p className="m-0 text-muted">
             Kjør <code className="text-ink">pnpm vault:lan on</code> i prosjektmappa. Du velger en PIN, og Windows spør om brannmurregel for private nettverk.
@@ -148,7 +150,7 @@ function MobileView() {
         </div>
       )}
       {status && status !== 'unavailable' && status.enabled && (
-        <div className="flex flex-wrap items-start gap-6 rounded-2xl border border-white/[0.06] bg-surface p-5">
+        <div className="flex flex-wrap items-start gap-6 rounded-2xl bg-surface p-5">
           {status.qr ? (
             <img
               src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(status.qr)}`}
@@ -268,7 +270,7 @@ function DraftImport() {
       <UploadIcon width={26} height={26} className="text-accent" strokeWidth={1.8} />
       <span className="text-sm font-semibold">Importer som umastret</span>
       <span className="text-xs text-muted">Dra umastrede låter hit (WAV/AIFF/FLAC + cover). De holdes atskilt fra de release-klare.</span>
-      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="mt-1 h-8 rounded-full border border-white/15 px-3 text-xs text-ink hover:border-accent/50 disabled:opacity-50">
+      <button type="button" disabled={busy} onClick={() => input.current?.click()} className="mt-1 h-8 rounded-full bg-white/[0.04] px-3 text-xs text-ink hover:border-accent/50 disabled:opacity-50">
         {busy ? 'Laster opp …' : 'Velg filer …'}
       </button>
       <input ref={input} type="file" multiple accept=".wav,.wave,.aif,.aiff,.flac,image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Velg filer som skal importeres som umastret" onChange={(e) => e.target.files && void upload(e.target.files)} />
@@ -290,7 +292,7 @@ function MakeRelease({ a, onDone }: { a: LoadedAsset; onDone: () => void }) {
       </button>
     );
   return (
-    <span role="alertdialog" aria-label="Gjør release-klar" className="flex flex-wrap items-center gap-2 rounded-xl border border-white/15 px-3 py-1.5 text-xs text-soft">
+    <span role="alertdialog" aria-label="Gjør release-klar" className="flex flex-wrap items-center gap-2 rounded-xl bg-white/[0.04] px-3 py-1.5 text-xs text-soft">
       Gjøre «{m.title}» ({versionName(m)}) release-klar uten master fra REASONDONE?
       <button
         type="button"
@@ -330,6 +332,8 @@ function IngestStrip({ assets, log, onDone }: { assets: LoadedAsset[]; log: Inge
           <span className="font-mono text-xs text-soft">{progress.percent} % · HLS, analyse og LUFS kjører samtidig</span>
         </div>
       )}
+      <LyricsQueueCard />
+      <AiCoverCard />
       {recent.map((a) => (
         <IngestCard key={a.manifest.id} a={a} entry={lastLogFor(log, a)} />
       ))}
@@ -337,11 +341,50 @@ function IngestStrip({ assets, log, onDone }: { assets: LoadedAsset[]; log: Inge
   );
 }
 
+const LYRICS_STAGE: Record<string, string> = { start: 'starter', demucs: 'isolerer vokal (Demucs)', language: 'finner språk', transcribe: 'transkriberer (WhisperX)', align: 'beregner ordtider', write: 'lagrer' };
+
+/** Tekstkøen etter ingest: hva som kjører nå, hva som venter, og de siste ferdige. */
+function LyricsQueueCard() {
+  const q = useLyricsQueue();
+  if (!q) return null;
+  const running = q.jobs.find((j) => j.status === 'running');
+  const waiting = q.jobs.filter((j) => j.status === 'waiting');
+  const finished = q.jobs.filter((j) => j.status !== 'running' && j.status !== 'waiting').slice(-3).reverse();
+  if (!running && !waiting.length && !finished.length && q.enabled && q.python) return null;
+  return (
+    <div role="status" aria-label="Tekstkø" className="gv-panel flex min-h-32 flex-col gap-2 p-4">
+      <span className="gv-label">Tekst {q.enabled ? '' : '· automatikk av'}</span>
+      {!q.python && <span className="text-xs text-soft">Fant ikke .venv-lyrics (demucs/whisperx). Bruker «python» fra PATH.</span>}
+      {running ? (
+        <>
+          <span className="truncate text-sm font-semibold text-ink-strong">{running.title}</span>
+          <span className="font-mono text-[13px] text-soft">{LYRICS_STAGE[running.stage ?? 'start'] ?? running.stage}</span>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+            <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />
+          </div>
+        </>
+      ) : (
+        <span className="text-sm text-soft">{waiting.length ? 'Starter snart …' : 'Ingenting i kø.'}</span>
+      )}
+      {waiting.length > 0 && <span className="font-mono text-[13px] text-muted">{waiting.length} i kø: {waiting.slice(0, 3).map((j) => j.title).join(', ')}{waiting.length > 3 ? ' …' : ''}</span>}
+      {finished.map((j) => (
+        <span key={`${j.slug}-${j.finishedAt}`} className="truncate text-[13px] text-soft" title={j.note ?? undefined}>
+          {j.status === 'done' ? '✓' : j.status === 'skipped' ? '↷' : '✗'} {j.title}
+          <span className="font-mono text-muted">
+            {' '}
+            · {j.status === 'done' ? `${j.words} ord, ${j.mode === 'auto' ? 'auto – sjekk' : 'ordtider'}` : j.note} · {Math.round((j.ms ?? 0) / 1000)} s
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function IngestCard({ a, entry }: { a: LoadedAsset; entry?: IngestLogEntry }) {
   const m = a.manifest;
   const steps = pipelineSteps(m);
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-surface px-[18px] py-4">
+    <div className="flex flex-col gap-3 rounded-2xl bg-surface px-[18px] py-4">
       <div className="flex items-center justify-between gap-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
           <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={8} />
@@ -460,7 +503,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
 
   if (!asset) {
     return (
-      <div className="min-w-0 flex-[999_1_520px] rounded-[18px] border border-white/[0.06] bg-surface p-6 text-sm text-muted">
+      <div className="min-w-0 flex-[999_1_520px] rounded-[18px] bg-surface p-6 text-sm text-muted">
         Ingen av assetene i denne dropen er ingestet ennå. Kjør <code className="text-ink">pnpm gh-ingest fixtures/{drop.assetSlugs[0]}</code>.
       </div>
     );
@@ -479,7 +522,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
   };
 
   return (
-    <div className="relative min-w-0 flex-[999_1_520px] overflow-hidden rounded-[18px] border border-white/[0.07] bg-surface p-[24px]" style={vars}>
+    <div className="relative min-w-0 flex-[999_1_520px] overflow-hidden rounded-[18px] bg-surface p-[24px]" style={vars}>
       <div aria-hidden="true" className="pointer-events-none absolute -right-[120px] -top-[160px] h-[420px] w-[420px] rounded-full" style={{ background: 'radial-gradient(circle, var(--glow) 0%, var(--glow-2) 45%, transparent 70%)', opacity: 0.45 }} />
 
       <div className="relative flex flex-wrap items-center justify-between gap-4">
@@ -521,7 +564,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
       </div>
 
       {dropAssets.length > 1 && (
-        <div role="tablist" aria-label="Asset" className="relative mt-5 inline-flex flex-wrap gap-1 rounded-xl border border-white/[0.08] bg-sunken/70 p-1">
+        <div role="tablist" aria-label="Asset" className="relative mt-5 inline-flex flex-wrap gap-1 rounded-xl bg-sunken/70 p-1">
           {dropAssets.map((a) => (
             <button
               key={a.manifest.slug}
@@ -544,7 +587,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
           <div className="relative mt-5 overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-[13px]">
               <thead>
-                <tr className="border-b border-white/[0.08] text-left font-mono text-[10px] font-semibold tracking-[1.5px] text-soft">
+                <tr className="text-left font-mono text-[10px] font-semibold tracking-[1.5px] text-soft">
                   <th scope="col" className="pb-2.5 pl-3 pr-2.5 font-semibold">{t.recipient.toUpperCase()}</th>
                   <th scope="col" className="px-2.5 pb-2.5 font-semibold">{t.opened.toUpperCase()}</th>
                   <th scope="col" className="px-2.5 pb-2.5 font-semibold">
@@ -607,7 +650,7 @@ function RecipientRow({ r, asset, dropMs, maxDevices, selected, onSelect }: { r:
       </td>
       <td className="tabular px-2.5 font-mono text-soft">{opens ? `${opens}×` : '—'}</td>
       <td className="px-2.5 py-2">
-        <div className="relative flex h-[38px] w-[300px] items-center gap-[2px] rounded-lg border border-white/[0.05] bg-obsidian px-2 py-1" aria-label={`Hørt ${Math.round(cov.heardRatio * 100)} %`} role="img">
+        <div className="relative flex h-[38px] w-[300px] items-center gap-[2px] rounded-lg bg-obsidian px-2 py-1" aria-label={`Hørt ${Math.round(cov.heardRatio * 100)} %`} role="img">
           {/* Subtilt mørkegrått bakgrunnsriss av sporets faktiske bølgeform-konvolutt */}
           {envelopePoints && (
             <svg viewBox="0 0 300 38" preserveAspectRatio="none" aria-hidden="true" className="pointer-events-none absolute inset-x-2 inset-y-0 h-full w-[calc(100%-16px)]">
@@ -810,7 +853,7 @@ function SetDropZone({ onDone }: { onDone?: () => void }) {
         over ? 'border-accent/60 bg-accent/[0.06]' : 'border-white/[0.09] bg-surface/40 hover:border-white/[0.16] hover:bg-surface/65'
       }`}
     >
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-sunken text-soft">
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sunken text-soft">
         <UploadIcon width={24} height={24} strokeWidth={1.7} />
       </span>
       <span className="text-sm font-semibold text-ink-strong">Slipp nye live-sett eller opptak her</span>
@@ -890,7 +933,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
 
   return (
     <div className="mt-1 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
-      <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-white/[0.07] bg-sunken/70 p-3.5">
+      <div className="flex min-w-0 flex-col gap-3 rounded-xl bg-sunken/70 p-3.5">
         {/* 1. Macro Mini-map */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-soft">
@@ -986,7 +1029,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
 
       {/* 3. Interaktiv, synkronisert vertikal sporliste på høyre side */}
       {cues.length > 0 && (
-        <div className={`flex flex-col rounded-xl border border-white/[0.07] bg-sunken/70 p-3 ${tracklistOpen ? 'w-full lg:w-[270px]' : 'w-auto'}`}>
+        <div className={`flex flex-col rounded-xl bg-sunken/70 p-3 ${tracklistOpen ? 'w-full lg:w-[270px]' : 'w-auto'}`}>
           <button
             type="button"
             aria-expanded={tracklistOpen}
@@ -1181,7 +1224,7 @@ function ArchiveRow({
               type="button"
               onClick={() => setExpanded((o) => !o)}
               aria-expanded={isOpen}
-              className=" inline-flex items-center gap-1.5 text-left text-[15px] font-semibold text-ink-strong hover:text-accent"
+              className="inline-flex items-center gap-1.5 text-left text-[15px] font-semibold text-ink-strong hover:text-accent"
             >
               <span>{m.title}</span>
               {m.variantLabel ? <span className="font-normal text-soft"> · {m.variantLabel}</span> : null}
@@ -1329,7 +1372,7 @@ function ArchiveRow({
         m.kind === 'set' ? (
           <LiveSetNavigator a={a} onPlayAt={(ms) => usePlayer.getState().playFrom([a], 0, ms)} />
         ) : (
-          <div className="mt-1 flex flex-col gap-3 border-t border-white/[0.06] pt-4">
+          <div className="mt-1 flex flex-col gap-3 pt-4">
             <div className="px-1 pt-2">
               <Waveform
                 peaks={a.analysis?.peaks ?? []}
@@ -1445,7 +1488,7 @@ function MiniPlayer() {
   if (!a) return null;
   const m = a.manifest;
   return (
-    <div className="fixed inset-x-0 bottom-0 z-20 border-t border-white/[0.08] bg-sunken/95 px-6 py-3 backdrop-blur" style={skinTrackVars(m.palette) as CSSProperties}>
+    <div className="fixed inset-x-0 bottom-0 z-20 bg-sunken/95 px-6 py-3 backdrop-blur" style={skinTrackVars(m.palette) as CSSProperties}>
       <div className="mx-auto flex max-w-[1400px] items-center gap-4">
         <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={8} />
         <div className="flex w-48 min-w-0 flex-col">

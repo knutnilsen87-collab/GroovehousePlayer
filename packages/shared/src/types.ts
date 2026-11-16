@@ -120,6 +120,14 @@ export interface AssetManifest {
   masterSha256: string;
   /** Hash av coverfila (null = gull). Nytt cover gir ny ingest selv om lyden er uendret. */
   coverSha256: string | null;
+  /**
+   * Del 23: hvor coveret kommer fra. «generated» = Vault-cover laget av låtas data (cover_vault.png, 3000 px).
+   * Et ekte cover (fil eller dra-og-slipp) erstatter det alltid, og et generert cover brukes aldri som
+   * release-cover uten at Knut velger det. Mangler = ekte cover (eller ingen).
+   */
+  coverSource?: 'file' | 'generated' | 'ai';
+  /** Del 23: AI-generert cover (vises som «AI-generert» under Kreditering). */
+  coverAi?: { provider: string | null; model: string | null };
   loudness: Loudness;
   palette: Palette;
   markers: AssetMarker[];

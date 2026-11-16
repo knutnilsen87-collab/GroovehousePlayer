@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { formatTimeMs, isDraft, keyShort, sectionAt } from '@gv/shared/web';
+import { formatTimeMs, isDraft, sectionAt } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { CoverArt } from './CoverArt';
@@ -13,7 +13,9 @@ import { FxReminder, IdeaButton } from './FxReminder';
  * Del 14 pkt. 10: fullskjermspilleren på mobil og i Android-appen, ovenfra og ned:
  * cover · tittel/artist/hjerte/⋯ · brikker (BPM, toneart, LUFS) · bølgeform med tider · transport ·
  * volum (ikke i appen) / A·B / hastighet · sveipbare kort (Låtinfo / Spektrum / Zoom) · faner som
- * segmentert kontroll (Spilles nå · Kø · Tekst · Kreditering). Ingen backdrop-filter.
+ * segmentert kontroll (Spilles nå · Kø · Tekst · Kreditering).
+ * Del 22: låtinfo som pills øverst (ikke også som kort), bølgeformen kant til kant med tidene oppå, transport
+ * uten sirkler. Blur bare på bunnpanelet i tekst-scenen (og minispilleren), av i OLED Svart.
  */
 export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cur: LoadedAsset; track?: Track; tracks: Track[]; onClose: () => void; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: () => void }) {
   const { positionMs, seek, switchVariant, loop, setLoop } = usePlayer();
@@ -21,7 +23,7 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
   const m = cur.manifest;
   const now = sectionAt(m.markers, positionMs);
   const single = m.kind === 'set' && now?.refSlug ? tracks.find((x) => x.slug === now.refSlug && x.main.manifest.kind === 'track') : undefined;
-  const coverSize = Math.round(Math.min(window.innerWidth - 48, window.innerHeight * 0.4, 420));
+  const coverSize = Math.round(Math.min(window.innerWidth - 48, window.innerHeight * 0.34, 420));
   const isLyricsStage = tab === 'lyrics';
 
   if (isLyricsStage) {
@@ -66,15 +68,14 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
         </div>
 
         {/* Tommelsonen (65% - 100%): Flytende kontrollpanel i z-10 med bølgeform-scrubber og transport */}
-        <div className="fixed inset-x-0 bottom-0 z-10 flex flex-col gap-3 bg-gradient-to-t from-obsidian via-obsidian/95 to-transparent px-5 pt-10 pb-[max(20px,env(safe-area-inset-bottom))] backdrop-blur-xl">
-          {/* Presisjonssone (65% - 75%): Bred bølgeform for scrubbing */}
-          <div>
-            <BigWaveform asset={cur} height={60} loop={loop} onSeek={seek} onLoop={(a, b, snap) => setLoop(a, b, snap)} />
-            <div className="mt-1 flex justify-between text-[11px] text-soft">
-              <LiveTime />
-              {now?.label && <span className="font-semibold text-accent">{now.label}</span>}
-              <span className="font-mono">{formatTimeMs(m.durationMs)}</span>
-            </div>
+        <div className="gv-glass fixed inset-x-0 bottom-0 z-10 flex flex-col gap-3 bg-gradient-to-t from-obsidian via-obsidian/90 to-transparent px-5 pt-10 pb-[max(20px,env(safe-area-inset-bottom))]">
+          {/* Presisjonssone (65% - 75%): Bred bølgeform for scrubbing, kant til kant */}
+          <div className="-mx-5">
+            <BigWaveform asset={cur} height={64} loop={loop} onSeek={seek} onLoop={(a, b, snap) => setLoop(a, b, snap)}>
+              <LiveTime className="pl-5" />
+              {now?.label && <span className="font-sans font-semibold text-accent">{now.label}</span>}
+              <span className="pr-5">{formatTimeMs(m.durationMs)}</span>
+            </BigWaveform>
           </div>
 
           {/* Handlingssone (75% - 100%): Transportkontroller + faner */}
@@ -92,7 +93,7 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
         <button type="button" onClick={onClose} aria-label="Lukk spilleren" className="flex h-11 w-11 items-center justify-center rounded-full text-soft">
           <ChevronDownIcon width={26} height={26} />
         </button>
-        <span className="gv-label !text-[10px]">{m.kind === 'set' ? 'Live-sett' : 'Spilles nå'}</span>
+        <span className="gv-label">{m.kind === 'set' ? 'Live-sett' : 'Spilles nå'}</span>
         <span className="h-11 w-11" />
       </div>
 
@@ -104,7 +105,7 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
 
       <div className="relative mt-5 flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col">
-          <h2 className="m-0 truncate text-[24px] font-bold leading-tight text-ink-strong">
+          <h2 className="gv-display m-0 truncate text-[26px] font-semibold leading-tight text-ink-strong">
             {m.title}<DraftBadge m={m} className="ml-1.5" />
           </h2>
           <span className="truncate text-[14px] text-soft">
@@ -118,18 +119,9 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
         </button>
       </div>
 
-      <ul aria-label="Låtdata" className="relative m-0 mt-3 flex list-none gap-2 p-0 font-mono text-[12px]">
-        {[
-          ['BPM', m.bpm != null ? m.bpm.toFixed(1) : '–'],
-          ['KEY', m.key ? `${keyShort(m.key.name)} ${m.key.camelot}` : '–'],
-          ['LUFS', m.loudness.integratedLufs.toFixed(1)]
-        ].map(([k, v]) => (
-          <li key={k} className="flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/[0.06] px-2.5 py-1.5">
-            <span className="text-muted">{k}</span>
-            <span className="text-ink-strong">{v}</span>
-          </li>
-        ))}
-      </ul>
+      <div aria-label="Låtdata" className="relative mt-3">
+        <TrackInfoRows cur={cur} compact />
+      </div>
 
       {track && track.variants.length > 1 && (
         <div role="group" aria-label="Variant" className="relative mt-3 flex flex-wrap gap-1.5">
@@ -139,7 +131,7 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
               type="button"
               aria-pressed={v.manifest.id === m.id}
               onClick={() => switchVariant(v)}
-              className={`h-9 rounded-full px-3.5 text-xs font-semibold ${v.manifest.id === m.id ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] text-ink-strong' : 'border border-white/10 text-muted'}`}
+              className={`h-11 rounded-full px-3.5 text-xs font-semibold ${v.manifest.id === m.id ? 'bg-accent/[0.16] text-ink-strong shadow-[0_0_16px_-4px_var(--glow)]' : 'bg-white/[0.05] text-muted'}`}
             >
               {variantName(v)}
             </button>
@@ -147,13 +139,12 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
         </div>
       )}
 
-      <div className="relative mt-4">
-        <BigWaveform asset={cur} height={72} loop={loop} onSeek={seek} onLoop={(a, b, snap) => setLoop(a, b, snap)} />
-        <div className="mt-1.5 flex justify-between text-[11px] text-soft">
-          <LiveTime />
-          {now?.label && <span className="font-semibold text-accent">{now.label}</span>}
-          <span className="font-mono">{formatTimeMs(m.durationMs)}</span>
-        </div>
+      <div className="relative -mx-5 mt-4">
+        <BigWaveform asset={cur} height={88} loop={loop} onSeek={seek} onLoop={(a, b, snap) => setLoop(a, b, snap)}>
+          <LiveTime className="pl-5" />
+          {now?.label && <span className="font-sans font-semibold text-accent">{now.label}</span>}
+          <span className="pr-5">{formatTimeMs(m.durationMs)}</span>
+        </BigWaveform>
       </div>
       {single && (
         <button type="button" onClick={() => onPlay(single)} className="relative mt-2 h-10 self-start rounded-full border border-white/15 px-4 text-xs text-ink">
@@ -165,7 +156,7 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
         <FxReminder />
         <Transport size="lg" />
       </div>
-      <div className="relative mt-4 rounded-xl border border-white/[0.07] bg-white/[0.02] px-3 py-1.5">
+      <div className="gv-well relative mt-4 px-3 py-1.5">
         <BottomControls cur={cur} />
       </div>
 
@@ -192,11 +183,11 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
   );
 }
 
-/** Sveipbare kort: Låtinfo / Spektrum / Zoom (scroll-snap, prikker under). */
+/** Sveipbare kort: Spektrum / Zoom (scroll-snap, prikker under). Låtinfo står som pills øverst. */
 function Cards({ cur, onSeek }: { cur: LoadedAsset; onSeek: (ms: number) => void }) {
   const box = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
-  const names = ['Låtinfo', 'Spektrum (Hz)', 'Bølgeform-zoom'];
+  const names = ['Spektrum (Hz)', 'Bølgeform-zoom'];
   useEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -210,11 +201,10 @@ function Cards({ cur, onSeek }: { cur: LoadedAsset; onSeek: (ms: number) => void
         {names.map((n, i) => (
           <section key={n} aria-label={n} className="gv-panel w-[calc(100%-8px)] flex-none snap-center p-4">
             <h3 className="gv-label m-0 mb-3">{n}</h3>
-            {i === 0 && <TrackInfoRows cur={cur} />}
-            {i === 1 && active === 1 && <SpectrumView asset={cur} height={130} />}
-            {i === 1 && active !== 1 && <div className="h-[146px]" />}
-            {i === 2 && active === 2 && <ZoomWaveform asset={cur} height={110} onSeek={onSeek} />}
-            {i === 2 && active !== 2 && <div className="h-[126px]" />}
+            {i === 0 && active === 0 && <SpectrumView asset={cur} height={130} />}
+            {i === 0 && active !== 0 && <div className="h-[146px]" />}
+            {i === 1 && active === 1 && <ZoomWaveform asset={cur} height={110} onSeek={onSeek} />}
+            {i === 1 && active !== 1 && <div className="h-[126px]" />}
           </section>
         ))}
       </div>
@@ -242,8 +232,8 @@ function MobileQueue() {
         const cur = i === index;
         return (
           <li key={`${m.id}-${i}`}>
-            <button type="button" onClick={() => playIndex(i)} aria-current={cur ? 'true' : undefined} className={`flex min-h-12 w-full items-center gap-3 rounded-lg px-2 text-left ${cur ? 'bg-accent/[0.12]' : ''}`}>
-              <span className="w-5 text-right font-mono text-xs text-muted">{cur ? <span className="text-accent">{playing ? '▶' : '❚❚'}</span> : i + 1}</span>
+            <button type="button" onClick={() => playIndex(i)} aria-current={cur ? 'true' : undefined} className={`flex min-h-12 w-full items-center gap-3 rounded-r-lg px-2 text-left ${cur ? 'gv-row-active' : ''}`}>
+              <span className="w-5 text-right font-mono text-[13px] text-muted">{cur ? <span className="text-accent">{playing ? '▶' : '❚❚'}</span> : i + 1}</span>
               <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} />
               <span className={`min-w-0 flex-1 truncate text-sm font-semibold ${cur ? 'text-accent' : 'text-ink-strong'}`}>{m.title}</span>
               <span className="font-mono text-[11px] text-muted">{m.bpm ? Math.round(m.bpm) : '–'}</span>

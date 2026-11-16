@@ -39,7 +39,7 @@ function Editor({ start, taken, onClose }: { start: Skin; taken: Set<string>; on
     </label>
   );
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-white/[0.08] bg-sunken p-4">
+    <div className="flex flex-col gap-4 rounded-xl bg-sunken p-4">
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex flex-1 flex-col gap-1 text-xs text-soft">
           Navn
@@ -84,7 +84,7 @@ function Editor({ start, taken, onClose }: { start: Skin; taken: Set<string>; on
         >
           Lagre og bruk
         </button>
-        <button type="button" onClick={onClose} className="min-h-[40px] rounded-lg border border-white/10 px-4 text-sm text-soft hover:text-ink-strong">
+        <button type="button" onClick={onClose} className="min-h-[40px] rounded-lg bg-white/[0.04] px-4 text-sm text-soft hover:text-ink-strong">
           Avbryt
         </button>
       </div>
@@ -106,7 +106,7 @@ export function SkinPicker() {
         {all.map((s) => {
           const on = s.id === skin.id;
           return (
-            <div key={s.id} className={`flex flex-col gap-2 rounded-2xl border p-2.5 transition-colors ${on ? 'gv-neon-soft border-accent/70' : 'border-white/[0.08] hover:border-white/20'}`}>
+            <div key={s.id} className={`flex flex-col gap-2 rounded-2xl border p-2.5 transition-colors ${on ? 'gv-neon-soft border-accent/70' : 'border-white/[0.08] hover:bg-white/[0.07]'}`}>
               <button type="button" role="radio" aria-checked={on} onClick={() => choose(s.id)} className="flex flex-col gap-2 text-left">
                 <SkinPreview skin={s} />
                 <span className="flex items-center gap-2 px-1 text-sm font-semibold text-ink-strong">

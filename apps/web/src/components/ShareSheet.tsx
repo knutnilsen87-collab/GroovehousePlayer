@@ -135,10 +135,10 @@ function ShareSheet() {
         </div>
 
         <div className="mb-3 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setMode('link')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'link' ? 'bg-accent text-on-accent' : 'border border-white/15 text-ink'}`}>
+          <button type="button" onClick={() => setMode('link')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'link' ? 'bg-accent text-on-accent' : ' text-ink'}`}>
             Del lenke
           </button>
-          <button type="button" onClick={() => setMode('file')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'file' ? 'bg-accent text-on-accent' : 'border border-white/15 text-ink'}`}>
+          <button type="button" onClick={() => setMode('file')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'file' ? 'bg-accent text-on-accent' : ' text-ink'}`}>
             Send fil
           </button>
         </div>

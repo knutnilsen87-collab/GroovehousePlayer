@@ -22,7 +22,8 @@ import {
   manualPalette
 } from '@gv/shared';
 import { analyze, ONSET_HOP, ONSET_TRACK_SAMPLES, RATE } from './analyze';
-import { formatCopyright, loadConfig, matchRule, type VaultConfig } from './config';
+import { findRoot, formatCopyright, loadConfig, matchRule, type VaultConfig } from './config';
+import { vaultCoverLogo, writeVaultCover } from './vault-cover';
 import { paletteFrom, processCover } from './cover';
 import { encodeHls, encodePreview, loudnormFilter, measureLoudness, measureLoudnorm, retagPreview, type EmbedTags } from './encode';
 import { probe, probeTags } from './ffmpeg';
@@ -370,12 +371,31 @@ async function ingestOne(
     let palette: Palette = { ...FALLBACK_PALETTE };
     let cover: string | null = null;
     let coverThumb: string | null = null;
+    let coverSource: 'file' | 'generated' | 'ai' | undefined;
     if (coverRes) {
+      // Del 23: cover lagt inn fra bulkIMG (lagret i media/<slug>/) beholder AI-merket ved ny ingest
+      coverSource = !release.coverPath && overrides.aiCover ? 'ai' : 'file';
       palette = coverRes.palette;
       cover = coverRes.cover;
       coverThumb = coverRes.coverThumb;
     } else {
-      report('palett', 'warn', release.origin === 'flat' ? `ingen «${master.titleFromFile}.png/jpg» ved siden av lydfila – bruker standardfargen (grønn)` : 'ingen cover.png/jpg – bruker standardfargen (grønn). Legg til cover og kjør på nytt.');
+      // Del 23 nivå 1: Vault-cover fra låtas egne data (toneart, bølgeform, spektrum, energi). Et ekte cover erstatter det alltid.
+      try {
+        const gen = await timed(
+          'cover',
+          async () => {
+            const png = await writeVaultCover(work, { title: resolved.title, artist: resolved.artist, slug: master.slug, camelot: key?.camelot ?? null, draft, analysis }, vaultCoverLogo(findRoot(opts.mediaDir)));
+            return processCover(png, work, cfg.colors);
+          },
+          (c) => `Vault-cover (3000 px) · ${c.palette.primary} / ${c.palette.secondary} · ${release.origin === 'flat' ? `legg «${master.titleFromFile}.png/jpg» ved lydfila for ekte cover` : 'legg cover.png/jpg i mappa for ekte cover'}`
+        );
+        palette = gen.palette;
+        cover = gen.cover;
+        coverThumb = gen.coverThumb;
+        coverSource = 'generated';
+      } catch (err) {
+        report('palett', 'warn', `fikk ikke laget Vault-cover (${err instanceof Error ? err.message : err}) – bruker standardfargen (grønn)`);
+      }
     }
     // Del 8: manuell farge fra Studio vinner over coveret
     if (meta.palette) {
@@ -412,6 +432,8 @@ async function ingestOne(
       key,
       masterSha256: sha,
       coverSha256: coverSha,
+      ...(coverSource ? { coverSource } : {}),
+      ...(coverSource === 'ai' && overrides.aiCover ? { coverAi: { provider: overrides.aiCover.provider, model: overrides.aiCover.model } } : {}),
       loudness,
       palette,
       markers,
@@ -579,17 +601,22 @@ export async function setAssetCover(mediaDir: string, slug: string, buf: Buffer,
       await writeFile(path.join(dir, 'cover.jpg'), bigBuf);
       await writeFile(path.join(dir, 'cover_300.jpg'), thumbBuf);
       await rm(path.join(dir, 'share'), { recursive: true, force: true }).catch(() => {});
+      // Del 23: ekte cover erstatter alltid Vault-coveret
+      await rm(path.join(dir, 'cover_vault.png'), { force: true }).catch(() => {});
       const m = JSON.parse(await readFile(mp, 'utf8')) as AssetManifest;
       let palette = m.palette;
       if (overrides.palette) {
         const man = manualPalette(overrides.palette.primary, overrides.palette.secondary, 0);
         if (man.ok) palette = man.palette;
       } else if (m.palette.source !== 'manual') {
-        palette = { ...FALLBACK_PALETTE };
+        // Paletten hentes fra det nye coveret (Kameleon-skinnet følger det)
+        palette = masterCover.palette;
       }
       const updated: AssetManifest = {
         ...m,
         coverSha256,
+        coverSource: 'file',
+        coverAi: undefined,
         palette,
         files: { ...m.files, cover: 'cover.jpg', coverThumb: 'cover_300.jpg' }
       };
