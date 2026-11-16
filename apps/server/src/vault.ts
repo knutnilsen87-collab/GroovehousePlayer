@@ -149,6 +149,33 @@ async function install() {
   const record: InstallRecord = { version: 1, installedAt: new Date().toISOString(), root, files: [launcher, icon], shortcuts };
   writeFileSync(recordPath(), JSON.stringify(record, null, 2));
   console.log(`    ✓ ${recordPath()}`);
+
+  // Hvis serveren allerede kjører, start den på nytt i bakgrunnen så nye API-ruter og bygg trer i kraft med en gang.
+  const ports = new Set<number>([cfg.ports.server]);
+  try {
+    ports.add(Number(readFileSync(portFile(), 'utf8').trim()));
+  } catch {
+    /* ingen port-fil */
+  }
+  let wasRunning = false;
+  for (const p of ports) {
+    if (!Number.isFinite(p) || p <= 0) continue;
+    const h = await probeHealth(p, 800);
+    if (h.state === 'ours' && h.pid > 0) {
+      try {
+        process.kill(h.pid);
+        wasRunning = true;
+      } catch {
+        /* allerede stoppet */
+      }
+    }
+  }
+  if (wasRunning) {
+    await new Promise((r) => setTimeout(r, 400));
+    spawnSync('wscript.exe', ['//nologo', launcher, '/bakgrunn'], { cwd: dir, windowsHide: true });
+    console.log('    ✓ Kjørende Vault-server ble startet på nytt med siste endringer');
+  }
+
   console.log('\nFerdig. Dobbeltklikk «Groovehouse Vault» på skrivebordet, eller fest den fra Startmenyen til oppgavelinja.');
   console.log('Fjern alt igjen med: pnpm vault:uninstall');
 }
