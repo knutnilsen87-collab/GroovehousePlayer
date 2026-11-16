@@ -30,3 +30,6 @@ fixtures/**/*.wav
 
 # Del: tekst-transkribering (Demucs + WhisperX), egen Python-venv
 .venv-lyrics/
+
+# Umastrede låter lagt inn for automatisk import – aldri i git
+/umastret-sync/
