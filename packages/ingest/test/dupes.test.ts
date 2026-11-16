@@ -7,7 +7,7 @@ describe('tittelrensing for duplikater', () => {
     expect(cleanDisplayTitle('02 — Night Drive')).toBe('Night Drive');
     expect(cleanDisplayTitle('1. Blue Fire')).toBe('Blue Fire');
     expect(cleanDisplayTitle('3.Better Now')).toBe('Better Now');
-    expect(cleanDisplayTitle('LANDR-5. It’s Summertime-Balanced-Medium')).toBe("It's Summertime");
+    expect(cleanDisplayTitle('LANDR-5. It’s Summertime-Balanced-Medium')).toBe('It’s Summertime'); // apostrofen beholdes
     expect(cleanDisplayTitle("It's Summertime 2")).toBe("It's Summertime");
     expect(cleanDisplayTitle('Deep Tools1.6')).toBe('Deep Tools');
     // «(1)C» / «(1)COOL» fra filnavnet er kopimerker; «Pretty Cool» er en ekte tittel

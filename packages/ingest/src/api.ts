@@ -87,6 +87,8 @@ export function createApiHandler(opts: ApiOptions) {
   const skippedStore = createSkippedStore(dataDir);
   const listens = createListenStore(path.join(dataDir, 'listens.json'));
   const catalogBundle = createCatalogBundler(opts.mediaDir);
+  // Varm opp katalogen ved oppstart: første lesing av ~330 manifester og analyser fra disken tar 10+ s
+  setTimeout(() => void catalogBundle(dataDir).catch(() => undefined), 2000).unref?.();
   let version = '0.0.0';
   try {
     version = (JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string }).version ?? version;
@@ -434,6 +436,8 @@ export function createApiHandler(opts: ApiOptions) {
       if (kind !== 'full' && kind !== 'preview' && kind !== 'wav') return send(res, 400, { error: 'kind må være full, preview eller wav' });
       // Del 16: utkast deles bare etter et eksplisitt valg («Del utkast likevel»)
       if (Number(sh[3]) > DRAFT_BASE && url.searchParams.get('draft') !== '1') return send(res, 409, { error: 'Denne låta er umastret. Velg «Del umastret likevel» for å dele den.', draft: true });
+      const blocked = await shareBlockReason(opts.mediaDir, sh[1]!, sh[2]!, Number(sh[3]));
+      if (blocked) return send(res, 423, { error: blocked, blocked: true });
       try {
         const r = await shareFileFor(opts.mediaDir, root, sh[1]!, sh[2]!, Number(sh[3]), kind);
         if (!r) return send(res, 404, { error: 'ukjent låt eller versjon' });
@@ -558,6 +562,16 @@ export function createApiHandler(opts: ApiOptions) {
 }
 
 /** Finn versjonen og lag/gjenbruk delingsfila. null = ukjent låt/versjon. */
+/** Sperret for deling (manifest.shareBlocked, f.eks. arbeidstittel som må byttes): grunnen, ellers null. */
+export async function shareBlockReason(mediaDir: string, slug: string, variant: string, version: number): Promise<string | null> {
+  try {
+    const m = JSON.parse(await readFile(path.join(mediaDir, slug, variant, `v${version}`, 'manifest.json'), 'utf8')) as AssetManifest;
+    return m.shareBlocked ? `Sperret for deling: ${m.shareBlocked}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function shareFileFor(mediaDir: string, root: string, slug: string, variant: string, version: number, kind: ShareKind) {
   const versionDir = path.join(mediaDir, slug, variant, `v${version}`);
   const manifestFile = path.join(versionDir, 'manifest.json');

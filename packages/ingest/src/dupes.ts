@@ -37,7 +37,8 @@ export function isLandr(name: string): boolean {
 
 /** Foreslått visningstittel (beholder store bokstaver og parenteser som «(Extended)»). */
 export function cleanDisplayTitle(t: string): string {
-  let s = t.replace(/\.[a-z0-9]{2,4}$/i, '').replace(/[’`´]/g, "'");
+  // Apostrofer beholdes som de er (Knut: ikke gjett apostrofer)
+  let s = t.replace(/\.[a-z0-9]{2,4}$/i, '');
   s = s.replace(FOLDER_PREFIX_RE, '').replace(ARTIST_PREFIX_RE, '');
   s = s.replace(LANDR_PREFIX_RE, '').replace(LANDR_SUFFIX_RE, '');
   s = s.replace(TRACK_NO_RE, '');
@@ -55,11 +56,13 @@ export function cleanDisplayTitle(t: string): string {
 /** Nøkkel for tittellikhet: renset tittel uten parenteser (versjonsnavn), små bokstaver, bare bokstaver/tall. */
 export function titleKey(t: string): string {
   return cleanDisplayTitle(t)
+    .replace(/[’`´]/g, "'")
     .toLowerCase()
     .normalize('NFKD')
     .replace(/[̀-ͯ]/g, '')
-    .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
-    .replace(/\b(?:extended|extend|original|radio edit|edit|short|eshort|denne|ny|new|mix|remix|version|master(?:ed)?)\b/g, ' ')
+    // Versjonsord i parentes er samme låt; «(Mashup)» og «(Remix)» er en annen låt og blir stående
+    .replace(/[([](?![^)\]]*\b(?:mashup|remix|cover)\b)[^)\]]*[)\]]/g, ' ')
+    .replace(/\b(?:extended|extend|original|radio edit|edit|short|eshort|kort|denne|ny|new|main|mix|version|master(?:ed)?)\b/g, ' ')
     .replace(/[^a-z0-9æøå]+/g, ' ')
     .trim();
 }
@@ -111,7 +114,7 @@ export async function findDuplicateGroups(o: { mediaDir: string; dataDir: string
     const mp = path.join(media, e.manifest);
     if (!existsSync(mp)) continue;
     const m = JSON.parse(await readFile(mp, 'utf8')) as AssetManifest;
-    if (m.kind === 'set') continue;
+    if (m.kind === 'set' || m.hidden) continue; // skjulte (testlåta) er ikke med i katalogen
     const fileName = sources[`${m.slug}::${m.variant ?? 'main'}::v${m.version}`]?.fileName ?? null;
     // Tittelen hentes fra filnavnet når den bare er et mappenavn («1Echo Groove låter__Love me.wav»)
     let fromFile = fileName && FOLDER_PREFIX_RE.test(fileName) ? cleanDisplayTitle(fileName) : cleanDisplayTitle(m.title);
@@ -189,7 +192,7 @@ export async function findDuplicateGroups(o: { mediaDir: string; dataDir: string
     for (const i of ids) byKey[memberKey(members[i]!.slug, members[i]!.variant)] = id;
   }
   out.sort((a, b) => b.members.length - a.members.length || a.id.localeCompare(b.id));
-  const retitles = members.filter((m) => m.suggestedTitle !== m.baseTitle.replace(/[’`´]/g, "'").trim()).map(({ slug, variant, title, fileName, suggestedTitle }) => ({ slug, variant, title, fileName, suggestedTitle }));
+  const retitles = members.filter((m) => m.suggestedTitle !== m.baseTitle.trim()).map(({ slug, variant, title, fileName, suggestedTitle }) => ({ slug, variant, title, fileName, suggestedTitle }));
   return { updatedAt: new Date().toISOString(), groups: out, byKey, retitles };
 }
 

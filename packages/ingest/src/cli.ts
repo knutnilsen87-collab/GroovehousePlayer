@@ -1,7 +1,8 @@
 #!/usr/bin/env node
+import { applyMerge, planMerge, undoMerge, type MergePlan } from './merge';
 import { findDuplicateGroups, writeDupeReport } from './dupes';
 import { existsSync, statSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { findSuno, formatTime, toDraftVersion, type AssetManifest } from '@gv/shared';
@@ -95,6 +96,36 @@ async function main() {
     for (const k of r.missing) console.log(`  ! ${k}: fant ingen fil med samme hash (endret eller flyttet etter ingest?)`);
     for (const s of r.skipped) console.log(`  ↷ ${s.fileName}: kunne ikke leses (${s.reason}) – hoppet over`);
     console.log(`\n${r.matched.length} koblet, ${r.missing.length} uten treff, ${r.scanned} filer lest. Lagret i data/sources.json (gitignored).`);
+    return;
+  }
+
+  if (args.includes('--merge-plan') || args.includes('--merge-apply') || args.includes('--merge-undo')) {
+    // Sammenslåing av duplikater (Knuts regler 2026-11-17). Planen skrives til data/merge-plan.json og vises;
+    // --merge-apply utfører den lagrede planen (med backup og journal); --merge-undo <tid> angrer.
+    const dataDir = path.join(root, 'data');
+    const planFile = path.join(dataDir, 'merge-plan.json');
+    if (args.includes('--merge-undo')) {
+      const stamp = args[args.indexOf('--merge-undo') + 1];
+      if (!stamp) throw new Error('Bruk: gh-ingest --merge-undo <tid> (mappenavn i data/merges/)');
+      await undoMerge({ mediaDir, dataDir, stamp, log: console.log });
+      await writeDupeReport(dataDir, await findDuplicateGroups({ mediaDir, dataDir }));
+      return;
+    }
+    if (args.includes('--merge-plan')) {
+      const dupes = await findDuplicateGroups({ mediaDir, dataDir });
+      await writeDupeReport(dataDir, dupes);
+      const plan = await planMerge({ mediaDir, dataDir, dupes });
+      await writeFile(planFile, JSON.stringify(plan, null, 1));
+      printMergePlan(plan);
+      console.log(`
+Planen er lagret i data/merge-plan.json. Utfør med: pnpm gh-ingest --merge-apply`);
+      return;
+    }
+    const plan = JSON.parse(await readFile(planFile, 'utf8')) as MergePlan;
+    const r = await applyMerge({ mediaDir, dataDir, plan, log: console.log });
+    await writeDupeReport(dataDir, await findDuplicateGroups({ mediaDir, dataDir }));
+    console.log(`
+✓ Ferdig. Angre med: pnpm gh-ingest --merge-undo ${r.stamp}`);
     return;
   }
 
@@ -319,3 +350,23 @@ main().catch((err) => {
   console.error(`\n✗ ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);
 });
+
+/** Planen gruppert per sang: bare det som endres. */
+function printMergePlan(plan: MergePlan) {
+  const songs = new Map<string, MergePlan['ops']>();
+  for (const op of plan.ops) {
+    songs.set(`${op.to.slug}`, [...(songs.get(op.to.slug) ?? []), op]);
+  }
+  for (const [slug, ops] of [...songs].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const moved = ops.some((op) => op.from.slug !== op.to.slug || op.from.variant !== op.to.variant || op.from.version !== op.to.version || op.fromTitle.split(' · ')[0] !== op.title + (op.variantLabel ? ` (${op.variantLabel})` : '') || !!op.titleNeedsReview || !!op.hidden);
+    if (!moved) continue;
+    const f = ops[0]!;
+    console.log(`
+${f.title}  [${slug}]${f.titleNeedsReview ? '  (arbeidstittel – sjekk)' : ''}${f.shareBlocked ? '  (sperret for deling)' : ''}${f.hidden ? '  (skjult)' : ''}`);
+    for (const op of ops) console.log(`   ${(op.variantLabel ?? 'hoved').padEnd(9)} ${String(op.versionLabel ?? '').padEnd(14)} ← ${op.fromTitle}`);
+  }
+  const c = plan.counts;
+  console.log(`
+Før:   ${c.before.songs} låter (slugs), ${c.before.tracks} låt+variant, ${c.before.versions} versjoner, ${c.before.visible} synlige i katalogen`);
+  console.log(`Etter: ${c.after.songs} låter (slugs), ${c.after.tracks} låt+variant, ${c.after.versions} versjoner, ${c.after.visible} synlige i katalogen`);
+}

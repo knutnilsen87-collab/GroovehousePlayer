@@ -113,7 +113,8 @@ async function loadCatalogFiles(): Promise<{ assets: LoadedAsset[]; index: Index
   }
   const latest = new Map<string, IndexEntry>();
   for (const [k, list] of groups) latest.set(k, preferredVersion(list)!);
-  return { assets: await Promise.all([...latest.values()].map((e) => loadVersion(e, true))), index: idx.assets, error: null };
+  const loaded = await Promise.all([...latest.values()].map((e) => loadVersion(e, true)));
+  return { assets: loaded.filter((a) => !a.manifest.hidden), index: idx.assets, error: null };
 }
 
 /** Full analyse (analysis.json) for en låt fra den samlede katalogen. Hentes én gang per versjon. */

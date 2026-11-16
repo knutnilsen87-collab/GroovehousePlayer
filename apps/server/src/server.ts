@@ -2,7 +2,7 @@ import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import http, { type IncomingMessage, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { APP_ID, createApiHandler, isFromDrop, shareFileFor } from '@gv/ingest/api';
+import { APP_ID, createApiHandler, isFromDrop, shareBlockReason, shareFileFor } from '@gv/ingest/api';
 import { createSettingsRoute, type SettingsHooks } from './settings-route';
 import { createMediaHandler } from '@gv/ingest/media-static';
 import { appUpdateRoute } from './app-update';
@@ -211,6 +211,11 @@ export function createHandler(opts: ServerOptions) {
         if (!slugOk(b.slug) || !slugOk(b.variant) || !Number.isInteger(b.version) || !['full', 'preview', 'wav'].includes(String(b.kind))) {
           res.statusCode = 400;
           return res.end(JSON.stringify({ error: 'ugyldig' }));
+        }
+        const blocked = await shareBlockReason(opts.mediaDir, b.slug!, b.variant!, b.version!);
+        if (blocked) {
+          res.statusCode = 423;
+          return res.end(JSON.stringify({ error: blocked }));
         }
         const r = await shareFileFor(opts.mediaDir, path.resolve(opts.mediaDir, '..'), b.slug!, b.variant!, b.version!, b.kind as 'full' | 'preview' | 'wav');
         if (!r) {

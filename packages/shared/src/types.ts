@@ -97,8 +97,14 @@ export interface AssetManifest {
   label: string | null;
   /** f.eks. "℗ 2026 Groovehouse Records" – året er filens år. */
   copyright: string | null;
-  /** Tittelen kom fra et filnavn i bare versaler og bør sjekkes i Studio. */
+  /** Tittelen kom fra et filnavn i bare versaler (eller er en arbeidstittel) og bør sjekkes i Studio. */
   titleNeedsReview?: boolean;
+  /** Skjult fra katalogen (f.eks. testlåta fra fixtures). Filene ligger, men listene viser den ikke. */
+  hidden?: boolean;
+  /** Sperret for deling og utgivelse til den har fått nytt navn (grunnen vises). */
+  shareBlocked?: string;
+  /** Sammenslått fra en annen import (duplikat): opprinnelig slug, variant, versjon og tittel. */
+  mergedFrom?: { slug: string; variant: string | null; version: number; title: string; at: string };
   /** Verdiene ingest kom fram til uten Studio-overstyringer. Tømmes et felt i Studio, gjelder disse igjen. */
   sourceMeta?: {
     title: string;

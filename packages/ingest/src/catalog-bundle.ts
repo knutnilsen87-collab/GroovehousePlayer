@@ -94,7 +94,8 @@ export function createCatalogBundler(mediaDir: string) {
     // Noen få om gangen: disken (Google Drive-synk) tåler ikke hundrevis av samtidige lesinger
     for (let i = 0; i < picked.length; i += 16) {
       const got = await Promise.all(picked.slice(i, i + 16).map((e) => entry(e.manifest).catch(() => null)));
-      for (const g of got) if (g) assets.push({ manifest: g.manifest, analysis: g.analysis, features: g.features });
+      // Skjulte (f.eks. testlåta fra fixtures) vises ikke i listene
+      for (const g of got) if (g && !g.manifest.hidden) assets.push({ manifest: g.manifest, analysis: g.analysis, features: g.features });
     }
     const dupes = dataDir ? ((await readDupeReport(dataDir))?.byKey ?? {}) : {};
     return { schema: 1, index: idx.assets, assets, groups: dupes };
