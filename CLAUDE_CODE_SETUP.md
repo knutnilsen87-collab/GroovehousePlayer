@@ -645,8 +645,29 @@ Mål: settene settbyggeren lager skal ha overganger som er **så jevne som mulig
     - Stil bygger på **Knuts egne tagger**: ett trykk per låt («Deep», «Tech», «Cyber-Soul», egne navn) pluss en automatisk likhetsvektor fra analysen (BPM, swing, bass, lysstyrke, vokalandel). Vault foreslår tagger for nye låter ut fra likhet med de Knut har tagget. Ingen sjangergjenkjenning fra lyd utover det.
     - «Skift mot Tech» gjør at de neste forslagene og resten av settet glir mot låter tagget Tech, gradvis over 2–3 låter.
 
+### E. «Lag sett fra denne låta» (frølåt)
+20. Ny handling **«Lag sett fra denne»**, tilgjengelig her:
+    - i «⋯»-menyen på alle låter
+    - i fullskjermspilleren
+    - på låtrader i Bibliotek og DJ-verktøy
+    - ved langt trykk på hjertet
+
+    **Ett trykk** gir et sett med standardvalgene. Det skal være raskt.
+21. **Standardvalg** (kan endres i et lite ark før eller etter):
+    - Varighet 60 min.
+    - Kurve **Reise**.
+    - Frølåta plasseres der den passer kurven best ut fra energien (lav energi gir start, høy gir toppen). Kan overstyres: **Start**, **Topp** eller **Avslutning**.
+    - Umastrede låter er med (del 16).
+22. **Frølåta setter retningen** for hele settet, ikke bare naboene:
+    - Låter som ligner på frølåta (groove, bass-karakter, stil-tagger, toneområde og BPM-område) vektes opp, mer jo nærmere frølåta de ligger i settet.
+    - Settet kan bevege seg bort fra frølåta og tilbake, slik en DJ bygger rundt en favoritt.
+    - Med Vibe Shifter (D) kan Knut si «start som denne, slutt mer Tech».
+23. Overgangsreglene (B), presetene (del 18) og renderte overganger (C) gjelder som for andre sett. Resultatet gir tre forslag og lagres under **Live-sett → Planlagte sett** med navnet «Fra *<frølåt>*».
+24. **«Mer som denne»**: en lett variant uten sett-struktur. Den gir en kø på 10–20 låter som ligner, sortert for jevne overganger, og kan lagres som spilleliste.
+
 ### Tester og ferdig når
 **Tester:**
+- Frølåt: alltid med og på valgt eller beregnet plass, og likhet med frølåta øker gjennomsnittlig nær frølåta.
 - Groove-mål på syntetiske filer med kjent swing (0/10/20 %) innen ±2 %.
 - Vokalkart mot hånd-merkede tidsintervaller på 3 låter.
 - Takt-justering i rendret overgang < 15 ms på fixtures.
@@ -654,7 +675,7 @@ Mål: settene settbyggeren lager skal ha overganger som er **så jevne som mulig
 - Determinisme.
 - Rendering av et 60-min sett under 60 s på Knuts PC.
 
-**Ferdig når:** Knut lager et 60-min sett. Alle overgangene har en rendret forhåndsvisning som han kan høre på telefonen. Ingen er rødmerket uten at et alternativ er foreslått. Han gir tommel opp på minst 80 % av overgangene ved første gjennomlytting.
+**Ferdig når:** Knut trykker «Lag sett fra denne» på en låt han liker og får tre 60-min sett bygget rundt den på under 5 s. Alle overgangene har en rendret forhåndsvisning som han kan høre på telefonen. Ingen er rødmerket uten at et alternativ er foreslått. Han gir tommel opp på minst 80 % av overgangene ved første gjennomlytting.
 
 ## Del 21 – Vault på Raspberry Pi (alltid på, PC-en kan være av)
 
