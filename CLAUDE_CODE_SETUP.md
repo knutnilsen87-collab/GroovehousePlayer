@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 20 (jevnere autosett)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -660,6 +660,102 @@ Mål: settene settbyggeren lager skal ha overganger som er **så jevne som mulig
 - Rendering av et 60-min sett under 60 s på Knuts PC.
 
 **Ferdig når:** Knut lager et 60-min sett. Alle overgangene har en rendret forhåndsvisning som han kan høre på telefonen. Ingen er rødmerket uten at et alternativ er foreslått. Han gir tommel opp på minst 80 % av overgangene ved første gjennomlytting.
+
+## Del 21 – Vault på Raspberry Pi (alltid på, PC-en kan være av)
+
+Mål: telefonen og appen virker som andre musikkapper, også når den store PC-en er av. En Raspberry Pi med ekstern disk står hjemme og spiller ut musikken døgnet rundt. PC-en er fortsatt studio: ingest, analyse, Demucs og rendering.
+
+**Spør Knut først:** hvilken Pi-modell og hvor mye RAM, og hvilken disk (SSD eller HDD, størrelse).
+- Pi 4 med 4 GB eller mer og Pi 5 er gode nok.
+- Pi 3 eller eldre: si fra at den er for svak for HLS-servering til flere enheter samtidig og for ffmpeg.
+- Disk: SSD via USB 3 anbefales. Det trengs minst 3× dagens `media/` for vekst.
+
+**Arbeidsdeling**
+1. **Pi = spillerserver.** Kjører `apps/server` i «spiller-modus»: API, `/media`, spillelister, favoritter, posisjoner, tekst, markører, enhetstokens, app-oppdateringer (del 15) og eventuelt fildeling (del 10, med ffmpeg på Pi-en).
+   - **Ingen** ingest, Demucs eller rendering på Pi-en. Studio-handlinger som krever det, sendes til PC-en eller vises som «Krever PC-en».
+2. **PC = studio.** Ingest og analyse som før. Etter hver ingest skyves nye eller endrede filer i `media/` til Pi-en (rsync over Tailscale eller LAN, kun endringer, med fremdrift i Studio).
+   - **`master.flac` blir på PC-en.** Pi-en får bare strøm-filer, cover og analyse. Valgfritt: også masterne, hvis Knut vil ha delingen i del 10 tilgjengelig uten PC.
+3. **Én sannhetskilde for brukerdata:** `data/` (spillelister, favoritter, posisjoner, tekster, markører, settplaner, presets, skins) bor på **Pi-en**. PC-ens server og Studio leser og skriver via Pi-ens API når den er tilgjengelig.
+   - Når Pi-en er nede, går PC-en over til en lokal kopi og synker tilbake etterpå. Konflikter løses per element med `updatedAt`, uten stille overskriving.
+
+**Oppsett på Pi-en**
+4. Raspberry Pi OS Lite 64-bit og Node LTS. `media/` og `data/` på den eksterne disken (ext4), montert fast i `/etc/fstab`.
+5. Vault kjører som **systemd-tjeneste** med automatisk omstart og logg i journald. Automatiske sikkerhetsoppdateringer (unattended-upgrades).
+6. Lag et oppsettskript (`pnpm pi:setup` fra PC-en over SSH) og en README-guide steg for steg for Knut: brenne SD-kort med Raspberry Pi Imager (sett vertsnavn `vault`, bruker og SSH-nøkkel), koble disken, kjør skriptet. Spør Knut før hvert steg som endrer Pi-en.
+
+**Tilgang utenfra (ingen porter åpnes i ruteren)**
+7. **Tailscale på Pi-en**, med Tailscale Serve og HTTPS. Adressen blir f.eks. `vault.tail1110e6.ts.net`, og står bare i `groovehouse.local.json`.
+8. **Valgfritt, Cloudflare Tunnel** fra Pi-en til `vault.groovehouserecords.com`, så appen virker **uten VPN**:
+   - Bare API og `/media` eksponeres.
+   - Enhetstoken kreves på alt.
+   - Cloudflare Access foran Studio-sidene.
+   - Rate limiting.
+
+   Spør Knut før tunnelen settes opp.
+
+**Appen**
+9. Appen husker flere kilder og velger automatisk i denne rekkefølgen: **Pi via tunnel/Tailscale → PC via Tailscale → nedlastet på telefonen**. Ingen ny paring nødvendig: enhetstokens flyttes fra PC til Pi ved første synk.
+10. **Nedlasting for offline:** last ned spillelister, sett eller hele biblioteket til appen. Det tar mest plass på telefonen og gjør bilen uavhengig av dekning. Vis brukt plass, og la Knut velge kvalitet.
+
+**App-oppdateringer via Pi-en**
+10b. Oppdateringene fra del 15 (web-bunt og APK) **serveres fra Pi-en**, så appen oppdaterer seg også når PC-en er av.
+   - `pnpm android:release` på PC-en bygger som før og **skyver bunt, APK og `manifest.json` til Pi-en** i samme synk som media.
+   - Appen spør den kilden den er koblet til (Pi via tunnel/Tailscale, ellers PC).
+   - Bunt og APK signeres og kontrolleres med sha256 som før. Pi-en kan aldri lage eller endre dem, bare levere dem.
+   - Test at en ny web-bunt når telefonen med PC-en av.
+
+**Backup**
+11. Nattlig kopi av Pi-ens `data/` til PC-en (H:) og omvendt for `media/`. Én disk er ikke backup. Status vises i Studio («Siste backup: i natt 03:00»).
+
+**Tester:** synk av media (bare endringer, avbrudd og fortsettelse), konflikter i data/ (to enheter endrer samme liste), automatisk kildevalg i appen, at Pi-en aldri får ingest-jobber, at tunnelen avviser alt uten token, og omstart av Pi-en (tjenesten kommer opp av seg selv).
+
+**Ferdig når:** Knut slår av den store PC-en. Han spiller en spilleliste i bilen fra telefonen, lager en ny liste, slår på PC-en igjen og ser lista der. En ny bounce fra Reason dukker opp på telefonen noen minutter etter at PC-en har ingestet den.
+
+## Del 22 – Visuell finpuss: typografi, glass og stramt oppsett
+
+Mål: grensesnittet skal føles eksklusivt og være **lynraskt å lese** i studio og under live-sett. Bort med flate grå bokser og harde kanter. Gjelder alle skins (del 19). Farger kommer fortsatt **bare fra skin-variablene**, aldri hardkodet cyan eller fiolett.
+
+**1. Typografi** (erstatter Satoshi + JetBrains Mono som standard; alle selvhostet som woff2 med lisensfil)
+1. **Display / titler:** **Clash Display** (Fontshare, ITF Free Font License, samme lisens som Satoshi) til låttittel i spilleren, sidetitler og store tall.
+2. **Seksjonsetiketter:** **Syncopate Bold** (OFL) i versaler med sperring, små (11–12 px): «LÅTINFO», «SPEKTRUM», «PASSER ETTER …». Kun etiketter, aldri brødtekst.
+3. **Brødtekst og lister:** **Inter** (OFL) med `font-feature-settings: "tnum", "cv11"`.
+4. **Data:** **Geist Mono** (OFL) til BPM, toneart, LUFS, tider og format. Tabulære tall.
+5. **Hierarki:**
+   - Etiketter: tykk versal, dempet farge.
+   - Data: lett/regular, full kontrast.
+   - **Aktiv låt** i lister: Inter SemiBold/Bold i aksentfargen.
+   - Minstestørrelser: 13 px data, 11 px etiketter, 15 px listetitler på mobil.
+6. Skins kan overstyre display-fonten (f.eks. Echo Groove Nights). Resten er felles.
+
+**2. Materialer og dybde**
+7. **Fjern nesten alle synlige kantlinjer** rundt spiller, knapper, sidepanel og kort. Skill elementer med luft og små forskjeller i bakgrunn (1–3 % lysere lag). Kantlinjer kun der det trengs for fokus eller tilgjengelighet.
+8. **Glass:** bunn i skinnets bakgrunn (obsidian eller midnattsblå). Paneler med svak gjennomsiktighet og `backdrop-filter: blur(20–28px) saturate(140%)`, og en hårfin lyskant øverst (1 px hvit på 6–8 %) i stedet for ramme.
+   - **Ytelse:** på mobil og i Android-appen brukes blur bare på 1–2 store flater (minispiller og fullskjermspiller). Resten får en ferdig tonet, halvgjennomsiktig bakgrunn uten blur. Mål 30 fps på S22.
+   - Skinnet OLED Svart bruker ingen blur.
+9. Skygger i stedet for rammer: myke, store skygger i aksentfargen på lav styrke for flater som ligger øverst.
+
+**3. Strammere oppsett**
+10. **Bølgeformen fra kant til kant** i spillermodulen, uten indre boks eller marg. Tider legges oppå bølgeformen nederst i hvert hjørne.
+11. **Transportknapper:** fjern sirklene rundt forrige/neste/bland/gjenta. Ikonene blir 15–20 % større. **Play/pause** beholder en myk glød (drop-shadow i aksent, sterkere ved hover og avspilling) uten hard ring. Treffflater minst 44 px.
+12. **Låtinfo som rutenett av pills:** 2 kolonner. Hver verdi er en liten pill med etikett over (Syncopate, dempet) og verdi i Geist Mono. Pillens bakgrunn er aksent på 8–12 %, f.eks. `BPM 124.5`, `TONEART Bb · 6B`, `LUFS −15.3`, `TID 3:12`, `FORMAT WAV 16/44.1`. Camelot-pillen får harmoni-farge mot låta som kommer etter i køen.
+12b. **Detaljer fra Knuts utkast (Next.js/WaveSurfer-utkastet). Bruk ideene, ikke koden:**
+   - **Ikke** bruk WaveSurfer.js eller Next.js/`next/font`. Bølgeformen tegnes fortsatt fra `analysis.json` på canvas (virker på mobil og i appen uten Web Audio).
+   - Bølgeformen tegnes som **stolper**: 3 px bredde, 2 px mellomrom, 2 px avrunding. Vertikalt normalisert så den fyller hele høyden.
+   - Uspilt del i aksent-2 på ca. 30 %, spilt del i aksent på ca. 90 %.
+   - **Skarpt hvitt spillehode** (2 px) med svak glød.
+   - Et **glød-lag bak bølgeformen** (myk gradient i aksent og aksent-2, sterk blur). Det går fra ca. 30 % til 100 % styrke når avspillingen starter, over 0,7 s. Av ved redusert bevegelse.
+   - **Play-knappen:** fylt sirkel i aksent med mørkt ikon (`--on-accent`) og glød, som skaleres litt opp ved hover. Andre transportikoner er uten sirkel.
+   - **Aktiv rad i lister:** 2 px aksentstripe til venstre og aksent på 5 % i bakgrunnen. Nummer og tittel i aksent.
+   - **Tabelloverskrifter** i Syncopate, små versaler med god sperring og dempet farge.
+13. Se gjennom alle sider for samme regler: Hjem, Bibliotek, DJ-verktøy, Settbygger, Live-sett, Studio og Innstillinger. Fjern dobbel informasjon og grupper med luft i stedet for bokser.
+
+**Tester:**
+- Visuell sammenligning før og etter for desktop (1536×1024) og mobil (390×844), i tre skins, i `docs/design/compare/del-22/`.
+- Testen som stopper hardkodede farger og fonter fra CDN gjelder fortsatt.
+- Fps-måling i Android-appen.
+- Kontrast ≥ 4,5:1 på data og ≥ 3:1 på etiketter.
+
+**Ferdig når:** Knut sammenligner før og etter og synes det nye er tydeligere og mer eksklusivt. Han kan lese BPM og toneart på låta som spilles, fra en armlengdes avstand på PC-en, og appen er like jevn på S22 som før.
 
 ## Del 15 – Oppdatering av Android-appen
 
