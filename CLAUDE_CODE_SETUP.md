@@ -692,6 +692,13 @@ Mål: telefonen og appen virker som andre musikkapper, også når den store PC-e
 9. Appen husker flere kilder og velger automatisk i denne rekkefølgen: **Pi via tunnel/Tailscale → PC via Tailscale → nedlastet på telefonen**. Ingen ny paring nødvendig: enhetstokens flyttes fra PC til Pi ved første synk.
 10. **Nedlasting for offline:** last ned spillelister, sett eller hele biblioteket til appen. Det tar mest plass på telefonen og gjør bilen uavhengig av dekning. Vis brukt plass, og la Knut velge kvalitet.
 
+**App-oppdateringer via Pi-en**
+10b. Oppdateringene fra del 15 (web-bunt og APK) **serveres fra Pi-en**, så appen oppdaterer seg også når PC-en er av.
+   - `pnpm android:release` på PC-en bygger som før og **skyver bunt, APK og `manifest.json` til Pi-en** i samme synk som media.
+   - Appen spør den kilden den er koblet til (Pi via tunnel/Tailscale, ellers PC).
+   - Bunt og APK signeres og kontrolleres med sha256 som før. Pi-en kan aldri lage eller endre dem, bare levere dem.
+   - Test at en ny web-bunt når telefonen med PC-en av.
+
 **Backup**
 11. Nattlig kopi av Pi-ens `data/` til PC-en (H:) og omvendt for `media/`. Én disk er ikke backup. Status vises i Studio («Siste backup: i natt 03:00»).
 
