@@ -19,7 +19,7 @@ export const statusOf = (m: Pick<AssetManifest, 'version'> & { status?: AssetSta
 export const isDraft = (m: Pick<AssetManifest, 'version'> & { status?: AssetStatus }) => statusOf(m) === 'draft';
 /** «v3» eller «Utkast v3». */
 export function versionName(m: Pick<AssetManifest, 'version'> & { status?: AssetStatus }): string {
-  return isDraftVersion(m.version) ? `Utkast v${m.version - DRAFT_BASE}` : `v${m.version}`;
+  return isDraftVersion(m.version) ? `Umastret v${m.version - DRAFT_BASE}` : `v${m.version}`;
 }
 
 /**
@@ -77,4 +77,7 @@ export function planStats(rows: Array<{ status: AssetStatus; durationMs: number;
 
 export const DRAFT_ALBUM = 'Groovehouse Records – Demo';
 /** «Night Drive» → «Night Drive (Utkast)» (ikke dobbelt). */
-export const draftTitle = (t: string) => (/\(utkast\)$/i.test(t.trim()) ? t : `${t} (Utkast)`);
+export const draftTitle = (t: string) => (/\((utkast|umastret)\)$/i.test(t.trim()) ? t : `${t} (Umastret)`);
+
+/** Eldre manifester har versionLabel «Utkast vN»: vises som «Umastret vN». */
+export const displayLabel = (label: string) => label.replace(/^utkast\b/i, 'Umastret');

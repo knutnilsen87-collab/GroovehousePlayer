@@ -78,9 +78,9 @@ export function validateSettings(patch: SettingsPatch, base: VaultConfig): strin
   if (patch.draftDir !== undefined && patch.draftDir !== null && patch.draftDir.trim()) {
     const d = patch.draftDir.trim();
     const ex = (patch.exportDir ?? base.exportDir ?? '').trim();
-    if (!path.isAbsolute(d)) e.push('Utkastmappa må være en full sti (f.eks. D:\\Musikk\\Utkast)');
-    else if (!existsSync(d) || !statSync(d).isDirectory()) e.push('Utkastmappa finnes ikke');
-    else if (ex && path.resolve(d).toLowerCase() === path.resolve(ex).toLowerCase()) e.push('Utkastmappa kan ikke være den samme som eksportmappa (release-klare)');
+    if (!path.isAbsolute(d)) e.push('Mappa for umastrede låter må være en full sti (f.eks. D:\\Musikk\\Umastret)');
+    else if (!existsSync(d) || !statSync(d).isDirectory()) e.push('Mappa for umastrede låter finnes ikke');
+    else if (ex && path.resolve(d).toLowerCase() === path.resolve(ex).toLowerCase()) e.push('Mappa for umastrede låter kan ikke være den samme som eksportmappa (release-klare)');
   }
   return e;
 }

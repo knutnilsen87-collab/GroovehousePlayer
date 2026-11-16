@@ -84,12 +84,12 @@ async function main() {
     const d = loadConfig(root).draftDir;
     const draftDir = d ? path.resolve(root, d) : null;
     if (draftDir && existsSync(draftDir)) dirs.push(draftDir);
-    else if (draftDir) log(`! Utkastmappa finnes ikke: ${draftDir}`);
+    else if (draftDir) log(`! Mappa for umastrede låter finnes ikke: ${draftDir}`);
     const inbox = path.join(root, 'data', 'drafts-inbox');
     mkdirSync(inbox, { recursive: true });
     dirs.push(inbox);
     return dirs.map((dir) => {
-      log(`Utkast-watcher: ${dir} (leser bare)`);
+      log(`Watcher for umastrede låter: ${dir} (leser bare)`);
       return startWatcher({ exportDir: dir, mediaDir, config: loadConfig(root), log, status: 'draft' });
     });
   };

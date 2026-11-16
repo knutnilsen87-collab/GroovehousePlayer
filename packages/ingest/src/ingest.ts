@@ -77,7 +77,7 @@ export async function ingestRelease(release: ReleaseSource, opts: IngestOptions)
   const results: IngestResult[] = [];
   // Del 16: utkast får egne versjonsnumre (1000 + N), så de aldri kolliderer med release-versjoner
   const masters = opts.status === 'draft' ? release.masters.map((m) => ({ ...m, version: toDraftVersion(m.version) })) : release.masters;
-  if (opts.status === 'draft') report('status', 'ok', 'utkast (fra utkastmappa) – holdes atskilt fra release-klare');
+  if (opts.status === 'draft') report('status', 'ok', 'umastret (fra mappa for umastrede låter) – holdes atskilt fra release-klare');
   for (const master of masters) {
     if (masters.length > 1) report('variant', 'ok', master.variant ?? 'hovedversjon');
     const warnings: string[] = [];
@@ -291,7 +291,7 @@ async function ingestOne(
     const hlsP = timed(
       'hls',
       async () => encodeHls(master.path, work, (ms) => (prog.hls = Math.min(1, ms / info.durationMs)), normP ? loudnormFilter(cfg.audio.targetLufs, await normP) : undefined),
-      () => (draft ? `AAC 256k · normalisert til ${cfg.audio.targetLufs} LUFS (utkast) · kildetags fjernet` : 'AAC 256k · 6 s segmenter · kildetags fjernet'),
+      () => (draft ? `AAC 256k · normalisert til ${cfg.audio.targetLufs} LUFS (umastret) · kildetags fjernet` : 'AAC 256k · 6 s segmenter · kildetags fjernet'),
       'hls'
     );
     // Del 10: Vaults egen tapsfrie kopi av masteren (FLAC), så deling ikke avhenger av at fila
@@ -393,7 +393,7 @@ async function ingestOne(
       variant: master.variant,
       variantLabel: resolved.variantLabel,
       version: master.version,
-      versionLabel: meta.versionLabel ?? (draft ? `Utkast v${master.version - DRAFT_BASE}` : master.version > 1 ? `v${master.version}` : null),
+      versionLabel: meta.versionLabel ?? (draft ? `Umastret v${master.version - DRAFT_BASE}` : master.version > 1 ? `v${master.version}` : null),
       kind,
       status: draft ? 'draft' : 'release',
       title: resolved.title,

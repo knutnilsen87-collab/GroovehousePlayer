@@ -30,7 +30,7 @@ export function CommandPalette({
   const [saving, setSaving] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   // Del 16: bare release-klare som standard; valget huskes
-  const [status, setStatus] = useStatusFilter('search');
+  const [status, setStatus] = useStatusFilter('search', 'all');
   const pool = useMemo(() => assets.filter((a) => matchesStatus(a.manifest, status)), [assets, status]);
   const results = useMemo(() => (q.trim() ? pool.filter((a) => matches(a, q)) : pool).slice(0, 30), [pool, q]);
 

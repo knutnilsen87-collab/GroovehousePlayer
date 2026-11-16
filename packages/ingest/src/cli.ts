@@ -135,7 +135,7 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
     const configured = drafts ? loadConfig().draftDir : loadConfig().exportDir;
     const dir = path.resolve(base, target ?? configured ?? '');
     if (!target && !configured)
-      throw new Error(drafts ? 'Mangler utkastmappe: velg den i Studio → Innstillinger, sett GH_DRAFT_DIR i .env eller oppgi mappa' : 'Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
+      throw new Error(drafts ? 'Mangler mappe for umastrede låter: velg den i Studio → Innstillinger, sett GH_DRAFT_DIR i .env eller oppgi mappa' : 'Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
     const skip = new Set((flag('--skip') ?? '').split(',').map((s) => s.trim()).filter(Boolean));
     const scan = drafts ? await scanDrafts(dir, cfg) : await scanFlat(dir, cfg);
     // Planen sjekker mot versjonene slik de lagres (utkast: 1000 + N)

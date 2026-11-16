@@ -83,7 +83,7 @@ describe.skipIf(!hasFfmpeg)('utkast (del 16, krever ffmpeg)', () => {
 
     const draftDirOut = path.join(mediaDir, 'night-drive', 'main', 'v1003');
     const dm = JSON.parse(await readFile(path.join(draftDirOut, 'manifest.json'), 'utf8')) as AssetManifest;
-    expect(dm).toMatchObject({ status: 'draft', versionLabel: 'Utkast v3' });
+    expect(dm).toMatchObject({ status: 'draft', versionLabel: 'Umastret v3' });
     expect(dm.loudness.normalizedLufs).toBe(cfg.audio.targetLufs);
     expect(dm.loudness.integratedLufs).toBeLessThan(-30); // målt originalnivå står fortsatt
     // HLS normalisert til målnivået (±1,5 LU), master.flac uendret svak
@@ -107,12 +107,12 @@ describe.skipIf(!hasFfmpeg)('utkast (del 16, krever ffmpeg)', () => {
     const r = await fetch(`${url}&draft=1`);
     expect(r.status).toBe(200);
     const name = decodeURIComponent(r.headers.get('x-share-filename') ?? '');
-    expect(name).toContain('(Utkast)');
+    expect(name).toContain('(Umastret)');
     const file = path.join(tmp, 'delt.m4a');
     await import('node:fs/promises').then((f) => r.arrayBuffer().then((b) => f.writeFile(file, Buffer.from(b))));
     const tags = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format_tags=title,album', '-of', 'json', file], { encoding: 'utf8' }).stdout;
     expect(tags).toContain('Groovehouse Records – Demo');
-    expect(tags).toContain('Night Drive (Utkast)');
+    expect(tags).toContain('Night Drive (Umastret)');
     // Release-versjonen deles som før
     expect((await fetch(`${base}/api/share/night-drive/main/1?kind=preview`)).status).toBe(200);
   }, 120_000);

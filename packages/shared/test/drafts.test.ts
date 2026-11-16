@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { draftTitle, flowBetween, isDraft, matchesStatus, planStats, preferredVersion, statusOf, toDraftVersion, versionName } from '../src/drafts';
+import { displayLabel, draftTitle, flowBetween, isDraft, matchesStatus, planStats, preferredVersion, statusOf, toDraftVersion, versionName } from '../src/drafts';
 
 describe('utkast (del 16)', () => {
   it('egne versjonsnumre som ikke kolliderer med release', () => {
@@ -7,7 +7,7 @@ describe('utkast (del 16)', () => {
     expect(statusOf({ version: 3 })).toBe('release');
     expect(statusOf({ version: 1003 })).toBe('draft');
     expect(statusOf({ version: 1003, status: 'release' })).toBe('release'); // gjort release-klar i Studio
-    expect(versionName({ version: 1003 })).toBe('Utkast v3');
+    expect(versionName({ version: 1003 })).toBe('Umastret v3');
     expect(versionName({ version: 2 })).toBe('v2');
     expect(isDraft({ version: 1001 })).toBe(true);
   });
@@ -37,7 +37,9 @@ describe('utkast (del 16)', () => {
     expect(s.flows).toHaveLength(6);
   });
   it('tittel ved deling av utkast', () => {
-    expect(draftTitle('Night Drive')).toBe('Night Drive (Utkast)');
+    expect(draftTitle('Night Drive')).toBe('Night Drive (Umastret)');
+    expect(draftTitle('Night Drive (Umastret)')).toBe('Night Drive (Umastret)');
     expect(draftTitle('Night Drive (Utkast)')).toBe('Night Drive (Utkast)');
+    expect(displayLabel('Utkast v2')).toBe('Umastret v2');
   });
 });

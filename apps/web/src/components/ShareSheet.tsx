@@ -182,7 +182,7 @@ function ShareSheet() {
           <label className="mt-3 flex items-start gap-2 rounded-lg border border-dashed border-white/30 bg-white/[0.03] px-3 py-2 text-xs text-soft">
             <input type="checkbox" checked={draftOk} onChange={(e) => setDraftOk(e.target.checked)} className="mt-0.5" />
             <span>
-              <b className="text-ink">Del utkast likevel</b> – dette er en umastret låt. Fila får « (Utkast)» i navnet og tittelen, og albumet blir «{DRAFT_ALBUM}».
+              <b className="text-ink">Del umastret likevel</b> – låta er ikke mastret. Fila får « (Umastret)» i navnet og tittelen, og albumet blir «{DRAFT_ALBUM}».
             </span>
           </label>
         )}

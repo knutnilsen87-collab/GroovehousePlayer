@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { formatTime, sectionsOf } from '@gv/shared/web';
+import { displayLabel, formatTime, sectionsOf } from '@gv/shared/web';
 import { assetUrl, loadVersion, variantName, versionsOf, type IndexEntry, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { toastError, useToast } from '../lib/playlists';
@@ -247,7 +247,7 @@ function InfoPanel({ a }: { a: LoadedAsset }) {
   const rows: Array<[string, ReactNode]> = [
     ['Tittel', m.title],
     ['Variant', m.variant ? variantName(a) : 'Original'],
-    ['Versjon', `v${m.version}${m.versionLabel ? ` · ${m.versionLabel}` : ''}`],
+    ['Versjon', `v${m.version}${m.versionLabel ? ` · ${displayLabel(m.versionLabel)}` : ''}`],
     ['BPM', m.bpm ?? '–'],
     ['Toneart', m.key ? `${m.key.name} · ${m.key.camelot}` : '–'],
     ['Lydstyrke', `${m.loudness.integratedLufs} LUFS`],

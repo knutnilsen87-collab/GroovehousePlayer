@@ -47,7 +47,22 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
   const [bpmMin, setBpmMin] = useState<string>('');
   const [bpmMax, setBpmMax] = useState<string>('');
   const [startKey, setStartKey] = useState<string>('');
-  const [includeDrafts, setIncludeDrafts] = useState(false);
+  // Del 16 (2026-11-15): «Ta med umastret» er på som standard, og valget huskes
+  const [includeDrafts, setIncludeDraftsState] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('gv:setbuilder:includeUnmastered') !== '0';
+    } catch {
+      return true;
+    }
+  });
+  const setIncludeDrafts = (on: boolean) => {
+    setIncludeDraftsState(on);
+    try {
+      localStorage.setItem('gv:setbuilder:includeUnmastered', on ? '1' : '0');
+    } catch {
+      /* privat modus */
+    }
+  };
   const [must, setMust] = useState<Array<{ id: string; position: number | null }>>([]);
   const [exclude, setExclude] = useState<string[]>([]);
   const [seed, setSeed] = useState(1);
@@ -233,7 +248,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
             </label>
             <label className="flex items-center gap-1.5">
               <input type="checkbox" checked={includeDrafts} onChange={(e) => setIncludeDrafts(e.target.checked)} />
-              Ta med utkast
+              Ta med umastret
             </label>
           </div>
           <TrackPicker label="Må være med" pool={pool} chosen={must.map((m) => m.id)} onAdd={(id) => setMust([...must, { id, position: null }])} onRemove={(id) => setMust(must.filter((m) => m.id !== id))} positions={must} setPosition={(id, p) => setMust(must.map((m) => (m.id === id ? { ...m, position: p } : m)))} />
