@@ -166,6 +166,8 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
   return {
     close: async () => {
       await w.close();
+      // Ved omstart: dropp ventende jobber (innhentingen ved neste oppstart tar dem igjen), vent bare på den som kjører
+      queue.length = 0;
       await busy;
     },
     status: () => ({ exportDir, queued: queue.length + (busy ? 1 : 0), busy: !!busy, lastEvent }),
