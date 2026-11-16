@@ -6,7 +6,7 @@
     <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
         <item name="colorPrimary">@color/gv_obsidian</item>
         <item name="colorPrimaryDark">@color/gv_obsidian</item>
-        <item name="colorAccent">#F0C030</item>
+        <item name="colorAccent">#06B211</item>
         <item name="android:windowBackground">@color/gv_obsidian</item>
         <item name="android:statusBarColor">@color/gv_obsidian</item>
         <item name="android:navigationBarColor">@color/gv_obsidian</item>

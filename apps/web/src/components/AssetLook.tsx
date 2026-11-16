@@ -48,7 +48,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-white/[0.08] bg-sunken/60 p-3">
       <fieldset className="m-0 flex flex-wrap items-start gap-4 border-0 p-0">
-        <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Farge {m.palette.source === 'manual' ? '· valgt manuelt' : m.palette.source === 'fallback' ? '· gull (coveret mangler eller er fargeløst)' : '· automatisk fra cover'}</legend>
+        <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">Farge {m.palette.source === 'manual' ? '· valgt manuelt' : '· standard (grønn)'}</legend>
         {(
           [
             ['Primær', primary, setPrimary],

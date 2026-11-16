@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { create } from 'zustand';
-import { isDraft, paletteToCssVars, withAlpha, type AssetManifest, type StatusFilter } from '@gv/shared/web';
+import { FALLBACK_PALETTE, isDraft, paletteToCssVars, withAlpha, type AssetManifest, type StatusFilter } from '@gv/shared/web';
 
 /**
  * Del 16: utkast holdes atskilt og er tydelig merket overalt:
@@ -17,12 +17,13 @@ export function DraftBadge({ m, className = '' }: { m: Pick<AssetManifest, 'vers
   );
 }
 
-/** CSS-variablene for en låt: coverets palett, med halv glød for utkast. */
+/** CSS-variablene for en låt: manuell farge fra Studio, ellers standardfargen (grønn), med halv glød for utkast. */
 export function trackVars(m: Pick<AssetManifest, 'palette' | 'version' | 'status'>): CSSProperties {
-  const v = paletteToCssVars(m.palette);
+  const p = m.palette.source === 'manual' ? m.palette : FALLBACK_PALETTE;
+  const v = paletteToCssVars(p);
   if (isDraft(m)) {
-    v['--glow'] = withAlpha(m.palette.primary, 0.21);
-    v['--glow-2'] = withAlpha(m.palette.secondary, 0.09);
+    v['--glow'] = withAlpha(p.primary, 0.21);
+    v['--glow-2'] = withAlpha(p.secondary, 0.09);
   }
   return v as CSSProperties;
 }
