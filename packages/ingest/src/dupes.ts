@@ -117,7 +117,8 @@ export async function findDuplicateGroups(o: { mediaDir: string; dataDir: string
     if (m.kind === 'set' || m.hidden) continue; // skjulte (testlåta) er ikke med i katalogen
     const fileName = sources[`${m.slug}::${m.variant ?? 'main'}::v${m.version}`]?.fileName ?? null;
     // Tittelen hentes fra filnavnet når den bare er et mappenavn («1Echo Groove låter__Love me.wav»)
-    let fromFile = fileName && FOLDER_PREFIX_RE.test(fileName) ? cleanDisplayTitle(fileName) : cleanDisplayTitle(m.title);
+    // Filnavnet brukes bare når tittelen fortsatt er mappenavnet (etter sammenslåingen er tittelen ryddet)
+    let fromFile = fileName && FOLDER_PREFIX_RE.test(fileName) && FOLDER_PREFIX_RE.test(`${m.title} `) ? cleanDisplayTitle(fileName) : cleanDisplayTitle(m.title);
     const mark = fileName ? COPY_SUFFIX_FILE_RE.exec(fileName) : null;
     if (mark) fromFile = fromFile.replace(new RegExp(`\\s+${mark[1]}$`, 'i'), '');
     members.push({
