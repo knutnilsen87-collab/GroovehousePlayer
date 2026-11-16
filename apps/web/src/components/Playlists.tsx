@@ -71,8 +71,8 @@ export function Mosaic({ assets, size, color, rounded = 10 }: { assets: LoadedAs
   const half = size / 2;
   return (
     <span className="grid flex-none grid-cols-2 overflow-hidden" style={frame}>
-      {four.map((a) => (
-        <CoverArt key={a.manifest.id} src={assetUrl(a, a.manifest.files.coverThumb)} palette={a.manifest.palette} title={a.manifest.title} size={half} rounded={0} />
+      {four.map((a, i) => (
+        <CoverArt key={`${i}-${a.manifest.id}`} src={assetUrl(a, a.manifest.files.coverThumb)} palette={a.manifest.palette} title={a.manifest.title} size={half} rounded={0} />
       ))}
     </span>
   );
