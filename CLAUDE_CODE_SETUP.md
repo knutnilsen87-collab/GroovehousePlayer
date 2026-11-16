@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -751,6 +751,42 @@ Mål: grensesnittet skal føles eksklusivt og være **lynraskt å lese** i studi
 - Kontrast ≥ 4,5:1 på data og ≥ 3:1 på etiketter.
 
 **Ferdig når:** Knut sammenligner før og etter og synes det nye er tydeligere og mer eksklusivt. Han kan lese BPM og toneart på låta som spilles, fra en armlengdes avstand på PC-en, og appen er like jevn på S22 som før.
+
+## Del 23 – Automatisk coverart når låta mangler cover
+
+Mål: ingen låt skal stå med tomt cover. Vault lager et passende cover automatisk. Knut kan be om AI-genererte alternativer, og et ekte cover (dra-og-slipp) erstatter alltid det automatiske.
+
+**Nivå 1: generert cover (alltid, umiddelbart, gratis, uten nett)**
+1. Ved ingest uten cover lager Vault et **«Vault-cover»** (3000×3000 PNG + miniatyr) ut fra låtas egne data. Samme låt gir alltid samme cover.
+   - **Farger fra tonearten:** Camelot-hjulets fargesirkel, så låter som passer harmonisk også ser beslektet ut. Lys/mørk etter dur/moll.
+   - **Form fra lyden:** bølgeformen som en sirkulær «vinyl-ring» eller stråler fra spekteret (`spectrum48`). Energien styrer intensitet og kontrast.
+   - **Typografi:** tittel i Clash Display og «ECHO GROOVE» i sperret versal. Lite Groovehouse-merke. Umastrede låter får en diskret «UMASTRET»-linje.
+   - Utvid generatoren som allerede lager reservecover ved deling (del 10). Bruk den samme i spilleren, ikke en ny.
+2. Paletten hentes fra det genererte coveret som fra ekte cover, så Kameleon-skinnet virker.
+3. Coveret merkes `cover.source = "generated"`. Et ekte cover erstatter det alltid. Generert cover brukes aldri som release-cover uten at Knut eksplisitt velger det.
+
+**Nivå 2: AI-cover (valgfritt, på forespørsel)**
+4. **«Lag AI-cover»** per låt i Studio og i «⋯»-menyen, og **«Lag for alle uten cover»** som batch (vis antall og anslått kostnad først, og vent på OK).
+5. **Prompt bygges automatisk** av:
+   - tittel
+   - stemning fra analysen (energi, dur/moll, BPM)
+   - Knuts stil-tagger (del 20)
+   - tema fra sangteksten hvis den finnes
+   - valgt **stilmal**, f.eks. «Echo Groove Nights» (`docs/design/reference/echo-groove-nights.jpg`): natt-lilla, magenta neon, måne og vann, krom
+
+   Knut kan redigere prompten før generering, men trenger ikke.
+6. Bildet genereres **uten tekst**. Vault legger tittel og artist oppå med egen typografi (AI-modeller skriver tekst dårlig). Lag 4 varianter. Knut velger med ett trykk, eller «Lag nye».
+7. **Leverandør kan settes i Innstillinger** (f.eks. OpenAI, Google eller en lokal modell). **Alternativ:** send jobben til Knuts eget bildeverktøy **bulkIMG / AURORA Asset Studio** (lokal bulk-produksjon) via mappe eller HTTP, og hent resultatet tilbake. Spør Knut hvilken han vil bruke. API-nøkler lagres i Windows Credential Manager, aldri i git, chat eller innstillingsfila.
+8. **Regler for innholdet:**
+   - Ingen gjenkjennelige virkelige personer.
+   - Ingen andre artisters navn eller kjente covere i prompten.
+   - Ingen logoer fra andre merker.
+9. Lagre prompt, leverandør, modell og frø i `meta.json`, så coveret kan gjenskapes. Vis «AI-generert» under Kreditering. Mange distributører spør om dette ved utgivelse.
+10. Skaler til 3000×3000 for release-bruk, og sjekk at coveret holder seg innenfor distributørenes vanlige krav (kvadratisk, minst 3000 px, RGB).
+
+**Tester:** samme låt gir samme Vault-cover, palett fra generert cover, at ekte cover alltid vinner, batch med kostnadsvarsel og bekreftelse, at nøkkelen aldri havner i logger eller filer, og at tekst legges på av Vault (ikke i AI-bildet).
+
+**Ferdig når:** alle låter i biblioteket har et cover. De som manglet, har et Vault-cover som passer stilen. Knut lager AI-cover for én låt i stilen Echo Groove Nights, velger én av fire varianter, og ser at spilleren skifter farge etter det nye coveret.
 
 ## Del 15 – Oppdatering av Android-appen
 
