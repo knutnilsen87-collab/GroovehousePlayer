@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -516,6 +516,42 @@ Mål: Knut får en idé til en overgang og lagrer den med **ett trykk**, så han
 **Tester:** regler for automatisk forslag, festing til frasegrenser, læring etter to like valg, rask lagring uten dialog og med angre, at påminnelsen kommer 30 s før mikspunktet, rekordbox-XML med navngitte cues og farger (validér mot kjent eksempel), og at egendefinerte presets overlever omstart.
 
 **Ferdig når:** Knut spiller et planlagt sett i bilen, får en idé og lagrer «Echo out» på overgangen med to trykk. Hjemme ser han presetet i settet, med stegene plassert på takter, og etter eksport står cuene med navn i rekordbox.
+
+## Del 19 – Skins (flere utseender)
+
+Mål: Knut kan bytte hele utseendet med ett valg. Det skal være flere ferdige skins, ikke én fast farge. Grønn `#06B211`, som Antigravity satte som standard, blir ett av dem, ikke den eneste.
+
+**Hva et skin er**
+1. Et skin er en fil i `apps/web/src/skins/<id>.json` med:
+   - Fargemodus: **Kameleon** (aksent fra coveret, som del 14) eller **Fast** (egen aksent og aksent-2).
+   - Bakgrunn og panel-toning, styrke på glød (0–100 %), kantstyrke og hjørneradius.
+   - Bølgeformstil: aksent/grå som i referansen, eller 3-bånd.
+   - Om gull brukes i logoen (alltid ja) eller også i rammer (bare for skinnet «Gull klassisk»).
+
+   Alt går via CSS-variablene som før. Ingen hardkodede farger i komponentene, og testen som stopper det, skal fortsatt gjelde.
+2. **Ferdige skins:**
+   - **Kameleon** (standard): coveret styrer, gull bare i logoen
+   - **Cyan Studio:** fast cyan `#01E6FC`, som referansebildet
+   - **Grønn Neon:** fast `#06B211` / `#14E177`, Antigravitys versjon
+   - **Gull klassisk:** gull som ramme og coveret som aksent, det opprinnelige uttrykket
+   - **Magenta Club:** fast magenta/rosa neon
+   - **Ultraviolett:** fast lilla/blå
+   - **Mono Studio:** nesten fargeløs: hvit/grå med svak glød, for lange økter
+   - **OLED Svart:** ren svart bakgrunn og minimal glød, sparer batteri på S22
+
+   Alle aksenter må holde kontrastlåsen (≥ 4,5:1 mot bakgrunnen).
+3. Låter med manuell farge fra Studio beholder den bare i Kameleon-skinnet. Faste skins overstyrer.
+
+**Valg og lagring**
+4. **Innstillinger → Utseende:** rutenett med forhåndsvisning (et lite kort med cover, bølgeform og play-knapp i skinnets stil). Byttet skjer umiddelbart, uten omstart.
+5. Skinnet lagres **per enhet**, så PC-en og telefonen kan ha ulike skins. Valgfritt: «Bruk samme på alle enheter».
+6. **Eget skin:** «Dupliser og tilpass» med fargevelger for aksent, styrke på glød og bakgrunn. Lagres i `data/skins/`. Viser kontrastvarsel.
+7. Listefargene fra del 9 og lyttersiden i del 13 påvirkes ikke. Lyttersiden følger alltid coveret.
+8. I Android-appen settes også statuslinje, navigasjonslinje og oppstartsskjerm etter skinnet. OLED Svart bruker ren `#000000`.
+
+**Tester:** alle ferdige skins består kontrastkravet, bytte uten omstart, lagring per enhet, at manuell låtfarge bare gjelder i Kameleon, og skjermbilder av hvert skin i `docs/design/compare/skins/`.
+
+**Ferdig når:** Knut bytter mellom Kameleon, Cyan Studio og Grønn Neon i Innstillinger på PC-en og ser hele spilleren skifte med en gang. Han velger OLED Svart på telefonen uten at PC-en endres.
 
 ## Del 15 – Oppdatering av Android-appen
 
