@@ -7,7 +7,7 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { findRoot, loadConfig } from './config';
 import { paletteFrom } from './cover';
-import { retagSlug, updateCatalog } from './ingest';
+import { retagSlug, setAssetCover, updateCatalog } from './ingest';
 import { ensureShareFile, ShareError } from './share';
 import { DRAFT_BASE, manualPalette, statusOf, validPoint, validateMarkers, versionName, type AssetManifest, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
@@ -308,6 +308,26 @@ export function createApiHandler(opts: ApiOptions) {
     if (url.pathname.startsWith('/api/playlist-covers/') && (req.method === 'GET' || req.method === 'HEAD')) {
       await serveCover(playlists, url, res);
       return;
+    }
+    const cov = url.pathname.match(/^\/api\/assets\/([^/]+)\/cover$/);
+    if (cov) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const slug = decodeURIComponent(cov[1]!);
+      if (!SLUG_RE.test(slug)) return send(res, 400, { error: 'ugyldig slug' });
+      if (req.method !== 'PUT') return send(res, 405, { error: 'method not allowed' });
+      const type = String(req.headers['content-type'] ?? '').split(';')[0]!.trim();
+      if (!COVER_TYPES.test(type)) return send(res, 415, { error: 'krever et bilde (JPEG, PNG, WebP …)' });
+      try {
+        const buf = await readRaw(req, COVER_MAX);
+        const meta = await sharp(buf).metadata().catch(() => null);
+        if (!meta?.width || !meta.height) return send(res, 400, { error: 'fila er ikke et bilde som kan leses' });
+        const manifests = await setAssetCover(opts.mediaDir, slug, buf, config());
+        return send(res, 200, { manifests });
+      } catch (err) {
+        if (err instanceof PlaylistError) return send(res, err.status, { error: err.message });
+        const msg = err instanceof Error ? err.message.split('\n')[0]! : String(err);
+        return send(res, msg === 'ukjent låt' ? 404 : 500, { error: msg });
+      }
     }
     const m = url.pathname.match(/^\/api\/assets\/([^/]+)\/meta$/);
     if (!m) {

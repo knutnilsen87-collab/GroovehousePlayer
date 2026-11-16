@@ -210,7 +210,9 @@ async function ingestOne(
 
   report('hash', 'start');
   const sha = await sha256File(master.path);
-  const coverSha = release.coverPath ? await sha256File(release.coverPath) : null;
+  const storedCover = path.join(path.resolve(opts.mediaDir), master.slug, 'cover.jpg');
+  const effectiveCover = release.coverPath ?? (existsSync(storedCover) ? storedCover : null);
+  const coverSha = effectiveCover ? await sha256File(effectiveCover) : null;
   report('hash', 'ok', sha.slice(0, 12));
   // Kildefil (privat, data/sources.json): bare til «Kildefil» i Info og Studio, aldri i manifest/tags/deling.
   const noteSource = () =>
@@ -295,7 +297,7 @@ async function ingestOne(
     // Del 10: Vaults egen tapsfrie kopi av masteren (FLAC), så deling ikke avhenger av at fila
     // fortsatt ligger i eksportmappa, og aldri lages fra HLS. Kilden leses bare.
     const masterP = timed('master', () => makeMasterCopy(master.path, work), (f) => path.basename(f), 'master');
-    const coverP = release.coverPath ? timed('palett', () => processCover(release.coverPath!, work, cfg.colors), (c) => `${c.palette.primary} / ${c.palette.secondary} (${c.palette.source}) · cover uten EXIF/XMP/C2PA`) : Promise.resolve(null);
+    const coverP = effectiveCover ? timed('palett', () => processCover(effectiveCover, work, cfg.colors), (c) => `${c.palette.primary} / ${c.palette.secondary} (${c.palette.source}) · cover uten EXIF/XMP/C2PA`) : Promise.resolve(null);
     // Ingen ubehandlede avvisninger mens vi venter på analysen: feil fanges i Promise.all under
     for (const p of [loudnessP, hlsP, masterP, coverP]) p.catch(() => {});
 
@@ -549,6 +551,50 @@ export async function retagSlug(mediaDir: string, slug: string, cfg: VaultConfig
         suno: found,
         warnings: []
       });
+      out.push(updated);
+    }
+  }
+  return out;
+}
+
+/**
+ * Lagrer opplastet/sluppet coverbilde (renset for EXIF/XMP/C2PA) på alle versjoner av en låt (slug)
+ * i media/<slug>/, og oppdaterer manifestene uten å røre eksportmappa.
+ */
+export async function setAssetCover(mediaDir: string, slug: string, buf: Buffer, cfg: VaultConfig = loadConfig()): Promise<AssetManifest[]> {
+  const root = path.join(path.resolve(mediaDir), slug);
+  if (!existsSync(root)) throw new Error('ukjent låt');
+  const coverSha256 = createHash('sha256').update(buf).digest('hex');
+  const masterCover = await processCover(buf, root, cfg.colors);
+  const bigBuf = await readFile(path.join(root, masterCover.cover));
+  const thumbBuf = await readFile(path.join(root, masterCover.coverThumb));
+  const overrides = await readOverrides(mediaDir, slug);
+  const out: AssetManifest[] = [];
+  for (const variantDir of await readdir(root, { withFileTypes: true })) {
+    if (!variantDir.isDirectory()) continue;
+    for (const vDir of await readdir(path.join(root, variantDir.name), { withFileTypes: true })) {
+      const dir = path.join(root, variantDir.name, vDir.name);
+      const mp = path.join(dir, 'manifest.json');
+      if (!vDir.isDirectory() || vDir.name.endsWith('.partial') || !existsSync(mp)) continue;
+      await writeFile(path.join(dir, 'cover.jpg'), bigBuf);
+      await writeFile(path.join(dir, 'cover_300.jpg'), thumbBuf);
+      await rm(path.join(dir, 'share'), { recursive: true, force: true }).catch(() => {});
+      const m = JSON.parse(await readFile(mp, 'utf8')) as AssetManifest;
+      let palette = m.palette;
+      if (overrides.palette) {
+        const man = manualPalette(overrides.palette.primary, overrides.palette.secondary, 0);
+        if (man.ok) palette = man.palette;
+      } else if (m.palette.source !== 'manual') {
+        palette = { ...FALLBACK_PALETTE };
+      }
+      const updated: AssetManifest = {
+        ...m,
+        coverSha256,
+        palette,
+        files: { ...m.files, cover: 'cover.jpg', coverThumb: 'cover_300.jpg' }
+      };
+      await writeFile(mp, JSON.stringify(updated, null, 2));
+      await updateCatalog(mediaDir, updated);
       out.push(updated);
     }
   }

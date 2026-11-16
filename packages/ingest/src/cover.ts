@@ -10,7 +10,7 @@ export interface CoverResult {
 }
 
 /** Normaliserer coveret (1200 px + 300 px thumb) og henter palett med kontrastlås. */
-export async function processCover(input: string, outDir: string, opts: PaletteOptions = {}): Promise<CoverResult> {
+export async function processCover(input: string | Buffer, outDir: string, opts: PaletteOptions = {}): Promise<CoverResult> {
   const big = path.join(outDir, 'cover.jpg');
   const thumb = path.join(outDir, 'cover_300.jpg');
   const img = sharp(input).rotate();

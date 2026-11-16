@@ -17,11 +17,13 @@ export interface LoadedAsset {
 }
 
 export function assetUrl(a: LoadedAsset, file: string | null): string | null {
-  return file ? `${a.base}${file}` : null;
+  if (!file) return null;
+  const bust = /\.(jpe?g|png|webp)$/i.test(file) && a.manifest.coverSha256 ? `?v=${a.manifest.coverSha256.slice(0, 8)}` : '';
+  return `${a.base}${file}${bust}`;
 }
 
 async function getJson<T>(url: string): Promise<T> {
-  const r = await fetch(url, { cache: 'no-cache' });
+  const r = await fetch(url, { cache: 'no-store' });
   if (!r.ok) throw new Error(`${r.status} ${url}`);
   return (await r.json()) as T;
 }
@@ -76,9 +78,22 @@ export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: Ind
   return { assets: await Promise.all([...latest.values()].map((e) => loadVersion(e, true))), index: idx.assets, error: null };
 }
 
+const catalogListeners = new Set<() => void>();
+export function notifyCatalogChanged() {
+  versionCache.clear();
+  for (const fn of catalogListeners) fn();
+}
+
 export function useCatalog() {
   const [state, setState] = useState<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null; loading: boolean }>({ assets: [], index: [], error: null, loading: true });
   const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setTick((t) => t + 1);
+    catalogListeners.add(bump);
+    return () => {
+      catalogListeners.delete(bump);
+    };
+  }, []);
   useEffect(() => {
     let alive = true;
     setState((s) => ({ ...s, loading: true }));
@@ -172,6 +187,25 @@ export async function saveAssetMeta(
     const j = (await r.json().catch(() => ({}))) as { error?: string };
     throw new Error(j.error ?? `Lagring feilet (${r.status})`);
   }
+}
+
+/** Laster opp nytt coverbilde (dra-og-slipp eller filvelger) til alle versjoner av en låt (slug). */
+export async function uploadAssetCover(slug: string, file: File): Promise<AssetManifest[]> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  const fallbackMime: Record<string, string> = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', avif: 'image/avif', gif: 'image/gif', tif: 'image/tiff', tiff: 'image/tiff' };
+  const type = file.type && /^image\//.test(file.type) ? file.type : (fallbackMime[ext] ?? 'image/jpeg');
+  const r = await fetch(`/api/assets/${encodeURIComponent(slug)}/cover`, {
+    method: 'PUT',
+    headers: { 'Content-Type': type },
+    body: file
+  });
+  if (!r.ok) {
+    const j = (await r.json().catch(() => ({}))) as { error?: string };
+    throw new Error(j.error ?? `Opplasting av cover feilet (${r.status})`);
+  }
+  const { manifests } = (await r.json()) as { manifests: AssetManifest[] };
+  notifyCatalogChanged();
+  return manifests ?? [];
 }
 
 /** Nedskalerer peaks til n søyler (maks per bøtte) for bølgeform-visning. */

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { clampRate, makeLoop, type Loop } from '@gv/shared/web';
+import { clampRate, makeLoop, type AssetManifest, type Loop } from '@gv/shared/web';
 import { enqueue as qEnqueue, insertNext as qInsertNext, mapPositionBetweenVariants, moveAt as qMove, nextSectionStart, prevSectionStart, removeAt as qRemove, toStored, type ListenEventType, type StoredQueue } from '@gv/shared/web';
 import type { LoadedAsset } from './catalog';
 import type { PlayerEngine, RepeatMode } from './engine/types';
@@ -120,6 +120,8 @@ interface PlayerState {
   moveInQueue: (from: number, to: number) => void;
   /** Etter omstart: legg tilbake køen pauset på lagret posisjon. */
   restoreQueue: (queue: LoadedAsset[], index: number, positionMs: number) => void;
+  /** Oppdaterer manifestet på låter som allerede ligger i køen (f.eks. når cover endres med dra-og-slipp). */
+  refreshManifests: (manifests: AssetManifest[]) => void;
 }
 
 const sameQueue = (a: LoadedAsset[], b: LoadedAsset[]) => a.length === b.length && a.every((x, i) => x.manifest.id === b[i]?.manifest.id);
@@ -272,6 +274,17 @@ export const usePlayer = create<PlayerState>((set, get) => ({
     if (!a || get().queue.length) return; // spiller allerede noe – ikke overstyr
     set({ queue, index, positionMs, playing: false, loop: null, queueId: get().queueId + 1 });
     getEngine().load(queue, index, positionMs > 0 ? positionMs : null);
+  },
+  refreshManifests: (manifests) => {
+    const byId = new Map(manifests.map((m) => [m.id, m]));
+    const { queue } = get();
+    if (!queue.some((a) => byId.has(a.manifest.id))) return;
+    set({
+      queue: queue.map((a) => {
+        const next = byId.get(a.manifest.id);
+        return next ? { ...a, manifest: next } : a;
+      })
+    });
   }
 }));
 
