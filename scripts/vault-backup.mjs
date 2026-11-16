@@ -67,6 +67,9 @@ if (dry) {
   for (const l of extras.slice(0, 40)) console.log(`  ${l}`);
   if (extras.length > 40) console.log(`  … og ${extras.length - 40} til`);
 }
+// Vis filer robocopy ikke fikk kopiert (f.eks. låst av en kjørende prosess)
+const errs = out.split(/\r?\n/).filter((l) => /ERROR \d+ \(0x/i.test(l)).map((l) => l.trim());
+if (errs.length) console.log(`\nFeil (${errs.length}):\n  ${errs.slice(0, 20).join('\n  ')}`);
 const summary = out.split(/\r?\n/).filter((l) => /^\s*(Dirs|Files|Bytes|Times|Kataloger|Filer|Byte|Tider)\s*:/i.test(l));
 if (summary.length) console.log(`\n${summary.join('\n')}`);
 // robocopy: 0–7 = OK (1 = kopiert, 2 = ekstra filer, 4 = avvik), 8+ = feil
