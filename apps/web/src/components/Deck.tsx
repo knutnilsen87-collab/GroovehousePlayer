@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { formatTime, formatTimeMs, isDraft, keyShort, lyricIndexAt, RATE_MAX, RATE_MIN, versionName } from '@gv/shared/web';
-import { assetUrl, variantName, type LoadedAsset } from '../lib/catalog';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { formatTime, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
+import { assetUrl, uploadAssetCover, variantName, type LoadedAsset } from '../lib/catalog';
 import { useFavorites, useIsFavorite, useLyrics } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
 import { isApp } from '../lib/platform';
-import { useToast } from '../lib/playlists';
+import { toastError, useToast } from '../lib/playlists';
 import { CoverArt } from './CoverArt';
 import { DraftBadge } from './Draft';
-import { HeartIcon, MoreIcon, NextIcon, OutputIcon, PauseIcon, PlayIcon, PrevIcon, RepeatIcon, ScreenIcon, ShuffleIcon, SlidersIcon, SpeedIcon, VolumeIcon } from './Icons';
+import { HeartIcon, MoreIcon, NextIcon, OutputIcon, PauseIcon, PlayIcon, PrevIcon, RepeatIcon, ScreenIcon, ShuffleIcon, SlidersIcon, SpeedIcon, UploadIcon, VolumeIcon } from './Icons';
 import { BigWaveform, SpectrumView, ZoomWaveform } from './Visuals';
 
 /**
@@ -43,7 +43,7 @@ export function HeartButton({ slug, title, size = 20, className = '' }: { slug: 
         e.stopPropagation();
         void toggle(slug);
       }}
-      className={`flex flex-none items-center justify-center rounded-full transition-colors ${on ? 'text-accent' : 'text-soft hover:text-ink-strong'} ${className}`}
+      className={`flex flex-none items-center justify-center rounded-full transition-colors ${on ? 'text-accent !opacity-100' : 'text-soft hover:text-ink-strong'} ${className}`}
     >
       <HeartIcon filled={on} width={size} height={size} />
     </button>
@@ -92,10 +92,101 @@ const pct = (v: number | null | undefined) => (v == null ? '–' : `${Math.round
 
 export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: { x: number; y: number } | null) => void }) {
   const m = cur.manifest;
+  const [dragOver, setDragOver] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const handleCoverFile = async (file: File | undefined) => {
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp|avif|gif|tiff)$/i.test(file.type) && !/\.(jpe?g|png|webp|avif|gif|tiff?)$/i.test(file.name)) {
+      useToast.getState().show('Velg en bildefil (JPG, PNG eller WebP)');
+      return;
+    }
+    setUploading(true);
+    try {
+      const manifests = await uploadAssetCover(m.slug, file);
+      usePlayer.getState().refreshManifests(manifests);
+      useToast.getState().show(`Cover oppdatert for «${m.title}»`);
+    } catch (err) {
+      toastError(err);
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  };
+
   return (
     <section aria-label="Låta som spilles" className="gv-panel flex min-w-0 flex-col gap-3 p-3">
-      <div className="relative overflow-hidden rounded-xl">
+      <div
+        onDragEnter={(e) => {
+          if (e.dataTransfer.types.includes('Files')) {
+            e.preventDefault();
+            setDragOver(true);
+          }
+        }}
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('Files')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            if (!dragOver) setDragOver(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          const f = [...e.dataTransfer.files].find((x) => /^image\//i.test(x.type) || /\.(jpe?g|png|webp|avif|gif|tiff?)$/i.test(x.name)) ?? e.dataTransfer.files[0];
+          void handleCoverFile(f);
+        }}
+        title="Dra og slipp et bilde her for å sette cover på låta"
+        className={`group relative overflow-hidden rounded-xl transition-all ${
+          dragOver ? 'ring-2 ring-accent shadow-[0_0_24px_var(--glow)]' : ''
+        }`}
+      >
         <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={600} rounded={12} fluid draft={isDraft(m)} />
+
+        {/* Subtil knapp ved hover for å velge cover (eller vise at dra-og-slipp støttes) */}
+        {!dragOver && !uploading && (
+          <button
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            aria-label={`Bytt cover for ${m.title}`}
+            className="absolute bottom-2.5 right-2.5 flex items-center gap-1.5 rounded-full border border-white/15 bg-[#0A0C12]/85 px-2.5 py-1 text-[11px] font-medium text-soft opacity-0 backdrop-blur-md transition-opacity hover:border-accent/60 hover:text-ink-strong focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <UploadIcon width={13} height={13} />
+            <span>{m.files.cover ? 'Bytt cover' : 'Slipp cover her'}</span>
+          </button>
+        )}
+
+        {/* Aktiv dra-og-slipp-sone */}
+        {dragOver && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-accent bg-[#080A0F]/85 p-4 text-center backdrop-blur-sm">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full border border-accent/60 bg-accent/15 text-accent">
+              <UploadIcon width={22} height={22} />
+            </span>
+            <span className="text-xs font-semibold text-ink-strong">Slipp bildet for å sette cover</span>
+            <span className="max-w-[180px] truncate text-[11px] text-soft">{m.title}</span>
+          </div>
+        )}
+
+        {/* Opplastingsindikator */}
+        {uploading && (
+          <div className=" absolute inset-0 flex items-center justify-center rounded-xl bg-[#080A0F]/80 text-xs font-semibold text-ink-strong backdrop-blur-sm">
+            Lagrer cover …
+          </div>
+        )}
+
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          className="sr-only"
+          tabIndex={-1}
+          aria-label={`Velg coverbilde for ${m.title}`}
+          onChange={(e) => void handleCoverFile(e.target.files?.[0])}
+        />
       </div>
       <div className="flex items-start gap-2 px-1 pb-1">
         <div className="flex min-w-0 flex-1 flex-col">
@@ -130,11 +221,12 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
 export function Transport({ size = 'md', idle }: { size?: 'md' | 'lg'; idle?: (atMs?: number) => void }) {
   const { playing, toggle, next, prev, repeat, cycleRepeat, shuffleUpcoming, queue, index } = usePlayer();
   const big = size === 'lg';
-  const icon = big ? 26 : 22;
-  const btn = `flex items-center justify-center rounded-full text-soft hover:text-ink-strong ${big ? 'h-12 w-12' : 'h-11 w-11'}`;
+  const icon = big ? 28 : 26;
+  const subIcon = big ? 22 : 20;
+  const btn = `flex items-center justify-center rounded-full text-soft transition-colors hover:bg-white/[0.05] hover:text-ink-strong ${big ? 'h-13 w-13' : 'h-12 w-12'}`;
   const repeatLabel = repeat === 'off' ? 'Gjenta: av' : repeat === 'all' ? 'Gjenta: hele køen' : 'Gjenta: denne låta';
   return (
-    <div className={`flex items-center justify-center ${big ? 'gap-5' : 'gap-7'}`}>
+    <div className={`flex items-center justify-center py-1 ${big ? 'gap-6' : 'gap-8'}`}>
       <button
         type="button"
         aria-label="Bland resten av køen"
@@ -146,7 +238,7 @@ export function Transport({ size = 'md', idle }: { size?: 'md' | 'lg'; idle?: (a
         }}
         className={`${btn} disabled:opacity-30`}
       >
-        <ShuffleIcon width={icon - 2} height={icon - 2} />
+        <ShuffleIcon width={subIcon} height={subIcon} />
       </button>
       <button type="button" aria-label="Forrige spor" onClick={prev} className={btn}>
         <PrevIcon width={icon} height={icon} />
@@ -155,15 +247,15 @@ export function Transport({ size = 'md', idle }: { size?: 'md' | 'lg'; idle?: (a
         type="button"
         aria-label={playing ? 'Pause' : 'Spill'}
         onClick={() => (!queue.length && idle ? idle() : toggle())}
-        className={`gv-neon-soft flex flex-none items-center justify-center rounded-full border-2 border-accent text-accent transition-transform active:scale-95 ${big ? 'h-[76px] w-[76px]' : 'h-[62px] w-[62px]'}`}
+        className={`gv-neon-soft flex flex-none items-center justify-center rounded-full border-2 border-accent bg-accent/[0.1] text-accent transition-transform hover:bg-accent/[0.18] active:scale-95 ${big ? 'h-[80px] w-[80px]' : 'h-[70px] w-[70px]'}`}
       >
-        {playing ? <PauseIcon width={big ? 30 : 26} height={big ? 30 : 26} /> : <PlayIcon width={big ? 30 : 26} height={big ? 30 : 26} className="ml-1" />}
+        {playing ? <PauseIcon width={big ? 34 : 30} height={big ? 34 : 30} /> : <PlayIcon width={big ? 34 : 30} height={big ? 34 : 30} className="ml-1" />}
       </button>
       <button type="button" aria-label="Neste spor" onClick={next} className={btn}>
         <NextIcon width={icon} height={icon} />
       </button>
       <button type="button" aria-label={repeatLabel} title={repeatLabel} aria-pressed={repeat !== 'off'} onClick={cycleRepeat} className={`${btn} ${repeat !== 'off' ? '!text-accent gv-neon-text' : ''}`}>
-        <RepeatIcon one={repeat === 'one'} width={icon - 2} height={icon - 2} />
+        <RepeatIcon one={repeat === 'one'} width={subIcon} height={subIcon} />
       </button>
     </div>
   );
@@ -339,13 +431,13 @@ export function TrackInfoRows({ cur }: { cur: LoadedAsset }) {
     <div className="flex flex-col">
       <dl className="m-0 flex flex-col">
         {rows.map(([k, v]) => (
-          <div key={k} className="flex items-baseline justify-between gap-3 border-b border-white/[0.06] py-2 last:border-0">
-            <dt className="font-mono text-[12px] uppercase tracking-[0.12em] text-soft">{k}</dt>
-            <dd className="m-0 truncate font-mono text-[13px] text-ink-strong">{v}</dd>
+          <div key={k} className="flex items-baseline justify-between gap-3 border-b border-white/[0.07] py-2.5 last:border-0">
+            <dt className="font-mono text-[12px] font-medium uppercase tracking-[0.14em] text-soft">{k}</dt>
+            <dd className="m-0 truncate font-mono text-[14px] font-semibold text-ink-strong">{v}</dd>
           </div>
         ))}
       </dl>
-      <p className="m-0 mt-1 text-right font-mono text-[10px] text-muted">Strømmes som AAC 256 kbps</p>
+      <p className="m-0 mt-1.5 text-right font-mono text-[11px] text-soft">Strømmes som AAC 256 kbps</p>
     </div>
   );
 }
@@ -378,39 +470,152 @@ export function Credits({ cur }: { cur: LoadedAsset }) {
   );
 }
 
-/** Tekst: synkronisert LRC ruller med avspillingen; ren tekst vises som den er. */
-export function LyricsView({ cur, className = '' }: { cur: LoadedAsset; className?: string }) {
+/**
+ * Tekst & Karaoke-synk (WhisperX ord-tidsstempler + LRC):
+ * - Lytter kontinuerlig på avspillingstiden med millisekundpresisjon, men oppdaterer React-state
+ *   KUN når aktivt ord (activeWordIdx) eller aktiv linje (activeLineIdx) faktisk bytter (null unødvendige re-renders).
+ * - Klikk/touch på hvilket som helst ord spoler rett til ordets tidsstempel.
+ * - Vertikal fade-maske i topp/bunn og 45 % viewport-padding i bunnen så siste linje kan rulle helt opp til midten.
+ */
+export function LyricsView({ cur, className = '', stage = false, idle }: { cur: LoadedAsset; className?: string; stage?: boolean; idle?: (atMs?: number) => void }) {
   const data = useLyrics(cur.manifest.slug);
-  const pos = usePlayer((s) => (s.queue[s.index]?.manifest.id === cur.manifest.id ? s.positionMs : 0));
+  const { playing, positionMs, seek, queue, index } = usePlayer();
+  const isPlayingThis = queue[index]?.manifest.id === cur.manifest.id;
   const box = useRef<HTMLDivElement>(null);
-  const idx = data?.parsed.synced ? lyricIndexAt(data.parsed.lines, pos + 150) : -1;
+  const activeWordRef = useRef<HTMLSpanElement | null>(null);
+  const activeLineRef = useRef<HTMLParagraphElement | null>(null);
+
+  const wordData = useMemo(() => (data ? parseLyricWords(data.text, cur.manifest.durationMs) : null), [data, cur.manifest.durationMs]);
+  const [activeWordIdx, setActiveWordIdx] = useState(-1);
+  const [activeLineIdx, setActiveLineIdx] = useState(-1);
+
+  // Kontinuerlig tidssynkronisering (kun state-oppdatering når indeks skifter)
   useEffect(() => {
-    const el = box.current?.querySelector<HTMLElement>(`[data-line="${idx}"]`);
-    const b = box.current;
-    if (!el || !b) return;
-    b.scrollTo({ top: el.offsetTop - b.clientHeight / 2 + el.clientHeight / 2, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-  }, [idx]);
+    if (!wordData?.synced || ! data) {
+      setActiveWordIdx(-1);
+      setActiveLineIdx(-1);
+      return;
+    }
+    const updateForTime = (ms: number) => {
+      const lookahead = ms + 90;
+      const wIdx = wordIndexAt(wordData.words, lookahead);
+      const lIdx = wIdx >= 0 ? wordData.words[wIdx]!.lineIndex : lyricIndexAt(data.parsed.lines, lookahead);
+      setActiveWordIdx((prev) => (prev === wIdx ? prev : wIdx));
+      setActiveLineIdx((prev) => (prev === lIdx ? prev : lIdx));
+    };
+
+    updateForTime(isPlayingThis ? getPositionMs() || positionMs : 0);
+    if (!isPlayingThis || !playing) return;
+
+    let raf = 0;
+    const tick = () => {
+      updateForTime(getPositionMs());
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [wordData, data, isPlayingThis, playing, positionMs]);
+
+  // Auto-scroll KUN når activeWordIdx eller activeLineIdx endres
+  useEffect(() => {
+    const target = activeWordRef.current ?? activeLineRef.current;
+    if (!target || (activeWordIdx === -1 && activeLineIdx === -1)) return;
+    const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    target.scrollIntoView({
+      behavior: reduced ? 'auto' : 'smooth',
+      block: 'center',
+      inline: 'nearest'
+    });
+  }, [activeWordIdx, activeLineIdx]);
+
+  const jumpTo = (ms: number) => {
+    if (idle) idle(ms);
+    else seek(ms);
+  };
+
   if (data === undefined) return <p className="m-0 text-sm text-muted">Henter tekst …</p>;
-  if (data === null)
+  if (data === null || !wordData)
     return (
       <p className="m-0 text-sm text-muted">
         Ingen tekst ennå –{' '}
         <a href={`/studio#arkiv-${cur.manifest.slug}`} className="text-accent no-underline hover:underline">
-          legg til i Studio
+          legg til eller auto-transkriber i Studio
         </a>
       </p>
     );
+
   return (
-    <div ref={box} className={`gv-scroll relative overflow-y-auto ${className}`}>
-      {data.parsed.lines.map((l, i) => (
-        <p
-          key={i}
-          data-line={i}
-          className={`m-0 py-0.5 text-[15px] leading-relaxed transition-colors ${!data.parsed.synced ? 'text-ink' : i === idx ? 'gv-neon-text font-semibold text-accent' : i < idx ? 'text-muted' : 'text-soft'}`}
-        >
-          {l.text || ' '}
-        </p>
-      ))}
+    <div
+      ref={box}
+      style={{
+        maskImage: 'linear-gradient(to bottom, transparent, black 14%, black 84%, transparent)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 14%, black 84%, transparent)'
+      }}
+      className={`gv-scroll relative w-full overflow-y-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+        stage ? 'pb-[48vh] pt-[8vh] text-xl font-bold leading-snug md:text-3xl md:leading-relaxed' : 'pb-[45%] pt-4 text-[16px] font-semibold leading-relaxed'
+      } ${className}`}
+    >
+      {wordData.lines.map((line, li) => {
+        const isLineActive = li === activeLineIdx;
+        if (!wordData.synced || line.words.length === 0) {
+          return (
+            <p
+              key={li}
+              ref={isLineActive ? activeLineRef : null}
+              onClick={() => line.ms != null && jumpTo(line.ms)}
+              className={`m-0 py-1 transition-colors ${
+                !wordData.synced
+                  ? 'text-ink'
+                  : isLineActive
+                    ? 'gv-neon-text font-bold text-accent'
+                    : li < activeLineIdx
+                      ? 'cursor-pointer text-soft/65 hover:text-ink'
+                      : 'cursor-pointer text-muted hover:text-soft'
+              }`}
+            >
+              {line.text || '\u00A0'}
+            </p>
+          );
+        }
+
+        return (
+          <p
+            key={li}
+            ref={isLineActive ? activeLineRef : null}
+            className={`m-0 py-1 transition-opacity duration-200 ${isLineActive ? 'opacity-100' : li < activeLineIdx ? 'opacity-70' : 'opacity-55 hover:opacity-90'}`}
+          >
+            {line.words.map((w) => {
+              const isWordActive = w.index === activeWordIdx;
+              const isWordPast = w.index < activeWordIdx;
+              return (
+                <span
+                  key={w.index}
+                  ref={isWordActive ? activeWordRef : null}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => jumpTo(w.startMs)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      jumpTo(w.startMs);
+                    }
+                  }}
+                  title={`Hopp til ${formatTime(w.startMs)}`}
+                  className={`inline-block cursor-pointer rounded-md py-1 pr-2 transition-all duration-200 ${
+                    isWordActive
+                      ? 'gv-neon-text scale-105 font-extrabold text-accent'
+                      : isWordPast
+                        ? 'text-ink/80 hover:text-ink-strong'
+                        : 'text-soft/60 hover:text-ink'
+                  }`}
+                >
+                  {w.word}
+                </span>
+              );
+            })}
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -460,7 +665,11 @@ export const DECK_TABS: Array<[DeckTab, string]> = [
 
 export function Tabs<T extends string>({ tabs, value, onChange, label, segmented = false }: { tabs: Array<[T, string]>; value: T; onChange: (t: T) => void; label: string; segmented?: boolean }) {
   return (
-    <div role="tablist" aria-label={label} className={`flex min-w-0 ${segmented ? 'rounded-xl border border-white/10 bg-white/[0.03] p-1' : 'gap-1.5'}`}>
+    <div
+      role="tablist"
+      aria-label={label}
+      className={`inline-flex min-w-0 items-center gap-1 rounded-xl border border-white/[0.08] bg-sunken/75 p-1 backdrop-blur-md ${segmented ? 'flex w-full' : ''}`}
+    >
       {tabs.map(([id, name]) => (
         <button
           key={id}
@@ -479,8 +688,8 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, segmented
           }}
           data-tab={id}
           tabIndex={value === id ? 0 : -1}
-          className={`h-9 whitespace-nowrap rounded-lg px-3.5 text-sm transition-colors ${segmented ? 'flex-1' : ''} ${
-            value === id ? 'gv-neon-soft border border-accent/80 bg-accent/[0.12] font-semibold text-accent' : 'border border-transparent text-soft hover:text-ink-strong'
+          className={`h-8 whitespace-nowrap rounded-lg px-3.5 text-[13px] transition-all ${segmented ? 'flex-1' : ''} ${
+            value === id ? 'gv-neon-soft border border-accent/80 bg-accent/[0.15] font-semibold text-accent shadow-sm' : 'border border-transparent text-soft hover:bg-white/[0.04] hover:text-ink-strong'
           }`}
         >
           {name}
@@ -547,7 +756,7 @@ export function NowPanel({ cur, onMore, extra, idle }: { cur: LoadedAsset; onMor
   );
 }
 
-// ---------------------------------------------------------------- Høyre kolonne
+// ---------------------------------------------------------------- Høyre kolonne (konsolidert analysekort)
 
 export function TrackInfoPanel({ cur }: { cur: LoadedAsset }) {
   return (
@@ -569,6 +778,50 @@ export function SpectrumPanel({ cur }: { cur: LoadedAsset }) {
     <Panel title="Spektrum (Hz)">
       <SpectrumView asset={cur} />
     </Panel>
+  );
+}
+
+/** Konsolidert høyre sidefelt: Låtinfo øverst og felles fanevisning for Bølgeform-zoom / Spektrum i ett rammeverk. */
+export function AnalysisSidebarCard({ cur }: { cur: LoadedAsset }) {
+  const [graphTab, setGraphTab] = useState<'both' | 'zoom' | 'spectrum'>('both');
+  const seek = usePlayer((s) => s.seek);
+  return (
+    <section aria-label="Låtanalyse" className="gv-panel flex min-w-0 flex-col gap-4 p-4">
+      <div>
+        <header className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="gv-label m-0">Låtinfo</h2>
+        </header>
+        <TrackInfoRows cur={cur} />
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-white/[0.08] pt-3.5">
+        <div className="flex items-center justify-between gap-2">
+          <Tabs
+            label="Grafvisning"
+            segmented
+            tabs={[
+              ['both', 'Begge'],
+              ['zoom', 'Zoom'],
+              ['spectrum', 'Spektrum']
+            ]}
+            value={graphTab}
+            onChange={setGraphTab}
+          />
+        </div>
+        {(graphTab === 'both' || graphTab === 'zoom') && (
+          <div className="flex flex-col gap-1.5 rounded-xl border border-white/[0.06] bg-sunken/50 p-3">
+            <span className="gv-label !text-[10px]">Bølgeform-zoom</span>
+            <ZoomWaveform asset={cur} onSeek={seek} />
+          </div>
+        )}
+        {(graphTab === 'both' || graphTab === 'spectrum') && (
+          <div className="flex flex-col gap-1.5 rounded-xl border border-white/[0.06] bg-sunken/50 p-3">
+            <span className="gv-label !text-[10px]">Spektrum (Hz)</span>
+            <SpectrumView asset={cur} />
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

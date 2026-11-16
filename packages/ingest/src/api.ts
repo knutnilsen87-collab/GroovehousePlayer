@@ -12,6 +12,7 @@ import { ensureShareFile, ShareError } from './share';
 import { DRAFT_BASE, manualPalette, statusOf, validPoint, validateMarkers, versionName, type AssetManifest, type ShareKind } from '@gv/shared';
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { createFavoritesStore, createListenStore, createLyricsStore, LibraryError } from './library';
+import { transcribeLyricsForSlug } from './lyrics-sync';
 import { handleDrops, type DropPublisher } from './drops-api';
 import { loadPlayback, savePoint } from './playback-store';
 import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
@@ -210,6 +211,26 @@ export function createApiHandler(opts: ApiOptions) {
       const next: AssetManifest = { ...manifest, markers: v.markers };
       await writeJsonAtomic(manifestFile, next);
       return send(res, 200, { manifest: next });
+    }
+
+    // Automatisk vokal-separering + ord-synkronisert transkribering (Demucs + WhisperX)
+    const tr = url.pathname.match(/^\/api\/lyrics\/([a-z0-9][a-z0-9-]{0,120})\/transcribe$/);
+    if (tr && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      try {
+        const body = (req.headers['content-type'] ?? '').startsWith('application/json') ? ((await readJson(req).catch(() => ({}))) as { model?: string; language?: string }) : {};
+        const resLyrics = await transcribeLyricsForSlug({
+          mediaDir: opts.mediaDir,
+          dataDir,
+          slug: tr[1]!,
+          lyricsStore: lyrics,
+          model: typeof body.model === 'string' ? body.model : undefined,
+          language: typeof body.language === 'string' ? body.language : undefined
+        });
+        return send(res, 200, { lyrics: { slug: tr[1]!, format: resLyrics.format, text: resLyrics.text }, wordCount: resLyrics.wordCount });
+      } catch (err) {
+        return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+      }
     }
 
     // Del 14: favoritter, sangtekst og egne avspillinger

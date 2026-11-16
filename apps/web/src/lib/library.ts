@@ -57,6 +57,11 @@ export interface LyricsData {
   parsed: ParsedLyrics;
 }
 const lyricsCache = new Map<string, Promise<LyricsData | null>>();
+const lyricsListeners = new Set<(slug: string) => void>();
+
+function notifyLyrics(slug: string) {
+  for (const fn of lyricsListeners) fn(slug);
+}
 
 export function fetchLyrics(slug: string, fresh = false): Promise<LyricsData | null> {
   if (fresh) lyricsCache.delete(slug);
@@ -84,12 +89,39 @@ export async function saveLyrics(slug: string, format: 'lrc' | 'txt', text: stri
   if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
   const data = j.lyrics ? { ...j.lyrics, parsed: parseLyrics(j.lyrics.text) } : null;
   lyricsCache.set(slug, Promise.resolve(data));
+  notifyLyrics(slug);
   return data;
+}
+
+/** Kjører Demucs + WhisperX på serveren og lagrer ord-synkronisert tekst. */
+export async function transcribeLyrics(slug: string): Promise<{ data: LyricsData; wordCount: number }> {
+  const r = await fetch(`/api/lyrics/${encodeURIComponent(slug)}/transcribe`, {
+    method: 'POST',
+    headers: json,
+    body: '{}'
+  });
+  const j = (await r.json().catch(() => ({}))) as { lyrics?: { format: 'lrc' | 'txt'; text: string }; wordCount?: number; error?: string };
+  if (!r.ok || !j.lyrics) throw new Error(j.error ?? `HTTP ${r.status}`);
+  const data: LyricsData = { format: j.lyrics.format, text: j.lyrics.text, parsed: parseLyrics(j.lyrics.text) };
+  lyricsCache.set(slug, Promise.resolve(data));
+  notifyLyrics(slug);
+  return { data, wordCount: j.wordCount ?? 0 };
 }
 
 /** undefined = laster, null = ingen tekst. */
 export function useLyrics(slug: string | undefined): LyricsData | null | undefined {
   const [state, setState] = useState<{ slug?: string; data: LyricsData | null | undefined }>({ data: undefined });
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!slug) return;
+    const onUpdate = (updatedSlug: string) => {
+      if (updatedSlug === slug) setTick((t) => t + 1);
+    };
+    lyricsListeners.add(onUpdate);
+    return () => {
+      lyricsListeners.delete(onUpdate);
+    };
+  }, [slug]);
   useEffect(() => {
     if (!slug) return;
     let alive = true;
@@ -98,7 +130,7 @@ export function useLyrics(slug: string | undefined): LyricsData | null | undefin
     return () => {
       alive = false;
     };
-  }, [slug]);
+  }, [slug, tick]);
   return state.slug === slug ? state.data : undefined;
 }
 

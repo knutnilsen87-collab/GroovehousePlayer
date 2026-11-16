@@ -9,6 +9,8 @@ import { ingestFolder, ingestRelease, sha256File, type IngestResult, type StepSt
 import { backfillMasters } from './share';
 import { backfillAnalysis } from './spectrum';
 import { indexSources, readSources, sourcesFile } from './source-index';
+import { createLyricsStore } from './library';
+import { transcribeLyricsForSlug } from './lyrics-sync';
 import { readOverrides, scanDrafts, scanFlat, type ReleaseSource } from './sources';
 
 const HELP = `
@@ -29,6 +31,7 @@ gh-ingest --backlog [<eksportmappe>] [--skip <slug,slug>] [--yes] [--force]
   --media <dir>  Hvor ferdige filer havner (standard: GH_MEDIA_DIR eller ./media)
   --force        Kjør på nytt selv om samme master allerede er prosessert
   --offset <ms>  Ekstra forskyvning av live-logg-markører
+  --lyrics       Isoler vokal (Demucs) og synkroniser ord-tidsstempler (WhisperX) → data/lyrics/<slug>.lrc
   --upload       (fase 2) Last opp til R2 og registrer i Supabase
 `;
 
@@ -185,6 +188,17 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
     console.log(`${word}: ${m.title} (${m.kind}) ${extra}`);
     console.log(`  → ${res.outDir}`);
     if (res.suno.length) console.log(`\x1b[33;1m  ! «suno» funnet og fjernet (${res.suno.length})\x1b[0m`);
+    if (args.includes('--lyrics')) {
+      const dataDir = path.join(root, 'data');
+      const lyricsStore = createLyricsStore(path.join(dataDir, 'lyrics'));
+      try {
+        console.log(`  … Transkriberer vokal (Demucs + WhisperX) for ${m.slug} …`);
+        const tr = await transcribeLyricsForSlug({ mediaDir, dataDir, slug: m.slug, lyricsStore });
+        console.log(`  ✓ Tekst synkronisert på ordnivå (${tr.wordCount} ord) → data/lyrics/${m.slug}.lrc`);
+      } catch (err) {
+        console.log(`  ! Tekst-transkribering feilet: ${err instanceof Error ? err.message : err}`);
+      }
+    }
   }
   console.log(`  ${((Date.now() - t0) / 1000).toFixed(1)} s totalt`);
 }

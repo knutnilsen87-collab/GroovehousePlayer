@@ -21,6 +21,69 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
   const now = sectionAt(m.markers, positionMs);
   const single = m.kind === 'set' && now?.refSlug ? tracks.find((x) => x.slug === now.refSlug && x.main.manifest.kind === 'track') : undefined;
   const coverSize = Math.round(Math.min(window.innerWidth - 48, window.innerHeight * 0.4, 420));
+  const isLyricsStage = tab === 'lyrics';
+
+  if (isLyricsStage) {
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Spiller: ${m.title}`}
+        className="fixed inset-0 z-40 flex h-[100dvh] flex-col overflow-hidden bg-obsidian pt-[max(12px,env(safe-area-inset-top))] lg:hidden"
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed left-1/2 top-[28%] h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          style={{ background: 'radial-gradient(closest-side, var(--glow), var(--glow-2) 55%, transparent)', opacity: 'calc(0.45 + var(--sub, 0) * 0.3)' }}
+        />
+
+        {/* Topp-bar med kompakt sporinfo over tekst-scenen */}
+        <div className="relative z-10 flex items-center gap-3 px-5 pb-2">
+          <button type="button" onClick={onClose} aria-label="Lukk spilleren" className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-soft">
+            <ChevronDownIcon width={26} height={26} />
+          </button>
+          <CoverArt src={assetUrl(cur, m.files.coverThumb)} palette={m.palette} title={m.title} size={38} rounded={8} draft={isDraft(m)} />
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[15px] font-bold leading-tight text-ink-strong">
+              {m.title}
+              <DraftBadge m={m} className="ml-1.5" />
+            </span>
+            <span className="truncate text-[12px] text-soft">
+              {m.artist ?? 'Echo Groove'}
+              {m.variant ? ` · ${variantName(cur)}` : ''}
+            </span>
+          </div>
+          <HeartButton slug={m.slug} title={m.title} size={20} className="h-10 w-10" />
+          <button type="button" onClick={onMore} aria-label="Valg for låta som spilles" className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-soft">
+            <MoreIcon width={20} height={20} />
+          </button>
+        </div>
+
+        {/* Visuell fokussone (0% - 62%): Tekst-scenen i z-0 som scroller under bunnpanelet */}
+        <div className="relative z-0 flex min-h-0 flex-1 flex-col px-6">
+          <LyricsView cur={cur} stage className="h-full" />
+        </div>
+
+        {/* Tommelsonen (65% - 100%): Flytende kontrollpanel i z-10 med bølgeform-scrubber og transport */}
+        <div className="fixed inset-x-0 bottom-0 z-10 flex flex-col gap-3 bg-gradient-to-t from-obsidian via-obsidian/95 to-transparent px-5 pt-10 pb-[max(20px,env(safe-area-inset-bottom))] backdrop-blur-xl">
+          {/* Presisjonssone (65% - 75%): Bred bølgeform for scrubbing */}
+          <div>
+            <BigWaveform asset={cur} height={60} loop={loop} onSeek={seek} onLoop={(a, b, snap) => setLoop(a, b, snap)} />
+            <div className="mt-1 flex justify-between text-[11px] text-soft">
+              <LiveTime />
+              {now?.label && <span className="font-semibold text-accent">{now.label}</span>}
+              <span className="font-mono">{formatTimeMs(m.durationMs)}</span>
+            </div>
+          </div>
+
+          {/* Handlingssone (75% - 100%): Transportkontroller + faner */}
+          <Transport size="lg" />
+          <Tabs tabs={DECK_TABS} value={tab} onChange={setTab} label="Visning" segmented />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div role="dialog" aria-modal="true" aria-label={`Spiller: ${m.title}`} className="gv-scroll fixed inset-0 z-40 flex flex-col overflow-y-auto bg-obsidian px-5 [&>*]:shrink-0 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] lg:hidden">
       <div aria-hidden="true" className="pointer-events-none fixed left-1/2 top-[24%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, var(--glow), var(--glow-2) 55%, transparent)', opacity: 'calc(0.55 + var(--sub, 0) * 0.35)' }} />
@@ -107,11 +170,7 @@ export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cu
       <div className="relative mt-4 min-h-[220px]">
         {tab === 'now' && <Cards cur={cur} onSeek={seek} />}
         {tab === 'queue' && <MobileQueue />}
-        {tab === 'lyrics' && (
-          <div className="gv-panel p-4">
-            <LyricsView cur={cur} className="max-h-[300px]" />
-          </div>
-        )}
+        {/* Tekst-fanen vises som fullskjerm-scene (isLyricsStage over). */}
         {tab === 'credits' && (
           <div className="gv-panel p-4">
             <Credits cur={cur} />
