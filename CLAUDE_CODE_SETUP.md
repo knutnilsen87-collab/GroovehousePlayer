@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -705,6 +705,43 @@ Mål: telefonen og appen virker som andre musikkapper, også når den store PC-e
 **Tester:** synk av media (bare endringer, avbrudd og fortsettelse), konflikter i data/ (to enheter endrer samme liste), automatisk kildevalg i appen, at Pi-en aldri får ingest-jobber, at tunnelen avviser alt uten token, og omstart av Pi-en (tjenesten kommer opp av seg selv).
 
 **Ferdig når:** Knut slår av den store PC-en. Han spiller en spilleliste i bilen fra telefonen, lager en ny liste, slår på PC-en igjen og ser lista der. En ny bounce fra Reason dukker opp på telefonen noen minutter etter at PC-en har ingestet den.
+
+## Del 22 – Visuell finpuss: typografi, glass og stramt oppsett
+
+Mål: grensesnittet skal føles eksklusivt og være **lynraskt å lese** i studio og under live-sett. Bort med flate grå bokser og harde kanter. Gjelder alle skins (del 19). Farger kommer fortsatt **bare fra skin-variablene**, aldri hardkodet cyan eller fiolett.
+
+**1. Typografi** (erstatter Satoshi + JetBrains Mono som standard; alle selvhostet som woff2 med lisensfil)
+1. **Display / titler:** **Clash Display** (Fontshare, ITF Free Font License, samme lisens som Satoshi) til låttittel i spilleren, sidetitler og store tall.
+2. **Seksjonsetiketter:** **Syncopate Bold** (OFL) i versaler med sperring, små (11–12 px): «LÅTINFO», «SPEKTRUM», «PASSER ETTER …». Kun etiketter, aldri brødtekst.
+3. **Brødtekst og lister:** **Inter** (OFL) med `font-feature-settings: "tnum", "cv11"`.
+4. **Data:** **Geist Mono** (OFL) til BPM, toneart, LUFS, tider og format. Tabulære tall.
+5. **Hierarki:**
+   - Etiketter: tykk versal, dempet farge.
+   - Data: lett/regular, full kontrast.
+   - **Aktiv låt** i lister: Inter SemiBold/Bold i aksentfargen.
+   - Minstestørrelser: 13 px data, 11 px etiketter, 15 px listetitler på mobil.
+6. Skins kan overstyre display-fonten (f.eks. Echo Groove Nights). Resten er felles.
+
+**2. Materialer og dybde**
+7. **Fjern nesten alle synlige kantlinjer** rundt spiller, knapper, sidepanel og kort. Skill elementer med luft og små forskjeller i bakgrunn (1–3 % lysere lag). Kantlinjer kun der det trengs for fokus eller tilgjengelighet.
+8. **Glass:** bunn i skinnets bakgrunn (obsidian eller midnattsblå). Paneler med svak gjennomsiktighet og `backdrop-filter: blur(20–28px) saturate(140%)`, og en hårfin lyskant øverst (1 px hvit på 6–8 %) i stedet for ramme.
+   - **Ytelse:** på mobil og i Android-appen brukes blur bare på 1–2 store flater (minispiller og fullskjermspiller). Resten får en ferdig tonet, halvgjennomsiktig bakgrunn uten blur. Mål 30 fps på S22.
+   - Skinnet OLED Svart bruker ingen blur.
+9. Skygger i stedet for rammer: myke, store skygger i aksentfargen på lav styrke for flater som ligger øverst.
+
+**3. Strammere oppsett**
+10. **Bølgeformen fra kant til kant** i spillermodulen, uten indre boks eller marg. Tider legges oppå bølgeformen nederst i hvert hjørne.
+11. **Transportknapper:** fjern sirklene rundt forrige/neste/bland/gjenta. Ikonene blir 15–20 % større. **Play/pause** beholder en myk glød (drop-shadow i aksent, sterkere ved hover og avspilling) uten hard ring. Treffflater minst 44 px.
+12. **Låtinfo som rutenett av pills:** 2 kolonner. Hver verdi er en liten pill med etikett over (Syncopate, dempet) og verdi i Geist Mono. Pillens bakgrunn er aksent på 8–12 %, f.eks. `BPM 124.5`, `TONEART Bb · 6B`, `LUFS −15.3`, `TID 3:12`, `FORMAT WAV 16/44.1`. Camelot-pillen får harmoni-farge mot låta som kommer etter i køen.
+13. Se gjennom alle sider for samme regler: Hjem, Bibliotek, DJ-verktøy, Settbygger, Live-sett, Studio og Innstillinger. Fjern dobbel informasjon og grupper med luft i stedet for bokser.
+
+**Tester:**
+- Visuell sammenligning før og etter for desktop (1536×1024) og mobil (390×844), i tre skins, i `docs/design/compare/del-22/`.
+- Testen som stopper hardkodede farger og fonter fra CDN gjelder fortsatt.
+- Fps-måling i Android-appen.
+- Kontrast ≥ 4,5:1 på data og ≥ 3:1 på etiketter.
+
+**Ferdig når:** Knut sammenligner før og etter og synes det nye er tydeligere og mer eksklusivt. Han kan lese BPM og toneart på låta som spilles, fra en armlengdes avstand på PC-en, og appen er like jevn på S22 som før.
 
 ## Del 15 – Oppdatering av Android-appen
 
