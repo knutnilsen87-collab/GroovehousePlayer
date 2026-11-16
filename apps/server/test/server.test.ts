@@ -139,7 +139,8 @@ describe('server', () => {
     await new Promise<void>((r) => other.listen(first, '127.0.0.1', r));
     expect((await probeHealth(first)).state).toBe('other');
 
-    const ports = [first, first + 1, first + 2];
+    // Ikke first+1 osv.: Windows deler ut porter fortløpende, så de kan tilhøre en server fra en annen testfil.
+    const ports = [first, await freePort(), await freePort()];
     const handler = createHandler({ distDir: dist, mediaDir: media, version: '1' });
     const a = http.createServer(handler);
     const ra = await listenWithFallback(a, ports);
