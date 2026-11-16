@@ -733,6 +733,15 @@ Mål: grensesnittet skal føles eksklusivt og være **lynraskt å lese** i studi
 10. **Bølgeformen fra kant til kant** i spillermodulen, uten indre boks eller marg. Tider legges oppå bølgeformen nederst i hvert hjørne.
 11. **Transportknapper:** fjern sirklene rundt forrige/neste/bland/gjenta. Ikonene blir 15–20 % større. **Play/pause** beholder en myk glød (drop-shadow i aksent, sterkere ved hover og avspilling) uten hard ring. Treffflater minst 44 px.
 12. **Låtinfo som rutenett av pills:** 2 kolonner. Hver verdi er en liten pill med etikett over (Syncopate, dempet) og verdi i Geist Mono. Pillens bakgrunn er aksent på 8–12 %, f.eks. `BPM 124.5`, `TONEART Bb · 6B`, `LUFS −15.3`, `TID 3:12`, `FORMAT WAV 16/44.1`. Camelot-pillen får harmoni-farge mot låta som kommer etter i køen.
+12b. **Detaljer fra Knuts utkast (Next.js/WaveSurfer-utkastet). Bruk ideene, ikke koden:**
+   - **Ikke** bruk WaveSurfer.js eller Next.js/`next/font`. Bølgeformen tegnes fortsatt fra `analysis.json` på canvas (virker på mobil og i appen uten Web Audio).
+   - Bølgeformen tegnes som **stolper**: 3 px bredde, 2 px mellomrom, 2 px avrunding. Vertikalt normalisert så den fyller hele høyden.
+   - Uspilt del i aksent-2 på ca. 30 %, spilt del i aksent på ca. 90 %.
+   - **Skarpt hvitt spillehode** (2 px) med svak glød.
+   - Et **glød-lag bak bølgeformen** (myk gradient i aksent og aksent-2, sterk blur). Det går fra ca. 30 % til 100 % styrke når avspillingen starter, over 0,7 s. Av ved redusert bevegelse.
+   - **Play-knappen:** fylt sirkel i aksent med mørkt ikon (`--on-accent`) og glød, som skaleres litt opp ved hover. Andre transportikoner er uten sirkel.
+   - **Aktiv rad i lister:** 2 px aksentstripe til venstre og aksent på 5 % i bakgrunnen. Nummer og tittel i aksent.
+   - **Tabelloverskrifter** i Syncopate, små versaler med god sperring og dempet farge.
 13. Se gjennom alle sider for samme regler: Hjem, Bibliotek, DJ-verktøy, Settbygger, Live-sett, Studio og Innstillinger. Fjern dobbel informasjon og grupper med luft i stedet for bokser.
 
 **Tester:**
