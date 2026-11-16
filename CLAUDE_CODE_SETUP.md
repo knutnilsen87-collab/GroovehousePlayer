@@ -776,7 +776,13 @@ Mål: ingen låt skal stå med tomt cover. Vault lager et passende cover automat
 
    Knut kan redigere prompten før generering, men trenger ikke.
 6. Bildet genereres **uten tekst**. Vault legger tittel og artist oppå med egen typografi (AI-modeller skriver tekst dårlig). Lag 4 varianter. Knut velger med ett trykk, eller «Lag nye».
-7. **Leverandør kan settes i Innstillinger** (f.eks. OpenAI, Google eller en lokal modell). **Alternativ:** send jobben til Knuts eget bildeverktøy **bulkIMG / AURORA Asset Studio** (lokal bulk-produksjon) via mappe eller HTTP, og hent resultatet tilbake. Spør Knut hvilken han vil bruke. API-nøkler lagres i Windows Credential Manager, aldri i git, chat eller innstillingsfila.
+7. **Førstevalg (Knut, 2026-11-16): bulkIMG / AURORA Asset Studio**, Knuts eget lokale bildeverktøy, med løs kobling og uten API-nøkler i Vault:
+   - «Lag AI-cover» (én eller batch) skriver en **CSV i bulkIMGs batchformat** (`filename,prompt,category,section`) med filnavn `<slug>__<variant|main>.png` og ferdig prompt, til en avtalt innboks-mappe.
+   - Knut kjører batchen i bulkIMG, sammenligner generatorene, velger vinnere og eksporterer.
+   - Vault **overvåker bulkIMGs eksportmappe** og leser manifestet. Bilder kobles til låta via filnavnet, legges inn som cover (palett beregnes på nytt), og prompt og leverandør fra manifestet lagres i `meta.json`.
+   - Spør Knut om stiene til bulkIMGs innboks og eksportmappe, og les CSV-formatet fra bulkIMG-prosjektet i stedet for å gjette.
+   - **Fallback senere:** direkte leverandør inne i Vault (f.eks. OpenAI gpt-image) for ett-klikk, med nøkkel i Credential Manager.
+7b. **Leverandør kan settes i Innstillinger** (f.eks. OpenAI, Google eller en lokal modell). **Alternativ:** send jobben til Knuts eget bildeverktøy **bulkIMG / AURORA Asset Studio** (lokal bulk-produksjon) via mappe eller HTTP, og hent resultatet tilbake. Spør Knut hvilken han vil bruke. API-nøkler lagres i Windows Credential Manager, aldri i git, chat eller innstillingsfila.
 8. **Regler for innholdet:**
    - Ingen gjenkjennelige virkelige personer.
    - Ingen andre artisters navn eller kjente covere i prompten.
