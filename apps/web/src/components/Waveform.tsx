@@ -39,10 +39,16 @@ export function Waveform({ peaks, bars = 64, height = 56, progress, active, mark
         <span
           key={`${m.label}-${m.pct}`}
           aria-hidden="true"
-          className="absolute -top-3 -translate-x-1/2 text-[8px] font-semibold tracking-[1.5px]"
-          style={{ left: `${m.pct * 100}%`, color: 'var(--accent)' }}
+          className="pointer-events-none absolute inset-y-0 z-10"
+          style={{ left: `${m.pct * 100}%` }}
         >
-          {m.label}
+          <span className="absolute inset-y-0 -left-px w-[1.5px] rounded-full" style={{ background: 'color-mix(in srgb, var(--accent) 65%, transparent)' }} />
+          <span
+            className="absolute -top-3.5 -translate-x-1/2 whitespace-nowrap rounded bg-[#0A0C12]/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-[1.2px] text-ink-strong shadow-sm"
+            style={{ border: '1px solid color-mix(in srgb, var(--accent) 55%, transparent)', color: 'var(--accent)' }}
+          >
+            {m.label}
+          </span>
         </span>
       ))}
       {onSeek && (

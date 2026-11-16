@@ -551,7 +551,7 @@ export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]
               /* ikke våre data */
             }
           }}
-          className={`flex min-h-9 w-full items-center gap-2.5 rounded-[10px] px-3 text-left text-[13px] ${active ? 'font-semibold text-ink-strong' : 'text-muted hover:text-ink-strong'} ${over === id ? 'bg-white/[0.08] ring-1' : ''}`}
+          className={`flex min-h-10 w-full items-center gap-2.5 rounded-[10px] px-3 py-1.5 text-left text-[13px] transition-colors ${active ? 'font-semibold text-ink-strong' : 'text-soft hover:bg-white/[0.03] hover:text-ink-strong'} ${over === id ? 'bg-white/[0.08] ring-1' : ''}`}
           style={active ? { background: `${color.primary}14`, boxShadow: `inset 2px 0 0 ${color.primary}, ${neonGlow(color.primary).split(',')[0]}` } : over === id ? ({ '--tw-ring-color': color.primary } as CSSProperties) : undefined}
         >
           {smartIcon ? <BoltIcon width={14} height={14} style={{ color: color.primary }} /> : <ColorDot color={color} size={9} pulse={nowList === id} />}
@@ -561,11 +561,8 @@ export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]
     );
   };
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="mb-1 flex items-center justify-between px-3">
-        <span className="text-[10px] font-semibold uppercase tracking-[1.5px] text-muted">Spillelister</span>
-      </div>
-      <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-left text-[13px] font-semibold text-accent hover:bg-accent/[0.06]">
+    <div className="flex min-h-0 flex-1 flex-col gap-0.5">
+      <button type="button" onClick={() => setCreating(true)} className="mb-1 flex min-h-10 items-center gap-2.5 rounded-[10px] px-3 py-1.5 text-left text-[13px] font-semibold text-accent hover:bg-accent/[0.08]">
         <PlusIcon width={14} height={14} />
         Ny spilleliste
       </button>
@@ -574,13 +571,13 @@ export function SidebarPlaylists({ tracks, activeId, onOpen }: { tracks: Track[]
           <NewListForm onDone={(p) => (setCreating(false), p && onOpen(p.id))} />
         </div>
       )}
-      <ul className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-0 pr-1">
+      <ul className="m-0 flex min-h-0 flex-1 list-none flex-col gap-0.5 overflow-y-auto p-0 pr-1">
         {BUILTIN_SMART.map((b) => item(b.id, b.name, colorById(BUILTIN_COLORS[b.id]), true, null))}
         {smart.map((p) => item(p.id, p.name, colorById(p.color), true, null))}
-        {manual.length > 0 && <li aria-hidden="true" className="mx-3 my-1.5 border-t border-white/[0.06]" />}
+        {manual.length > 0 && <li aria-hidden="true" className="mx-3 my-1.5 border-t border-white/[0.07]" />}
         {manual.map((p) => item(p.id, p.name, colorById(p.color), false, p))}
       </ul>
-      {tracks.length > 0 && <p className="m-0 px-3 pt-1 text-[10px] text-muted">Dra låter hit for å legge dem til</p>}
+      {tracks.length > 0 && <p className="m-0 px-3 pt-1.5 text-[11px] text-muted">Dra låter hit for å legge dem til</p>}
     </div>
   );
 }

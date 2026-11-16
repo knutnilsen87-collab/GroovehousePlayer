@@ -8,7 +8,7 @@ import { usePlaylists } from '../lib/playlists';
 import { CoverArt } from '../components/CoverArt';
 import { DraftBadge, trackVars } from '../components/Draft';
 import { HeartButton, Panel } from '../components/Deck';
-import { PlayIcon } from '../components/Icons';
+import { ChevronDownIcon, PlayIcon } from '../components/Icons';
 import { buildListView, ColorDot, ListCover } from '../components/Playlists';
 import { useFavorites } from '../lib/library';
 
@@ -77,6 +77,9 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
     .filter((v): v is NonNullable<typeof v> => !!v && v.assets.length > 0)
     .slice(0, 8);
 
+  const [playedOpen, setPlayedOpen] = useState(true);
+  const [listsOpen, setListsOpen] = useState(true);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="lg:hidden">
@@ -89,7 +92,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="gv-label !text-[10px]">Fortsett der du slapp</span>
             <span className="truncate text-base font-semibold text-ink-strong">{resume.a.manifest.title}</span>
-            <span className="font-mono text-[11px] text-muted">
+            <span className="font-mono text-[11px] text-soft">
               {formatTime(resume.at)} / {formatTime(resume.a.manifest.durationMs)}
             </span>
           </span>
@@ -102,24 +105,41 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
       {table}
 
       {recentlyPlayed.length > 0 && (
-        <section aria-labelledby="gv-home-played">
-          <h2 id="gv-home-played" className="gv-label m-0 mb-3">
-            Nylig spilt
-          </h2>
-          <ul className="gv-scroll -mx-1 m-0 flex list-none gap-3 overflow-x-auto px-1 pb-2">
-            {recentlyPlayed.map((t) => {
-              const m = t.main.manifest;
-              return (
-                <li key={t.slug} className="w-[132px] flex-none">
-                  <button type="button" onClick={() => onPlay(t)} className="flex w-full flex-col gap-1.5 text-left">
-                    <CoverArt src={assetUrl(t.main, m.files.coverThumb)} palette={m.palette} title={m.title} size={132} rounded={12} />
-                    <span className="truncate text-[13px] font-semibold text-ink-strong">{m.title}</span>
-                    <span className="truncate font-mono text-[10px] text-muted">{log?.bySlug[t.slug]?.plays ?? 0} avspillinger</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+        <section aria-labelledby="gv-home-played" className="gv-panel-quiet px-4 py-3.5">
+          <button
+            type="button"
+            aria-expanded={playedOpen}
+            onClick={() => setPlayedOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-2 text-left text-soft hover:text-ink-strong"
+          >
+            <h2 id="gv-home-played" className="gv-label m-0 flex items-center gap-2">
+              Nylig spilt
+              <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] font-medium text-soft">{recentlyPlayed.length}</span>
+            </h2>
+            <span className="inline-flex items-center gap-1.5 text-xs text-soft">
+              {playedOpen ? 'Skjul' : 'Vis'}
+              <ChevronDownIcon width={15} height={15} className={`transition-transform ${playedOpen ? '' : '-rotate-90'}`} />
+            </span>
+          </button>
+          {playedOpen && (
+            <ul className="gv-scroll -mx-1 m-0 mt-3.5 flex list-none gap-3.5 overflow-x-auto px-1 pb-2">
+              {recentlyPlayed.map((t) => {
+                const m = t.main.manifest;
+                const plays = log?.bySlug[t.slug]?.plays ?? 0;
+                return (
+                  <li key={t.slug} className="w-[136px] flex-none">
+                    <button type="button" onClick={() => onPlay(t)} className="group flex w-full flex-col gap-1.5 text-left">
+                      <CoverArt src={assetUrl(t.main, m.files.coverThumb)} palette={m.palette} title={m.title} size={136} rounded={12} />
+                      <span className="truncate text-[13.5px] font-semibold text-ink-strong group-hover:text-accent">{m.title}</span>
+                      <span className="truncate font-mono text-[12px] text-soft">
+                        {plays} {plays === 1 ? 'avspilling' : 'avspillinger'}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
 
@@ -135,31 +155,44 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
       </section>
 
       {lists.length > 0 && (
-        <section aria-labelledby="gv-home-lists">
-          <h2 id="gv-home-lists" className="gv-label m-0 mb-3">
-            Spillelister
-          </h2>
-          <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
-            {lists.map((v) => (
-              <li key={v.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpenList(v.id)}
-                  className="flex w-full flex-col gap-2 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-2.5 text-left transition-shadow hover:bg-white/[0.04]"
-                  style={{ boxShadow: `0 0 0 1px ${v.color.primary}40, 0 0 22px ${v.color.primary}22` }}
-                >
-                  <span className="w-full overflow-hidden rounded-xl [&>*]:!h-auto [&>*]:!w-full [&>*]:aspect-square">
-                    <ListCover v={v} size={160} rounded={12} />
-                  </span>
-                  <span className="flex items-center gap-2">
-                    <ColorDot color={v.color} size={8} />
-                    <span className="truncate text-[13px] font-semibold text-ink-strong">{v.name}</span>
-                    <span className="ml-auto font-mono text-[10px] text-muted">{v.assets.length}</span>
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
+        <section aria-labelledby="gv-home-lists" className="gv-panel-quiet px-4 py-3.5">
+          <button
+            type="button"
+            aria-expanded={listsOpen}
+            onClick={() => setListsOpen((o) => !o)}
+            className="flex w-full items-center justify-between gap-2 text-left text-soft hover:text-ink-strong"
+          >
+            <h2 id="gv-home-lists" className="gv-label m-0 flex items-center gap-2">
+              Spillelister
+              <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] font-medium text-soft">{lists.length}</span>
+            </h2>
+            <span className="inline-flex items-center gap-1.5 text-xs text-soft">
+              {listsOpen ? 'Skjul' : 'Vis'}
+              <ChevronDownIcon width={15} height={15} className={`transition-transform ${listsOpen ? '' : '-rotate-90'}`} />
+            </span>
+          </button>
+          {listsOpen && (
+            <ul className="m-0 mt-3.5 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
+              {lists.map((v) => (
+                <li key={v.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenList(v.id)}
+                    className="flex w-full flex-col gap-2 rounded-2xl border border-white/[0.08] bg-white/[0.025] p-2.5 text-left transition-all hover:border-white/[0.16] hover:bg-white/[0.045]"
+                  >
+                    <span className="w-full overflow-hidden rounded-xl [&>*]:!h-auto [&>*]:!w-full [&>*]:aspect-square">
+                      <ListCover v={v} size={160} rounded={12} />
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <ColorDot color={v.color} size={8} />
+                      <span className="truncate text-[13.5px] font-semibold text-ink-strong">{v.name}</span>
+                      <span className="ml-auto font-mono text-[11px] text-soft">{v.assets.length}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
     </div>

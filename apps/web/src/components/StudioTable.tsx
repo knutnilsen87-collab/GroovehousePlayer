@@ -106,41 +106,41 @@ export function StudioTable({
     const active = sort?.key === key;
     const ariaSort = active ? (sort!.dir === 1 ? 'ascending' : 'descending') : 'none';
     return (
-      <th scope="col" aria-sort={onSort ? ariaSort : undefined} className={`pb-2.5 font-normal ${cls}`}>
+      <th scope="col" aria-sort={onSort ? ariaSort : undefined} className={`pb-3 font-semibold ${cls}`}>
         {onSort ? (
           <button
             type="button"
             onClick={() => onSort(active ? (sort!.dir === 1 ? { key, dir: -1 } : { key: 'none', dir: 1 }) : { key, dir: key === 'bpm' ? -1 : 1 })}
-            className={`inline-flex items-center gap-1 uppercase tracking-[0.16em] ${active ? 'text-accent' : 'hover:text-ink-strong'}`}
+            className={`inline-flex items-center gap-1 font-semibold uppercase tracking-[0.16em] ${active ? 'text-accent' : 'text-soft hover:text-ink-strong'}`}
           >
             {name}
             {active && <ChevronDownIcon width={11} height={11} className={sort!.dir === 1 ? 'rotate-180' : ''} />}
           </button>
         ) : (
-          <span className="uppercase tracking-[0.16em]">{name}</span>
+          <span className="font-semibold uppercase tracking-[0.16em] text-soft">{name}</span>
         )}
       </th>
     );
   };
   return (
-    <div className="gv-panel gv-scroll hidden overflow-x-auto px-4 pb-2 pt-3 lg:block">
-      {selected.length > 1 && <p className="m-0 mb-2 text-[11px] text-muted">{selected.length} valgt · dra til en liste i sidemenyen, eller høyreklikk → Legg til i spilleliste · Esc fjerner valget</p>}
+    <div className="gv-panel gv-scroll hidden overflow-x-auto px-4 pb-3 pt-3.5 lg:block">
+      {selected.length > 1 && <p className="m-0 mb-2 text-[11px] text-soft">{selected.length} valgt · dra til en liste i sidemenyen, eller høyreklikk → Legg til i spilleliste · Esc fjerner valget</p>}
       <table aria-label={label} className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
-          <tr className="text-left font-mono text-[11px] text-soft">
-            <th scope="col" className="w-10 pb-2.5 pl-2 font-normal">
+          <tr className="border-b border-white/[0.08] text-left font-mono text-[11px] font-semibold text-soft">
+            <th scope="col" className="w-10 pb-3 pl-2.5 font-semibold">
               #
             </th>
-            <th scope="col" className="w-12 pb-2.5 font-normal">
+            <th scope="col" className="w-12 pb-3 font-semibold">
               <span className="sr-only">Cover</span>
             </th>
             {head('title', 'Tittel')}
-            {head('artist', 'Artist', 'w-[16%] hidden 2xl:table-cell')}
+            {head('artist', 'Artist', 'w-[18%] hidden xl:table-cell')}
             {head('bpm', 'BPM', 'w-20')}
             {head('key', 'Toneart', 'w-24')}
             {head('lufs', 'LUFS', 'w-20')}
             {head('duration', 'Varighet', 'w-24')}
-            <th scope="col" className="w-20 pb-2.5 font-normal">
+            <th scope="col" className="w-20 pb-3 font-semibold">
               <span className="sr-only">Handlinger</span>
             </th>
           </tr>
@@ -176,20 +176,20 @@ export function StudioTable({
                   e.preventDefault();
                   onContext(t.slug, { x: e.clientX, y: e.clientY });
                 }}
-                className={`group border-t border-white/[0.05] first:border-t-0 ${
-                  isCur ? 'gv-neon-soft bg-accent/[0.16] [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg' : sel ? 'bg-white/[0.07]' : 'hover:bg-white/[0.025]'
+                className={`group border-t border-white/[0.05] transition-colors first:border-t-0 ${
+                  isCur ? 'gv-neon-soft bg-accent/[0.16] [&>td:first-child]:rounded-l-lg [&>td:last-child]:rounded-r-lg' : sel ? 'bg-white/[0.08]' : 'hover:bg-white/[0.035]'
                 }`}
                 style={isCur ? undefined : trackVars(m)}
               >
-                <td className="py-1.5 pl-2 font-mono text-[13px] text-muted">{isCur ? <EqIcon playing={playing} width={18} height={18} className="text-accent" /> : i + 1}</td>
-                <td className="py-1.5">
+                <td className="py-2.5 pl-2.5 font-mono text-[13px] text-soft">{isCur ? <EqIcon playing={playing} width={18} height={18} className="text-accent" /> : i + 1}</td>
+                <td className="py-2.5">
                   <button type="button" onClick={() => onPlay(t)} aria-label={`Spill ${m.title}`} className="block">
-                    <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} draft={isDraft(m)} />
+                    <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={38} rounded={7} draft={isDraft(m)} />
                   </button>
                 </td>
-                <td className="py-1.5 pr-4">
+                <td className="py-2.5 pr-4">
                   <div className="flex min-w-0 flex-col">
-                    <button type="button" onClick={() => onPlay(t)} className={`truncate text-left font-semibold ${isCur ? 'text-ink-strong' : 'text-ink'} hover:underline`}>
+                    <button type="button" onClick={() => onPlay(t)} className={`truncate text-left text-[14.5px] font-semibold ${isCur ? 'text-ink-strong' : 'text-ink-strong'} hover:underline`}>
                       {m.title}
                       {m.kind === 'set' && <span className="ml-2 rounded border border-white/15 px-1 align-middle font-mono text-[9px] tracking-[1px] text-soft">LIVE</span>}
                       <DraftBadge m={m} className="ml-2" />
@@ -197,22 +197,27 @@ export function StudioTable({
                     <VariantSelect t={t} value={a} onChange={(v) => onPlay(t, v)} />
                   </div>
                 </td>
-                <td className="hidden truncate py-1.5 pr-3 font-mono text-[13px] text-soft 2xl:table-cell">{m.artist ?? 'Echo Groove'}</td>
-                <td className="py-1.5 font-mono text-[13px] text-ink">{m.bpm != null ? Math.round(m.bpm) : '–'}</td>
-                <td className="py-1.5 font-mono text-[13px] text-ink">
+                <td className="hidden truncate py-2.5 pr-3 text-[13.5px] font-normal text-soft xl:table-cell">{m.artist ?? 'Echo Groove'}</td>
+                <td className="py-2.5 font-mono text-[13.5px] font-medium text-ink-strong">{m.bpm != null ? Math.round(m.bpm) : '–'}</td>
+                <td className="py-2.5 font-mono text-[13.5px] font-medium text-ink-strong">
                   {m.key ? (
                     <>
-                      {keyShort(m.key.name)} <span className="text-muted">{m.key.camelot}</span>
+                      {keyShort(m.key.name)} <span className="font-normal text-soft">{m.key.camelot}</span>
                     </>
                   ) : (
                     '–'
                   )}
                 </td>
-                <td className="py-1.5 font-mono text-[13px] text-ink">{m.loudness.integratedLufs.toFixed(1)}</td>
-                <td className="py-1.5 font-mono text-[13px] text-ink">{formatTime(m.durationMs)}</td>
-                <td className="py-1.5 pr-1">
+                <td className="py-2.5 font-mono text-[13.5px] font-medium text-ink-strong">{m.loudness.integratedLufs.toFixed(1)}</td>
+                <td className="py-2.5 font-mono text-[13.5px] font-medium text-ink-strong">{formatTime(m.durationMs)}</td>
+                <td className="py-2.5 pr-1.5">
                   <div className="flex items-center justify-end gap-0.5">
-                    <HeartButton slug={m.slug} title={m.title} size={18} className="h-8 w-8" />
+                    <HeartButton
+                      slug={m.slug}
+                      title={m.title}
+                      size={18}
+                      className={`h-8 w-8 transition-opacity ${isCur ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 aria-pressed:opacity-100'}`}
+                    />
                     <button
                       type="button"
                       aria-label={`Flere valg for ${m.title}`}
@@ -220,7 +225,9 @@ export function StudioTable({
                         const r = e.currentTarget.getBoundingClientRect();
                         onContext(t.slug, { x: r.left - 220, y: r.bottom });
                       }}
-                      className="flex h-8 w-8 items-center justify-center rounded-full text-soft hover:bg-white/[0.06] hover:text-ink-strong"
+                      className={`flex h-8 w-8 items-center justify-center rounded-full text-soft transition-opacity hover:bg-white/[0.06] hover:text-ink-strong ${
+                        isCur ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100'
+                      }`}
                     >
                       <MoreIcon width={17} height={17} />
                     </button>

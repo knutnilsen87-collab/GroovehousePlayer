@@ -11,9 +11,9 @@ export default {
         sunken: '#0A0B0F',
         ink: '#E9ECF2',
         'ink-strong': '#F5F7FA',
-        muted: '#8B93A1',
-        /** Sekundær tekst og ikoner (kjølig sølv; erstatter champagne). */
-        soft: '#B4BBC8',
+        muted: '#A3ACBA',
+        /** Sekundær tekst og ikoner (økt kontrast for mørke studio-/klubbomgivelser). */
+        soft: '#C6CDD9',
         /** Bare til logoen (Brand.tsx). En test passer på at gull ikke brukes andre steder. */
         gold: { hi: '#F0DC6A', DEFAULT: '#F0C030', deep: '#B06000' },
         // Aksentfargene kommer ALLTID fra coverets palett via CSS-variabler, med støtte for /alfa.

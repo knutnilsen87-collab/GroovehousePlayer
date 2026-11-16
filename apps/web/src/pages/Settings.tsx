@@ -29,7 +29,11 @@ export function SettingsView() {
   if (error && !state) return <p role="alert" className="text-[#F2A08F]">Kunne ikke hente innstillingene: {error}</p>;
   if (!state || !draft) return <p className="text-muted">Henter innstillinger…</p>;
 
+  const ALL_KEYS: Array<keyof Editable> = ['exportDir', 'draftDir', 'ingest', 'audio', 'defaults', 'titleCleanup', 'colors', 'drops'];
   const dirty = (k: keyof Editable) => JSON.stringify(draft[k]) !== JSON.stringify(state.settings[k]);
+  const dirtyKeys = ALL_KEYS.filter(dirty);
+  const hasUnsaved = dirtyKeys.length > 0;
+
   const save = async (keys: Array<keyof Editable>, ok: string) => {
     setBusy(true);
     setError(null);
@@ -47,43 +51,93 @@ export function SettingsView() {
       setBusy(false);
     }
   };
+  const saveAll = () => {
+    if (!dirtyKeys.length) return;
+    void save(dirtyKeys, 'Endringene er lagret.');
+  };
+  const resetAll = () => {
+    setDraft(state.settings);
+    setError(null);
+  };
   const set = <K extends keyof Editable>(k: K, v: Editable[K]) => setDraft({ ...draft, [k]: v });
+  const lufsFill = `${((draft.audio.targetLufs - -16) / (-11 - -16)) * 100}%`;
 
   return (
-    <div className="flex max-w-[880px] flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h1 className="m-0 text-2xl font-semibold text-ink-strong">Innstillinger</h1>
-        <p className="m-0 text-sm text-muted">Lagres i groovehouse.config.json (forrige versjon i groovehouse.config.backup.json). Eksportmappa lagres bare på denne PC-en.</p>
+    <div className="mx-auto flex w-full max-w-[880px] flex-col gap-7 pb-28">
+      <header className="flex flex-col gap-1.5">
+        <h1 className="m-0 text-2xl font-bold tracking-tight text-ink-strong sm:text-[28px]">Innstillinger</h1>
+        <p className="m-0 text-sm leading-relaxed text-soft">
+          Lagres i <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-ink-strong">groovehouse.config.json</code> (forrige versjon i{' '}
+          <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-xs text-ink-strong">groovehouse.config.backup.json</code>). Eksportmappa lagres bare på denne PC-en.
+        </p>
       </header>
-      <div aria-live="polite" className="sticky top-0 z-10 empty:hidden">
+      <div aria-live="polite" className="sticky top-2 z-20 empty:hidden">
         {error && (
-          <p role="alert" className="m-0 rounded-xl border border-[#F2A08F]/40 bg-[#2A1512] px-4 py-3 text-sm text-[#F2A08F]">
+          <p role="alert" className="m-0 rounded-xl border border-[#F2A08F]/40 bg-[#2A1512]/95 px-4 py-3 text-sm text-[#F2A08F] shadow-lg backdrop-blur-md">
             {error}
           </p>
         )}
-        {notice && <p className="m-0 rounded-xl border border-accent/30 bg-accent/[0.08] px-4 py-3 text-sm text-soft">{notice}</p>}
+        {notice && (
+          <p className="m-0 flex items-center justify-between gap-3 rounded-xl border border-accent/40 bg-[#0E1318]/95 px-4 py-3 text-sm text-ink-strong shadow-lg backdrop-blur-md">
+            <span>{notice}</span>
+            <button type="button" onClick={() => setNotice(null)} className="text-xs text-soft hover:text-ink-strong">
+              Lukk
+            </button>
+          </p>
+        )}
       </div>
 
       <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir') || dirty('draftDir')} onSave={() => save(['exportDir', 'draftDir'], 'Mappene er lagret.')} onReload={load} />
-      <RulesSection draft={draft} set={set} busy={busy} dirty={dirty('ingest')} onSave={() => save(['ingest'], 'Reglene er lagret og gjelder neste ingest.')} />
-      <Section title="Lyd" hint="Gjelder i spilleren med en gang (også låter som alt er ingestet).">
-        <label className="flex flex-col gap-2 text-xs text-muted">
+      <RulesSection draft={draft} set={set} />
+      <Section
+        title="Lyd"
+        hint="Gjelder i spilleren med en gang (også låter som alt er ingestet)."
+        right={
+          JSON.stringify(draft.audio) !== JSON.stringify(state.defaults.audio) ? (
+            <button type="button" disabled={busy} onClick={() => set('audio', state.defaults.audio)} className={ghostBtn}>
+              Standard (−14 LUFS)
+            </button>
+          ) : undefined
+        }
+      >
+        <label className="flex flex-col gap-2.5 text-xs font-medium text-soft">
           Målnivå for avspilling
-          <span className="flex items-center gap-3">
-            <input type="range" min={-16} max={-11} step={0.5} value={draft.audio.targetLufs} onChange={(e) => set('audio', { targetLufs: Number(e.target.value) })} className="w-64" aria-label="Målnivå i LUFS" />
-            <span className="tabular text-sm text-ink-strong">{draft.audio.targetLufs} LUFS</span>
+          <span className="flex flex-wrap items-center gap-4">
+            <input
+              type="range"
+              min={-16}
+              max={-11}
+              step={0.5}
+              value={draft.audio.targetLufs}
+              onChange={(e) => set('audio', { targetLufs: Number(e.target.value) })}
+              className="gv-range w-64"
+              style={{ ['--fill' as string]: lufsFill }}
+              aria-label="Målnivå i LUFS"
+            />
+            <span className="tabular rounded-lg border border-white/[0.08] bg-sunken px-2.5 py-1 font-mono text-sm font-semibold text-ink-strong">{draft.audio.targetLufs} LUFS</span>
           </span>
         </label>
-        <p className="m-0 text-xs text-muted">Spilleren kan bare dempe, ikke løfte. Et høyere mål gjør derfor ikke stille skisser høyere – bare at høye låter dempes mindre. Standard −14 LUFS.</p>
-        <p className="m-0 text-xs text-muted">HLS: {state.server.hls} (info, ikke en innstilling).</p>
-        <SaveRow busy={busy} dirty={dirty('audio')} onSave={() => save(['audio'], 'Målnivået er lagret. Last spilleren på nytt for å høre det.')} onReset={() => set('audio', state.defaults.audio)} />
+        <p className="m-0 text-xs leading-relaxed text-soft">
+          Spilleren kan bare dempe, ikke løfte. Et høyere mål gjør derfor ikke stille skisser høyere – bare at høye låter dempes mindre. Standard <span className="font-mono text-ink-strong">−14 LUFS</span>.
+        </p>
+        <p className="m-0 font-mono text-xs text-muted">HLS: {state.server.hls} (info, ikke en innstilling).</p>
       </Section>
-      <MetadataSection draft={draft} set={set} busy={busy} dirty={dirty('defaults') || dirty('titleCleanup')} onSave={() => save(['defaults', 'titleCleanup'], 'Metadata-standardene er lagret og gjelder neste ingest.')} />
-      <ColorsSection draft={draft} set={set} busy={busy} dirty={dirty('colors')} onSave={() => save(['colors'], 'Fargeinnstillingene er lagret.')} />
+      <MetadataSection draft={draft} set={set} />
+      <ColorsSection draft={draft} set={set} busy={busy} dirty={dirty('colors')} />
       <AccessSection state={state} onChanged={load} />
-      <Section title="Standarder for drops" hint="Lagres nå, men har ingen effekt før del 13 (deling med lenker) er bygget.">
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
-          <label className="flex flex-col gap-1 text-xs text-muted">
+      <Section
+        title="Standarder for drops"
+        hint="Standardverdier når du oppretter delingslenker (del 13)."
+        right={
+          JSON.stringify(draft.drops) !== JSON.stringify(state.defaults.drops) ? (
+            <button type="button" disabled={busy} onClick={() => set('drops', state.defaults.drops)} className={ghostBtn}>
+              Standard
+            </button>
+          ) : undefined
+        }
+      >
+        <div className="flex flex-wrap items-end gap-5">
+          <label className="flex w-48 flex-col gap-1.5 text-xs font-medium text-soft">
             Standard nivå
             <select value={draft.drops.tier} onChange={(e) => set('drops', { ...draft.drops, tier: e.target.value as Tier })} className={field}>
               <option value="partner">Partner</option>
@@ -96,11 +150,10 @@ export function SettingsView() {
           <NumberField label="Maks enheter per lenke" value={draft.drops.maxDevices} min={1} max={10} onChange={(v) => set('drops', { ...draft.drops, maxDevices: v })} />
           <Toggle label="Vannmerke som standard" checked={draft.drops.watermark} onChange={(v) => set('drops', { ...draft.drops, watermark: v })} />
         </div>
-        <SaveRow busy={busy} dirty={dirty('drops')} onSave={() => save(['drops'], 'Drop-standardene er lagret.')} onReset={() => set('drops', state.defaults.drops)} />
       </Section>
       <Devices app={state.app} />
       {state.cloudSync && (
-        <section role="alert" aria-label="Skysynkronisering" className="rounded-2xl border border-[#FF6B5A]/50 bg-[#FF6B5A]/[0.06] p-5">
+        <section role="alert" aria-label="Skysynkronisering" className="rounded-2xl border border-[#FF6B5A]/50 bg-[#FF6B5A]/[0.06] p-6 sm:p-8">
           <h2 className="m-0 text-base font-semibold text-[#FFB4A8]">Prosjektmappa synkroniseres av {state.cloudSync.provider}</h2>
           <pre className="m-0 mt-2 whitespace-pre-wrap font-mono text-xs text-soft">{state.cloudSync.warning}</pre>
         </section>
@@ -108,6 +161,27 @@ export function SettingsView() {
       <Section title="Server" hint={`Port ${state.server.port} · prosess ${state.server.pid}`}>
         <RestartServer />
       </Section>
+
+      {hasUnsaved && (
+        <div
+          role="region"
+          aria-label="Ulagrede endringer"
+          className="fixed inset-x-4 bottom-5 z-40 mx-auto flex max-w-[720px] flex-wrap items-center justify-between gap-3 rounded-2xl border border-accent/50 bg-[#0B0E14]/95 px-5 py-3.5 shadow-[0_20px_50px_rgba(0,0,0,0.75)] backdrop-blur-xl"
+        >
+          <div className="flex items-center gap-2.5 text-sm font-medium text-ink-strong">
+            <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_10px_var(--accent)]" />
+            <span>Du har ulagrede endringer ({dirtyKeys.length})</span>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <button type="button" disabled={busy} onClick={resetAll} className={ghostBtn}>
+              Tilbakestill
+            </button>
+            <button type="button" disabled={busy} onClick={saveAll} className={primaryBtn}>
+              {busy ? 'Lagrer…' : 'Lagre endringer'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -172,38 +246,55 @@ function Devices({ app }: { app: SettingsState['app'] }) {
   );
 }
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+function Section({ title, hint, right, children }: { title: string; hint?: string; right?: ReactNode; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-surface p-5">
-      <div className="flex flex-col gap-0.5">
-        <h2 className="m-0 text-base font-semibold text-ink-strong">{title}</h2>
-        {hint && <p className="m-0 text-xs text-muted">{hint}</p>}
+    <section aria-label={title} className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-surface p-6 sm:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex flex-col gap-1">
+          <h2 className="m-0 text-base font-semibold text-ink-strong">{title}</h2>
+          {hint && <p className="m-0 text-xs leading-relaxed text-soft">{hint}</p>}
+        </div>
+        {right}
       </div>
       {children}
     </section>
   );
 }
 
-function SaveRow({ busy, dirty, onSave, onReset, label = 'Lagre' }: { busy: boolean; dirty: boolean; onSave: () => void; onReset?: () => void; label?: string }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button type="button" disabled={busy || !dirty} onClick={onSave} className={primaryBtn}>
-        {label}
-      </button>
-      {onReset && (
-        <button type="button" disabled={busy} onClick={onReset} className={ghostBtn}>
-          Standard
-        </button>
-      )}
-    </div>
-  );
-}
-
 function NumberField({ label, value, min, max, step = 1, onChange }: { label: string; value: number; min: number; max: number; step?: number; onChange: (v: number) => void }) {
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
   return (
-    <label className="flex flex-col gap-1 text-xs text-muted">
+    <label className="flex max-w-[180px] flex-col gap-1.5 text-xs font-medium text-soft">
       {label}
-      <input type="number" value={value} min={min} max={max} step={step} onChange={(e) => onChange(Number(e.target.value))} className={field} />
+      <span className="inline-flex h-11 items-center overflow-hidden rounded-xl border border-white/10 bg-sunken focus-within:border-accent/60">
+        <button
+          type="button"
+          aria-label={`Reduser ${label}`}
+          disabled={value <= min}
+          onClick={() => onChange(clamp(value - step))}
+          className="flex h-full w-10 flex-none items-center justify-center font-mono text-base text-soft transition-colors hover:bg-white/[0.05] hover:text-ink-strong disabled:opacity-30"
+        >
+          −
+        </button>
+        <input
+          type="number"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="h-full w-16 border-x border-white/[0.06] bg-transparent text-center font-mono text-sm font-semibold text-ink-strong focus:outline-none"
+        />
+        <button
+          type="button"
+          aria-label={`Øk ${label}`}
+          disabled={value >= max}
+          onClick={() => onChange(clamp(value + step))}
+          className="flex h-full w-10 flex-none items-center justify-center font-mono text-base text-soft transition-colors hover:bg-white/[0.05] hover:text-ink-strong disabled:opacity-30"
+        >
+          +
+        </button>
+      </span>
     </label>
   );
 }
@@ -234,16 +325,21 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
   }, [draft.exportDir, dirty]);
   return (
     <Section title="Eksport og watcher" hint="Mappa Reason bouncer til. Vault leser bare – ingenting flyttes eller slettes der.">
-      <label className="flex flex-col gap-1 text-xs text-muted">
+      <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
         Eksportmappe
-        <input value={draft.exportDir ?? ''} onChange={(e) => set('exportDir', e.target.value || null)} placeholder="D:\Musikk\REASONDONE" className={field} spellCheck={false} />
+        <input value={draft.exportDir ?? ''} onChange={(e) => set('exportDir', e.target.value || null)} placeholder="D:\Musikk\REASONDONE" className={`${field} font-mono text-[13px]`} spellCheck={false} />
       </label>
-      {state.exportDirFromEnv && !state.settings.exportDir && <p className="m-0 text-xs text-muted">Bruker GH_EXPORT_DIR fra .env. Lagrer du en mappe her, vinner den.</p>}
-      <label className="flex flex-col gap-1 text-xs text-muted">
+      {state.exportDirFromEnv && !state.settings.exportDir && (
+        <p className="m-0 text-xs text-soft">
+          Bruker <code className="font-mono text-ink-strong">GH_EXPORT_DIR</code> fra <code className="font-mono text-ink-strong">.env</code>. Lagrer du en mappe her, vinner den.
+        </p>
+      )}
+      <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
         Utkastmappe (umastrede låter, undermapper tillatt)
-        <input value={draft.draftDir ?? ''} onChange={(e) => set('draftDir', e.target.value || null)} placeholder="D:\Musikk\Utkast" className={field} spellCheck={false} />
-        <span className="text-[11px] text-muted">
-          Låter herfra blir <b className="font-mono text-ink">UTKAST</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med «pnpm gh-ingest --backlog --drafts». Du kan også dra filer inn på ingest-kortet («Importer som utkast»).
+        <input value={draft.draftDir ?? ''} onChange={(e) => set('draftDir', e.target.value || null)} placeholder="D:\Musikk\Utkast" className={`${field} font-mono text-[13px]`} spellCheck={false} />
+        <span className="text-xs leading-relaxed text-soft">
+          Låter herfra blir <b className="font-mono text-ink-strong">UTKAST</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med{' '}
+          <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-ink-strong">pnpm gh-ingest --backlog --drafts</code>. Du kan også dra filer inn på ingest-kortet («Importer som utkast»).
         </span>
       </label>
       {check && !check.ok && (
@@ -257,16 +353,25 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
           {check.many && ' Watcheren importerer bare nye filer. For å ta inn det som ligger der fra før, kjør «pnpm gh-ingest --backlog» i et terminalvindu (viser listen og spør før den starter).'}
         </p>
       )}
-      <SaveRow busy={busy || (dirty && !!draft.exportDir && !check?.ok)} dirty={dirty} onSave={onSave} label="Lagre og start watcheren på nytt" />
-      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/[0.06] bg-sunken/60 px-3 py-2 text-xs">
-        <span className="flex items-center gap-2 font-semibold text-ink">
-          <span aria-hidden="true" className={`h-2 w-2 rounded-full ${w ? 'bg-accent' : 'bg-[#F2A08F]'}`} />
+      {dirty && (
+        <div>
+          <button type="button" disabled={busy || (dirty && !!draft.exportDir && !check?.ok)} onClick={onSave} className={primaryBtn}>
+            Lagre og start watcheren på nytt
+          </button>
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/[0.08] bg-sunken/75 px-4 py-3 text-xs">
+        <span className="flex items-center gap-2.5 font-semibold text-ink-strong">
+          <span aria-hidden="true" className="relative flex h-2.5 w-2.5 items-center justify-center">
+            {w && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />}
+            <span className={`relative inline-flex h-2.5 w-2.5 rounded-full ${w ? 'bg-accent shadow-[0_0_8px_var(--accent)]' : 'bg-[#F2A08F]'}`} />
+          </span>
           {w ? (w.busy ? 'Watcher jobber' : 'Watcher kjører') : 'Watcher er av'}
         </span>
-        {w && <span className="text-muted">{w.queued} i kø</span>}
+        {w && <span className="font-mono text-soft">{w.queued} i kø</span>}
         {w?.lastEvent && (
-          <span className="text-muted">
-            Siste: {w.lastEvent.text} ({new Date(w.lastEvent.at).toLocaleString('nb-NO')})
+          <span className="text-soft">
+            Siste: <span className="font-mono text-ink">{w.lastEvent.text}</span> ({new Date(w.lastEvent.at).toLocaleString('nb-NO')})
           </span>
         )}
         <button
@@ -307,44 +412,44 @@ function usePreview(draft: Editable, keys: Array<keyof Editable>) {
 
 function PreviewTable({ p, columns }: { p: { rows: PreviewRow[]; total: number } | null; columns: 'rules' | 'titles' }) {
   if (!p) return null;
-  if (!p.total) return <p className="m-0 text-xs text-muted">Ingen lydfiler i eksportmappa å vise.</p>;
+  if (!p.total) return <p className="m-0 text-xs text-soft">Ingen lydfiler i eksportmappa å vise.</p>;
   const rows = columns === 'rules' ? p.rows : p.rows.filter((r) => r.removed.length).concat(p.rows.filter((r) => !r.removed.length)).slice(0, 12);
   return (
     <details className="text-xs" open={columns === 'rules'}>
-      <summary className="cursor-pointer text-muted">
+      <summary className="cursor-pointer font-medium text-soft hover:text-ink-strong">
         Forhåndsvisning på {Math.min(p.rows.length, columns === 'rules' ? p.rows.length : 12)} av {p.total} filer i eksportmappa
       </summary>
-      <div className="mt-2 max-h-72 overflow-auto rounded-xl border border-white/[0.06]">
+      <div className="gv-scroll mt-2.5 max-h-72 overflow-auto rounded-xl border border-white/[0.08] bg-sunken/50">
         <table className="w-full border-collapse text-left">
-          <thead className="sticky top-0 bg-sunken text-muted">
+          <thead className="sticky top-0 bg-sunken font-mono text-[11px] uppercase tracking-[0.12em] text-soft">
             <tr>
-              <th className="px-2 py-1.5 font-semibold">Fil</th>
-              <th className="px-2 py-1.5 font-semibold">Tittel</th>
+              <th className="px-3 py-2 font-semibold">Fil</th>
+              <th className="px-3 py-2 font-semibold">Tittel</th>
               {columns === 'rules' ? (
                 <>
-                  <th className="px-2 py-1.5 font-semibold">Variant</th>
-                  <th className="px-2 py-1.5 font-semibold">Type</th>
+                  <th className="px-3 py-2 font-semibold">Variant</th>
+                  <th className="px-3 py-2 font-semibold">Type</th>
                 </>
               ) : (
-                <th className="px-2 py-1.5 font-semibold">Fjernet</th>
+                <th className="px-3 py-2 font-semibold">Fjernet</th>
               )}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.file} className="border-t border-white/[0.04]">
-                <td className="max-w-[260px] truncate px-2 py-1.5 text-muted">{r.file}</td>
-                <td className="px-2 py-1.5 text-ink">{r.title}</td>
+              <tr key={r.file} className="border-t border-white/[0.05] hover:bg-white/[0.02]">
+                <td className="max-w-[260px] truncate px-3 py-2 font-mono text-[11.5px] text-soft">{r.file}</td>
+                <td className="px-3 py-2 font-medium text-ink-strong">{r.title}</td>
                 {columns === 'rules' ? (
                   <>
-                    <td className="px-2 py-1.5 text-ink">{r.variant ?? '–'}</td>
-                    <td className={`px-2 py-1.5 ${r.rule ? 'text-accent' : 'text-muted'}`}>
+                    <td className="px-3 py-2 font-mono text-soft">{r.variant ?? '–'}</td>
+                    <td className={`px-3 py-2 font-mono ${r.rule ? 'text-accent' : 'text-soft'}`}>
                       {r.kind}
                       {r.rule ? ` (${r.rule})` : ''}
                     </td>
                   </>
                 ) : (
-                  <td className="px-2 py-1.5 text-accent">{r.removed.join(', ') || '–'}</td>
+                  <td className="px-3 py-2 font-mono text-accent">{r.removed.join(', ') || '–'}</td>
                 )}
               </tr>
             ))}
@@ -355,22 +460,24 @@ function PreviewTable({ p, columns }: { p: { rows: PreviewRow[]; total: number }
   );
 }
 
-function RulesSection({ draft, set, busy, dirty, onSave }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void; busy: boolean; dirty: boolean; onSave: () => void }) {
+function RulesSection({ draft, set }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void }) {
   const preview = usePreview(draft, ['ingest']);
   const rules = draft.ingest.rules;
   const setRules = (r: IngestRule[]) => set('ingest', { ...draft.ingest, rules: r });
   return (
     <Section title="Kategorisering" hint="Gjelder neste ingest. Eksisterende låter endres ikke.">
-      <NumberField label="Lengre enn (minutter) regnes som live-sett" value={draft.ingest.setThresholdMinutes} min={5} max={180} onChange={(v) => set('ingest', { ...draft.ingest, setThresholdMinutes: v })} />
-      <div className="flex flex-col gap-2">
-        <span className="text-xs text-muted">Filnavnregler (første som passer, vinner). * er jokertegn, f.eks. «* (Live *)» → sett.</span>
+      <NumberField label="Lengre enn (minutter) = live-sett" value={draft.ingest.setThresholdMinutes} min={5} max={180} onChange={(v) => set('ingest', { ...draft.ingest, setThresholdMinutes: v })} />
+      <div className="flex flex-col gap-2.5">
+        <span className="text-xs text-soft">
+          Filnavnregler (første som passer, vinner). <code className="font-mono text-ink-strong">*</code> er jokertegn, f.eks. <code className="font-mono text-ink-strong">* (Live *)</code> → sett.
+        </span>
         {rules.map((r, i) => (
-          <div key={i} className="flex flex-wrap items-end gap-2">
-            <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-xs text-muted">
+          <div key={i} className="flex flex-wrap items-end gap-2.5">
+            <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-xs font-medium text-soft">
               Mønster
-              <input value={r.pattern} onChange={(e) => setRules(rules.map((x, j) => (j === i ? { ...x, pattern: e.target.value } : x)))} className={field} placeholder="* (Live *)" />
+              <input value={r.pattern} onChange={(e) => setRules(rules.map((x, j) => (j === i ? { ...x, pattern: e.target.value } : x)))} className={`${field} font-mono`} placeholder="* (Live *)" />
             </label>
-            <label className="flex w-36 flex-col gap-1 text-xs text-muted">
+            <label className="flex w-36 flex-col gap-1 text-xs font-medium text-soft">
               Type
               <select value={r.kind ?? ''} onChange={(e) => setRules(rules.map((x, j) => (j === i ? { ...x, kind: (e.target.value || undefined) as IngestRule['kind'] } : x)))} className={field}>
                 <option value="">(etter lengde)</option>
@@ -378,9 +485,9 @@ function RulesSection({ draft, set, busy, dirty, onSave }: { draft: Editable; se
                 <option value="track">Låt</option>
               </select>
             </label>
-            <label className="flex w-40 flex-col gap-1 text-xs text-muted">
+            <label className="flex w-40 flex-col gap-1 text-xs font-medium text-soft">
               Variant
-              <input value={r.variant ?? ''} onChange={(e) => setRules(rules.map((x, j) => (j === i ? { ...x, variant: e.target.value.toLowerCase() || undefined } : x)))} className={field} placeholder="club" />
+              <input value={r.variant ?? ''} onChange={(e) => setRules(rules.map((x, j) => (j === i ? { ...x, variant: e.target.value.toLowerCase() || undefined } : x)))} className={`${field} font-mono`} placeholder="club" />
             </label>
             <button type="button" onClick={() => setRules(rules.filter((_, j) => j !== i))} className={ghostBtn} aria-label={`Fjern regel ${i + 1}`}>
               Fjern
@@ -394,40 +501,39 @@ function RulesSection({ draft, set, busy, dirty, onSave }: { draft: Editable; se
         </div>
       </div>
       <PreviewTable p={preview} columns="rules" />
-      <SaveRow busy={busy} dirty={dirty} onSave={onSave} />
     </Section>
   );
 }
 
-function MetadataSection({ draft, set, busy, dirty, onSave }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void; busy: boolean; dirty: boolean; onSave: () => void }) {
+function MetadataSection({ draft, set }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void }) {
   const preview = usePreview(draft, ['titleCleanup', 'defaults']);
   const [word, setWord] = useState('');
   const d = draft.defaults;
   const words = draft.titleCleanup.remove;
   return (
     <Section title="Metadata" hint="Standardverdier for nye låter. Det du har overstyrt per låt i Arkiv, vinner.">
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3">
-        <label className="flex flex-col gap-1 text-xs text-muted">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3.5">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
           Standard artist
           <input value={d.artist ?? ''} onChange={(e) => set('defaults', { ...d, artist: e.target.value || null })} className={field} maxLength={100} />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-muted">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
           Label
           <input value={d.label ?? ''} onChange={(e) => set('defaults', { ...d, label: e.target.value || null })} className={field} maxLength={100} />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-muted">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
           Copyright-mal
           <input value={d.copyright ?? ''} onChange={(e) => set('defaults', { ...d, copyright: e.target.value || null })} className={field} maxLength={120} placeholder="℗ {år} {label}" />
         </label>
       </div>
-      {preview?.copyright && <p className="m-0 text-xs text-muted">Blir: «{preview.copyright}»</p>}
-      <div className="flex flex-col gap-2">
-        <span className="text-xs text-muted">Fjernes fra titler (uansett store/små bokstaver)</span>
+      {preview?.copyright && <p className="m-0 font-mono text-xs text-soft">Blir: «{preview.copyright}»</p>}
+      <div className="flex flex-col gap-2.5">
+        <span className="text-xs font-medium text-soft">Fjernes fra titler (uansett store/små bokstaver)</span>
         <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
           {words.map((w) => (
-            <li key={w} className="flex h-8 items-center gap-1 rounded-full border border-white/10 pl-3 pr-1 text-xs">
+            <li key={w} className="flex h-8 items-center gap-1 rounded-full border border-white/10 bg-sunken/60 pl-3 pr-1 font-mono text-xs text-ink">
               {w}
-              <button type="button" onClick={() => set('titleCleanup', { remove: words.filter((x) => x !== w) })} aria-label={`Fjern «${w}»`} className="h-7 w-7 rounded-full text-muted hover:text-ink">
+              <button type="button" onClick={() => set('titleCleanup', { remove: words.filter((x) => x !== w) })} aria-label={`Fjern «${w}»`} className="h-7 w-7 rounded-full text-soft hover:text-ink-strong">
                 ×
               </button>
             </li>
@@ -449,30 +555,39 @@ function MetadataSection({ draft, set, busy, dirty, onSave }: { draft: Editable;
         </form>
       </div>
       <PreviewTable p={preview} columns="titles" />
-      <SaveRow busy={busy} dirty={dirty} onSave={onSave} />
     </Section>
   );
 }
 
-function ColorsSection({ draft, set, busy, dirty, onSave }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void; busy: boolean; dirty: boolean; onSave: () => void }) {
+function ColorsSection({ draft, set, busy, dirty }: { draft: Editable; set: <K extends keyof Editable>(k: K, v: Editable[K]) => void; busy: boolean; dirty: boolean }) {
   const [recolor, setRecolor] = useState<string | null>(null);
+  const contrastFill = `${((draft.colors.minContrast - 3) / (7 - 3)) * 100}%`;
   return (
-    <Section title="Farger" hint="Fargene hentes fra coveret. Låter du har gitt egen farge i Arkiv, røres aldri.">
-      <label className="flex flex-col gap-2 text-xs text-muted">
+    <Section title="Farger" hint="Standardfargen er grønn (#06B211). Låter du har gitt egen farge i Arkiv, røres aldri.">
+      <label className="flex flex-col gap-2.5 text-xs font-medium text-soft">
         Minste kontrast for aksentfarge
-        <span className="flex items-center gap-3">
-          <input type="range" min={3} max={7} step={0.1} value={draft.colors.minContrast} onChange={(e) => set('colors', { ...draft.colors, minContrast: Number(e.target.value) })} className="w-64" aria-label="Minste kontrast" />
-          <span className="tabular text-sm text-ink-strong">{draft.colors.minContrast.toFixed(1)}:1</span>
+        <span className="flex flex-wrap items-center gap-4">
+          <input
+            type="range"
+            min={3}
+            max={7}
+            step={0.1}
+            value={draft.colors.minContrast}
+            onChange={(e) => set('colors', { ...draft.colors, minContrast: Number(e.target.value) })}
+            className="gv-range w-64"
+            style={{ ['--fill' as string]: contrastFill }}
+            aria-label="Minste kontrast"
+          />
+          <span className="tabular rounded-lg border border-white/[0.08] bg-sunken px-2.5 py-1 font-mono text-sm font-semibold text-ink-strong">{draft.colors.minContrast.toFixed(1)}:1</span>
         </span>
       </label>
       <Toggle label="Fargeløse cover får standardfargen (grønn)" checked={draft.colors.colorFallback} onChange={(v) => set('colors', { ...draft.colors, colorFallback: v })} />
-      <div className="flex flex-wrap items-center gap-2">
-        <SaveRow busy={busy} dirty={dirty} onSave={onSave} />
+      <div className="flex flex-wrap items-center gap-2.5">
         <button
           type="button"
           disabled={busy || dirty}
           className={ghostBtn}
-          title={dirty ? 'Lagre først' : undefined}
+          title={dirty ? 'Lagre endringene nederst først' : undefined}
           onClick={async () => {
             setRecolor('Regner ut fargene på nytt…');
             try {
@@ -485,7 +600,7 @@ function ColorsSection({ draft, set, busy, dirty, onSave }: { draft: Editable; s
         >
           Bruk på alle låter nå
         </button>
-        {recolor && <span className="text-xs text-muted">{recolor}</span>}
+        {recolor && <span className="text-xs text-soft">{recolor}</span>}
       </div>
     </Section>
   );

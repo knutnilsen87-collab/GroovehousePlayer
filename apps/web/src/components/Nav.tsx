@@ -14,27 +14,37 @@ type IconT = typeof HomeIcon;
 export function Sidebar({ view, setView, onSearch, playlists }: { view: View; setView: (v: View) => void; onSearch: () => void; playlists?: ReactNode }) {
   const [open, setOpen] = useState(true);
   const cls = (active: boolean) =>
-    `flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] transition-colors ${
-      active ? 'gv-neon-soft border border-accent/70 bg-accent/[0.14] font-semibold text-ink-strong [&>svg]:text-accent' : 'border border-transparent text-soft hover:bg-white/[0.03] hover:text-ink-strong'
+    `flex min-h-[46px] w-full items-center gap-3.5 rounded-xl px-3.5 py-2.5 text-left text-[15px] transition-colors ${
+      active ? 'gv-neon-soft border border-accent/70 bg-accent/[0.14] font-semibold text-ink-strong [&>svg]:text-accent' : 'border border-transparent text-soft hover:bg-white/[0.04] hover:text-ink-strong [&>svg]:text-soft hover:[&>svg]:text-ink-strong'
     }`;
   const item = (id: View, label: string, Icon: IconT) => (
     <button type="button" aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)} className={cls(view === id)}>
-      <Icon width={20} height={20} />
+      <Icon width={20} height={20} className="flex-none" />
       {label}
     </button>
   );
   return (
-    <aside className="gv-panel sticky top-4 z-10 m-4 mr-0 hidden h-[calc(100svh-32px)] flex-col gap-5 overflow-hidden !rounded-2xl px-3 pb-3 pt-5 lg:flex">
+    <aside className="gv-panel sticky top-4 z-10 m-4 mr-0 hidden h-[calc(100svh-32px)] flex-col gap-4 overflow-hidden !rounded-2xl px-3.5 pb-3.5 pt-5 lg:flex">
       <div className="px-2">
         <Logo size={40} subtitle="VAULT" />
       </div>
-      <nav aria-label="Hovedmeny" className="gv-scroll -mx-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-1">
+      <button
+        type="button"
+        onClick={onSearch}
+        aria-label="Søk i biblioteket"
+        className="flex min-h-[44px] w-full items-center gap-3 rounded-xl border border-white/[0.09] bg-sunken/80 px-3.5 py-2 text-left text-[14px] text-soft shadow-inner transition-colors hover:border-accent/50 hover:bg-white/[0.04] hover:text-ink-strong"
+      >
+        <SearchIcon width={18} height={18} className="flex-none text-soft" />
+        <span className="truncate">Søk…</span>
+        <kbd className="ml-auto rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 font-mono text-[10px] text-muted">Ctrl K</kbd>
+      </button>
+      <nav aria-label="Hovedmeny" className="gv-scroll -mx-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-1">
         {item('home', 'Hjem', HomeIcon)}
         {item('library', 'Bibliotek', LibraryIcon)}
         <div className="flex flex-col">
           <div className="flex items-center">
             <button type="button" aria-current={view === 'playlists' ? 'page' : undefined} onClick={() => setView('playlists')} className={cls(view === 'playlists')}>
-              <PlaylistIcon width={20} height={20} />
+              <PlaylistIcon width={20} height={20} className="flex-none" />
               Spillelister
             </button>
             <button
@@ -42,30 +52,25 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
               aria-expanded={open}
               aria-label={open ? 'Skjul spillelistene' : 'Vis spillelistene'}
               onClick={() => setOpen((o) => !o)}
-              className="ml-1 flex h-9 w-9 flex-none items-center justify-center rounded-lg text-muted hover:text-ink-strong"
+              className="ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-lg text-soft hover:bg-white/[0.04] hover:text-ink-strong"
             >
               <ChevronDownIcon width={16} height={16} className={`transition-transform ${open ? '' : '-rotate-90'}`} />
             </button>
           </div>
-          {open && <div className="ml-3 mt-1 border-l border-white/[0.06] pl-2">{playlists}</div>}
+          {open && <div className="ml-5 mt-1.5 border-l border-white/[0.09] pl-3">{playlists}</div>}
         </div>
         {item('sets', 'Live-sett', PulseIcon)}
         {item('dj', 'DJ-verktøy', DjIcon)}
         {item('stats', 'Analyse', AnalyticsIcon)}
         <a href="/studio" className={`${cls(false)} no-underline`}>
-          <VaultIcon width={20} height={20} />
+          <VaultIcon width={20} height={20} className="flex-none" />
           Vault
-          <span className="ml-auto text-[10px] uppercase tracking-[0.18em] text-muted">Studio</span>
+          <span className="ml-auto font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Studio</span>
         </a>
       </nav>
-      <div className="flex flex-col gap-1 border-t border-white/[0.06] pt-3">
-        <button type="button" onClick={onSearch} className={cls(false)}>
-          <SearchIcon width={20} height={20} />
-          Søk
-          <kbd className="ml-auto rounded border border-white/10 px-1.5 py-0.5 font-mono text-[10px] text-muted">Ctrl K</kbd>
-        </button>
+      <div className="flex flex-col gap-1 border-t border-white/[0.07] pt-3">
         <a href="/studio/innstillinger" className={`${cls(false)} no-underline`}>
-          <SettingsIcon width={20} height={20} />
+          <SettingsIcon width={20} height={20} className="flex-none" />
           Innstillinger
         </a>
       </div>

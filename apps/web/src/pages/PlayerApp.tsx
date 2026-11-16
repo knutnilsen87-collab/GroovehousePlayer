@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { formatTime, isDraft, keyShort, matchesStatus, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
-import { CoverCard, NowPanel, SideTabs, SpectrumPanel, TrackInfoPanel, ZoomPanel } from '../components/Deck';
+import { AnalysisSidebarCard, CoverCard, NowPanel, SideTabs } from '../components/Deck';
 import { FullPlayer } from '../components/MobilePlayer';
 import { DraftBadge, DraftConfirmHost, StatusSegment, trackVars, useStatusFilter } from '../components/Draft';
 import { BottomNav, Sidebar, type View } from '../components/Nav';
@@ -146,8 +146,8 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     return () => void h.then((x) => x.remove());
   }, []);
 
-  // Del 14: coveret styrer fargene – låta i spilleren (også pauset), ellers den nyeste låta, ellers nøytral sølv.
-  const vars = cur ? trackVars(cur.manifest) : (paletteToCssVars(tracks.find((t) => !isDraft(t.main.manifest))?.main.manifest.palette ?? NEUTRAL_PALETTE) as CSSProperties);
+  // Del 14: standardfargen (grønn) brukes med mindre låta har fått egen farge i Studio.
+  const vars = cur ? trackVars(cur.manifest) : (paletteToCssVars(NEUTRAL_PALETTE) as CSSProperties);
 
   // Tastatur: Ctrl/Cmd+K søk, mellomrom spill/pause, Shift+←/→ forrige/neste del, Esc lukker fullskjerm
   useEffect(() => {
@@ -301,7 +301,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                   tracks={homeTracks}
                   onPlay={play}
                   onOpenList={openList}
-                  table={<StudioTable {...tableProps} tracks={newest} limit={8} label="Nylig lagt til" />}
+                  table={<StudioTable {...tableProps} tracks={newest} limit={16} label="Nylig lagt til" />}
                 />
               )}
               {view === 'library' && (
@@ -371,9 +371,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
 
             {showDeck && deckAsset && (
               <aside aria-label="Analyse av låta" className="sticky top-4 hidden min-w-0 flex-col gap-4 self-start xl:flex">
-                <TrackInfoPanel cur={deckAsset} />
-                <ZoomPanel cur={deckAsset} />
-                <SpectrumPanel cur={deckAsset} />
+                <AnalysisSidebarCard cur={deckAsset} />
               </aside>
             )}
           </div>

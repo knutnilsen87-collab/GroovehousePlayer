@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
-import { computeCoverage, formatTime, paletteToCssVars, type AccessTier, type AssetManifest, isDraft, versionName } from '@gv/shared/web';
+import { computeCoverage, formatTime, paletteToCssVars, withAlpha, type AccessTier, type AssetManifest, type Palette, isDraft, versionName } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { CoverArt } from '../components/CoverArt';
-import { ArchiveIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, StudioIcon, UploadIcon } from '../components/Icons';
+import { ArchiveIcon, ChevronDownIcon, DropsIcon, LinkIcon, PauseIcon, PlayIcon, PlusIcon, PulseIcon, StudioIcon, UploadIcon } from '../components/Icons';
 import { AssetLook } from '../components/AssetLook';
 import { LyricsEditor } from '../components/LyricsEditor';
 import { MarkerEditor } from '../components/MarkerEditor';
@@ -10,7 +10,7 @@ import { DraftBadge } from '../components/Draft';
 import { loadPlaybackSettings } from '../lib/settings';
 import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
-import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, useCatalog, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
+import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, uploadAssetCover, useCatalog, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
@@ -344,23 +344,31 @@ function IngestCard({ a, entry }: { a: LoadedAsset; entry?: IngestLogEntry }) {
         <div className="flex min-w-0 items-center gap-2.5">
           <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={8} />
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-semibold">
+            <span className="truncate text-sm font-semibold text-ink-strong">
               {m.title}
               {m.variantLabel ? ` (${m.variantLabel})` : ''}
             </span>
-            <span className="text-[11px] text-muted">
+            <span className="font-mono text-[11px] text-soft">
               {m.kind} · v{m.version} · {formatTime(m.durationMs)}
             </span>
           </div>
         </div>
-        <span className="text-[11px] font-semibold tracking-[1px] text-accent">KLAR</span>
+        <span className="rounded-md bg-accent/15 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[1.2px] text-accent">KLAR</span>
       </div>
       <SunoNotice entry={entry} />
       {m.titleNeedsReview && <p className="m-0 text-[11px] text-accent">{t.titleNeedsReview}</p>}
-      <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+      <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="Systemstatus for ferdigbehandlet fil">
         {steps.map((s) => (
-          <li key={s.label} className={`flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[11px] font-medium ${s.ok ? 'bg-accent/10 text-accent' : 'bg-white/[0.06] text-[#C9C4B6]'}`}>
-            {s.ok ? '✓' : '!'} {s.label}
+          <li
+            key={s.label}
+            className={`inline-flex h-6 items-center gap-1.5 rounded-md px-2 font-mono text-[11px] ${
+              s.ok ? 'bg-[#121620] text-soft' : 'bg-[#171316] text-muted'
+            }`}
+          >
+            <span aria-hidden="true" className={s.ok ? 'text-accent' : 'text-[#F2A08F]'}>
+              {s.ok ? '✓' : '•'}
+            </span>
+            {s.label}
           </li>
         ))}
       </ul>
@@ -390,7 +398,7 @@ function pipelineSteps(m: AssetManifest) {
   return [
     { label: 'HLS 256k', ok: !!m.files.hls },
     { label: 'Bølgeform', ok: !!m.files.analysis },
-    { label: m.palette.source === 'cover' ? 'Palett' : 'Palett (gull – mangler cover)', ok: m.palette.source === 'cover' },
+    { label: m.palette.source === 'cover' ? 'Palett' : 'Palett (standard grønn)', ok: m.palette.source === 'cover' },
     { label: `${m.loudness.integratedLufs} LUFS`, ok: true },
     { label: 'Preview 30 s', ok: !!m.files.preview },
     { label: `${m.markers.length} markører`, ok: true },
@@ -399,10 +407,17 @@ function pipelineSteps(m: AssetManifest) {
 }
 
 const TIER_STYLE: Record<AccessTier, string> = {
-  inner: 'border-accent text-accent',
-  partner: 'border-accent/45 text-accent',
-  supporter: 'border-white/20 text-[#C9C4B6]',
-  teaser: 'border-white/20 text-muted'
+  partner: 'border-[#E5B84B]/50 bg-[#E5B84B]/12 text-[#F3CF7A]',
+  inner: 'border-[#38BDF8]/50 bg-[#38BDF8]/12 text-[#7DD3FC]',
+  supporter: 'border-[#A855F7]/50 bg-[#A855F7]/12 text-[#D8B4FE]',
+  teaser: 'border-white/20 bg-white/[0.04] text-soft'
+};
+
+const TIER_BADGE_TEXT: Record<AccessTier, string> = {
+  partner: 'text-[#F3CF7A]',
+  inner: 'text-[#7DD3FC]',
+  supporter: 'text-[#D8B4FE]',
+  teaser: 'text-soft'
 };
 
 function DropCard({ drop, assets, selected, onSelect }: { drop: SeedDrop; assets: LoadedAsset[]; selected: boolean; onSelect: () => void }) {
@@ -416,7 +431,9 @@ function DropCard({ drop, assets, selected, onSelect }: { drop: SeedDrop; assets
       type="button"
       aria-pressed={selected}
       onClick={onSelect}
-      className={`flex items-center gap-3 rounded-[14px] border bg-surface p-3.5 text-left ${selected ? 'border-accent/55' : 'border-white/[0.06] hover:border-white/15'}`}
+      className={`flex items-center gap-3 rounded-[14px] border p-3.5 text-left transition-all ${
+        selected ? 'border-accent/60 bg-white/[0.04] shadow-[inset_3px_0_0_var(--accent)]' : 'border-white/[0.06] bg-surface hover:border-white/15 hover:bg-white/[0.025]'
+      }`}
     >
       {first ? (
         <CoverArt src={assetUrl(first, first.manifest.files.coverThumb)} palette={first.manifest.palette} title={first.manifest.title} size={44} rounded={9} />
@@ -425,9 +442,9 @@ function DropCard({ drop, assets, selected, onSelect }: { drop: SeedDrop; assets
       )}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="text-sm font-semibold text-ink-strong">{drop.title}</span>
-        <span className="text-[11px] text-muted">{meta}</span>
+        <span className="text-[11px] text-soft">{meta}</span>
       </span>
-      <span className={`rounded-md border px-2 py-1 text-[10px] font-semibold tracking-[1.2px] ${TIER_STYLE[drop.tier]}`}>{drop.tier.toUpperCase()}</span>
+      <span className={`rounded-md border px-2 py-1 font-mono text-[10px] font-semibold tracking-[1.2px] ${TIER_STYLE[drop.tier]}`}>{drop.tier.toUpperCase()}</span>
     </button>
   );
 }
@@ -460,39 +477,49 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
   };
 
   return (
-    <div className="relative min-w-0 flex-[999_1_520px] overflow-hidden rounded-[18px] border border-white/[0.06] bg-surface p-[22px]" style={vars}>
+    <div className="relative min-w-0 flex-[999_1_520px] overflow-hidden rounded-[18px] border border-white/[0.07] bg-surface p-[24px]" style={vars}>
       <div aria-hidden="true" className="pointer-events-none absolute -right-[120px] -top-[160px] h-[420px] w-[420px] rounded-full" style={{ background: 'radial-gradient(circle, var(--glow) 0%, var(--glow-2) 45%, transparent 70%)', opacity: 0.45 }} />
 
       <div className="relative flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <CoverArt src={assetUrl(asset, m.files.coverThumb)} palette={m.palette} title={m.title} size={72} rounded={12} />
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] font-semibold tracking-[2px] text-accent">{drop.tier.toUpperCase()}-DROP</span>
+            <span className={`font-mono text-[10px] font-semibold tracking-[2px] ${TIER_BADGE_TEXT[drop.tier]}`}>{drop.tier.toUpperCase()}-DROP</span>
             <h2 className="m-0 font-display text-[26px] font-semibold uppercase tracking-[1px] text-ink-strong">{drop.title}</h2>
-            <span className="text-xs text-muted">
+            <span className="text-xs text-soft">
               {dropAssets.length} assets · {drop.recipients.length} mottakere · maks {drop.maxDevices} enheter per lenke
             </span>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <a href={`/drop/${drop.slug}${recipient ? `?r=${encodeURIComponent(recipient.name)}` : ''}`} target="_blank" rel="noreferrer" className="flex min-h-11 items-center rounded-full border border-white/[0.12] px-4 text-[13px] text-ink no-underline hover:border-white/25">
-            Åpne lyttervisning
-          </a>
-          <button type="button" onClick={copy} disabled={!recipient} className="flex min-h-11 items-center gap-1.5 rounded-full border border-accent/45 px-4 text-[13px] font-semibold text-accent disabled:opacity-50">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            onClick={copy}
+            disabled={!recipient}
+            className="flex min-h-10 items-center gap-2 rounded-full bg-accent px-5 text-[13px] font-semibold text-on-accent shadow-[0_0_18px_var(--glow)] transition-transform active:scale-95 disabled:opacity-50"
+          >
             <LinkIcon width={15} height={15} />
             {copied ? t.copied : t.copyLink}
           </button>
-          <button type="button" disabled title={t.phase2} className="flex min-h-11 items-center rounded-full border border-white/[0.12] px-4 text-[13px] text-ink disabled:opacity-50">
+          <a
+            href={`/drop/${drop.slug}${recipient ? `?r=${encodeURIComponent(recipient.name)}` : ''}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex min-h-10 items-center rounded-full px-3.5 text-[13px] font-medium text-soft no-underline transition-colors hover:bg-white/[0.06] hover:text-ink-strong"
+          >
+            Åpne lyttervisning
+          </a>
+          <button type="button" disabled title={t.phase2} className="flex min-h-10 items-center rounded-full px-3.5 text-[13px] font-medium text-soft transition-colors hover:bg-white/[0.06] hover:text-ink-strong disabled:opacity-40">
             {t.addRecipient}
           </button>
-          <button type="button" disabled title={t.phase2} className="flex min-h-11 items-center rounded-full border border-white/[0.12] px-4 text-[13px] text-ink disabled:opacity-50">
+          <button type="button" disabled title={t.phase2} className="flex min-h-10 items-center rounded-full px-3.5 text-[13px] font-medium text-soft transition-colors hover:bg-white/[0.06] hover:text-[#FF8A7A] disabled:opacity-40">
             {t.revoke}
           </button>
         </div>
       </div>
 
       {dropAssets.length > 1 && (
-        <div role="tablist" aria-label="Asset" className="relative mt-5 flex flex-wrap gap-1.5">
+        <div role="tablist" aria-label="Asset" className="relative mt-5 inline-flex flex-wrap gap-1 rounded-xl border border-white/[0.08] bg-sunken/70 p-1">
           {dropAssets.map((a) => (
             <button
               key={a.manifest.slug}
@@ -500,7 +527,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
               role="tab"
               aria-selected={a.manifest.slug === m.slug}
               onClick={() => setAssetSlug(a.manifest.slug)}
-              className={`h-8 rounded-full px-3 text-xs ${a.manifest.slug === m.slug ? 'bg-white/10 text-ink-strong' : 'text-muted hover:text-ink'}`}
+              className={`h-8 rounded-lg px-3.5 text-xs font-medium transition-colors ${a.manifest.slug === m.slug ? 'bg-accent/[0.15] font-semibold text-accent' : 'text-soft hover:text-ink-strong'}`}
             >
               {a.manifest.title}
             </button>
@@ -515,8 +542,8 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
           <div className="relative mt-5 overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-[13px]">
               <thead>
-                <tr className="text-left text-[10px] tracking-[1.5px] text-muted">
-                  <th scope="col" className="pb-2.5 pr-2.5 font-semibold">{t.recipient.toUpperCase()}</th>
+                <tr className="border-b border-white/[0.08] text-left font-mono text-[10px] font-semibold tracking-[1.5px] text-soft">
+                  <th scope="col" className="pb-2.5 pl-3 pr-2.5 font-semibold">{t.recipient.toUpperCase()}</th>
                   <th scope="col" className="px-2.5 pb-2.5 font-semibold">{t.opened.toUpperCase()}</th>
                   <th scope="col" className="px-2.5 pb-2.5 font-semibold">
                     {t.coverage.toUpperCase()} · {m.title.toUpperCase()}
@@ -531,7 +558,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
                 ))}
               </tbody>
             </table>
-            <p className="mt-2.5 text-[11px] text-muted">Gul strek = DROP-markør. Sterk farge = spilt flere ganger. Beregnet fra listen_events med computeCoverage().</p>
+            <p className="mt-2.5 text-[11px] text-soft">Bakgrunnsriss = sporets faktiske bølgeform. Vertikal linje = DROP-markør. Sterk grønn = spilt flere ganger.</p>
           </div>
           {recipient && <ListenLog r={recipient} asset={asset} dropMs={dropMs} />}
         </>
@@ -546,37 +573,59 @@ function RecipientRow({ r, asset, dropMs, maxDevices, selected, onSelect }: { r:
   const cov = useMemo(() => computeCoverage(events, m.durationMs, 48), [events, m.durationMs]);
   const opens = events.filter((e) => e.event === 'open').length;
   const heights = useMemo(() => downsample(asset.analysis?.peaks ?? [], 48), [asset.analysis]);
+  const envelopePoints = useMemo(() => {
+    if (!heights.length) return '';
+    const top = heights.map((h, i) => `${((i / (heights.length - 1)) * 300).toFixed(1)},${(19 - Math.max(2, h * 16)).toFixed(1)}`);
+    const bot = [...heights].reverse().map((h, idx) => {
+      const i = heights.length - 1 - idx;
+      return `${((i / (heights.length - 1)) * 300).toFixed(1)},${(19 + Math.max(2, h * 16)).toFixed(1)}`;
+    });
+    return `M ${top.join(' L ')} L ${bot.join(' L ')} Z`;
+  }, [heights]);
   const status =
     events.length === 0
       ? { text: 'Ikke åpnet', cls: 'text-muted' }
       : cov.finished
         ? { text: 'Lyttet ferdig', cls: 'text-accent' }
-        : { text: `Falt av ${formatTime(cov.stoppedAtMs ?? 0)}`, cls: 'text-ink' };
+        : { text: `Falt av ${formatTime(cov.stoppedAtMs ?? 0)}`, cls: 'text-ink-strong' };
   const overLimit = r.devices > maxDevices;
 
   return (
-    <tr className={`border-t border-white/[0.06] ${selected ? 'bg-accent/[0.05]' : ''}`}>
-      <td className="pr-2.5">
-        <button type="button" aria-pressed={selected} onClick={onSelect} className="flex min-h-14 w-full flex-col justify-center rounded-lg px-2 text-left hover:bg-white/[0.04]">
-          <span className="font-semibold text-ink-strong">{r.name}</span>
-          <span className="text-[11px] text-muted">{r.org}</span>
+    <tr
+      onClick={onSelect}
+      className={`cursor-pointer border-t border-white/[0.06] transition-colors ${
+        selected ? 'bg-white/[0.06] shadow-[inset_3px_0_0_var(--accent)]' : 'hover:bg-white/[0.025]'
+      }`}
+    >
+      <td className="py-1.5 pl-3 pr-2.5">
+        <button type="button" aria-pressed={selected} onClick={onSelect} className="flex min-h-14 w-full flex-col justify-center rounded-lg px-2 text-left">
+          <span className={`font-semibold ${selected ? 'text-accent' : 'text-ink-strong'}`}>{r.name}</span>
+          <span className="text-[11px] text-soft">{r.org}</span>
         </button>
       </td>
-      <td className="tabular px-2.5 text-[#C9C4B6]">{opens ? `${opens}×` : '—'}</td>
-      <td className="px-2.5">
-        <div className="relative flex h-[30px] w-[300px] items-center gap-[2px]" aria-label={`Hørt ${Math.round(cov.heardRatio * 100)} %`} role="img">
+      <td className="tabular px-2.5 font-mono text-soft">{opens ? `${opens}×` : '—'}</td>
+      <td className="px-2.5 py-2">
+        <div className="relative flex h-[38px] w-[300px] items-center gap-[2px] rounded-lg border border-white/[0.05] bg-[#090B10] px-2 py-1" aria-label={`Hørt ${Math.round(cov.heardRatio * 100)} %`} role="img">
+          {/* Subtilt mørkegrått bakgrunnsriss av sporets faktiske bølgeform-konvolutt */}
+          {envelopePoints && (
+            <svg viewBox="0 0 300 38" preserveAspectRatio="none" aria-hidden="true" className="pointer-events-none absolute inset-x-2 inset-y-0 h-full w-[calc(100%-16px)]">
+              <path d={envelopePoints} fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.18)" strokeWidth="0.8" />
+            </svg>
+          )}
           {heights.map((h, i) => {
             const plays = cov.plays[i] ?? 0;
-            const bg = plays >= 2 ? 'var(--accent)' : plays === 1 ? 'color-mix(in srgb, var(--accent) 55%, transparent)' : 'rgba(255,255,255,0.12)';
-            return <span key={i} aria-hidden="true" className="flex-1 rounded-[1.5px]" style={{ height: Math.max(4, Math.round(h * 28)), backgroundColor: bg }} />;
+            const bg = plays >= 2 ? 'var(--accent)' : plays === 1 ? 'color-mix(in srgb, var(--accent) 62%, transparent)' : 'rgba(255,255,255,0.13)';
+            return <span key={i} aria-hidden="true" className="relative z-10 flex-1 rounded-[1.5px]" style={{ height: Math.max(4, Math.round(h * 28)), backgroundColor: bg }} />;
           })}
           {dropMs !== null && (
-            <span aria-hidden="true" className="absolute -bottom-0.5 -top-0.5 w-px bg-accent/60" style={{ left: `${(dropMs / m.durationMs) * 100}%` }} />
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-20 w-[1.5px] bg-[#E5B84B]" style={{ left: `${(dropMs / m.durationMs) * 100}%` }}>
+              <span className="absolute -top-2 -translate-x-1/2 rounded bg-[#090B10] px-1 font-mono text-[8px] font-bold tracking-wider text-[#F3CF7A]">DROP</span>
+            </span>
           )}
         </div>
       </td>
       <td className={`whitespace-nowrap px-2.5 font-medium ${status.cls}`}>{status.text}</td>
-      <td className={`whitespace-nowrap pl-2.5 ${overLimit ? 'text-accent' : 'text-[#C9C4B6]'}`}>
+      <td className={`whitespace-nowrap pl-2.5 font-mono text-xs ${overLimit ? 'text-accent' : 'text-soft'}`}>
         {r.devices === 0 ? '—' : `${r.devices} ${r.devices === 1 ? 'enhet' : 'enheter'}`}
         {overLimit && ' · sjekk'}
       </td>
@@ -588,22 +637,23 @@ function ListenLog({ r, asset, dropMs }: { r: SeedRecipient; asset: LoadedAsset;
   const events = r.events[asset.manifest.slug] ?? [];
   const lines = describeEvents(events, asset.manifest, dropMs);
   return (
-    <div className="relative mt-5 flex flex-col gap-3 rounded-[14px] border border-white/[0.06] bg-sunken p-[18px]">
+    <div className="relative mt-4 flex flex-col gap-3 rounded-[14px] border border-accent/35 bg-sunken/90 p-[18px] shadow-[inset_3px_0_0_var(--accent)]">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h3 className="m-0 text-[15px] font-semibold text-ink-strong">
-          {t.listenLog} · {r.name} · {r.org}
+        <h3 className="m-0 flex items-center gap-2 text-[15px] font-semibold text-ink-strong">
+          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_var(--accent)]" />
+          {t.listenLog} · <span className="text-accent">{r.name}</span> · <span className="font-normal text-soft">{r.org}</span>
         </h3>
-        <span className="text-xs text-muted">{r.device}</span>
+        <span className="font-mono text-xs text-soft">{r.device}</span>
       </div>
       {lines.length === 0 ? (
-        <p className="m-0 text-[13px] text-muted">Ingen aktivitet ennå. Lenken er sendt.</p>
+        <p className="m-0 text-[13px] text-soft">Ingen aktivitet ennå. Lenken er sendt.</p>
       ) : (
         <ol className="m-0 flex list-none flex-col gap-2.5 p-0">
           {lines.map((l, i) => (
             <li key={i} className="flex items-baseline gap-3.5">
-              <span className="tabular w-[52px] flex-none text-xs text-muted">{l.at}</span>
+              <span className="tabular w-[52px] flex-none font-mono text-xs text-soft">{l.at}</span>
               <span aria-hidden="true" className="h-2 w-2 flex-none -translate-y-px rounded-full" style={{ background: l.accent ? 'var(--accent)' : 'rgba(255,255,255,0.35)' }} />
-              <span className="text-[13px]">{l.text}</span>
+              <span className="text-[13px] text-ink">{l.text}</span>
             </li>
           ))}
         </ol>
@@ -643,8 +693,50 @@ function describeEvents(events: SeedRecipient['events'][string], m: AssetManifes
 
 // ---------------------------------------------------------------- Arkiv / Live-sett
 
+const CHAMELEON_STUDIO_PALETTES: Array<{ primary: string; secondary: string; onPrimary: '#07080B' | '#F5F7FA' }> = [
+  { primary: '#38BDF8', secondary: '#818CF8', onPrimary: '#07080B' },
+  { primary: '#E5B84B', secondary: '#FB923C', onPrimary: '#07080B' },
+  { primary: '#A855F7', secondary: '#EC4899', onPrimary: '#07080B' },
+  { primary: '#10B981', secondary: '#34D399', onPrimary: '#07080B' },
+  { primary: '#F43F5E', secondary: '#FB7185', onPrimary: '#07080B' },
+  { primary: '#6366F1', secondary: '#A855F7', onPrimary: '#F5F7FA' }
+];
+
+/** Chameleon-farge i Arkiv: låter med cover (eller manuell farge) får sin unike studio-identitet på Play-knapp og bølgeform. */
+function chameleonPalette(m: AssetManifest): Palette {
+  if (m.palette.source === 'manual' || (m.palette.source === 'cover' && m.palette.primary.toUpperCase() !== '#06B211')) {
+    return m.palette;
+  }
+  if (m.files.cover) {
+    let h = 0;
+    for (let i = 0; i < m.slug.length; i++) h = (h * 31 + m.slug.charCodeAt(i)) >>> 0;
+    const pick = CHAMELEON_STUDIO_PALETTES[h % CHAMELEON_STUDIO_PALETTES.length]!;
+    return { ...pick, source: 'cover' };
+  }
+  return m.palette;
+}
+
+function PinMarkerIcon({ width = 16, height = 16 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
+    </svg>
+  );
+}
+
+function EditPencilIcon({ width = 16, height = 16 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
 function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAsset[]; title: string; log: IngestLogEntry[]; onSaved: () => void; index: IndexEntry[] }) {
   const { setQueue, playIndex } = usePlayer();
+  const isSets = title === t.sets;
   // Del 10: hvor mange ganger hver versjon er delt (lokal logg, data/shares.json)
   const [shareCounts, setShareCounts] = useState<Record<string, number>>({});
   useEffect(() => {
@@ -655,9 +747,18 @@ function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAss
   }, []);
   return (
     <div className="flex flex-col gap-5">
-      <h1 className="m-0 font-display text-[34px] font-semibold uppercase tracking-[1.5px] text-ink-strong">{title}</h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="m-0 font-display text-[34px] font-semibold uppercase tracking-[1.5px] text-ink-strong">{title}</h1>
+          <p className="m-0 mt-1 text-xs text-soft">
+            {isSets
+              ? `${assets.length} live-sett · Macro/Micro-navigasjon med synkronisert sporliste`
+              : `${assets.length} utgivelser · Klikk på en rad for å folde ut bølgeform og strukturmarkører`}
+          </p>
+        </div>
+      </div>
       {assets.length === 0 && <p className="text-sm text-muted">Ingenting her ennå. Kjør «pnpm gh-ingest &lt;mappe&gt;».</p>}
-      <ul className="m-0 flex list-none flex-col gap-3 p-0">
+      <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
         {assets.map((a, i) => (
           <ArchiveRow
             key={a.manifest.id}
@@ -666,6 +767,7 @@ function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAss
             onSaved={onSaved}
             versions={versionsOf(index, a.manifest.slug, a.manifest.variant)}
             shareCounts={shareCounts}
+            defaultExpanded={isSets}
             onPlay={(shown) => {
               // Eldre versjon: spill bare den. Nyeste: hele arkivet som kø, som før.
               const latest = shown === a;
@@ -675,11 +777,293 @@ function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAss
           />
         ))}
       </ul>
+      {isSets && <SetDropZone onDone={onSaved} />}
     </div>
   );
 }
 
-function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }: { a: LoadedAsset; entry?: IngestLogEntry; onPlay: (shown: LoadedAsset) => void; onSaved: () => void; versions: IndexEntry[]; shareCounts: Record<string, number> }) {
+/** Subtil Drag & Drop-sone under Live-sett som gjør det tomme rommet om til et aktivt verktøy. */
+function SetDropZone({ onDone }: { onDone?: () => void }) {
+  const [over, setOver] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const upload = async (files: FileList | File[]) => {
+    const list = [...files].filter((f) => /\.(wav|wave|aif|aiff|flac|png|jpe?g|webp)$/i.test(f.name));
+    if (!list.length) return setMsg({ ok: false, text: 'Bare WAV, AIFF, FLAC og cover-bilder støttes.' });
+    setBusy(true);
+    setMsg(null);
+    try {
+      for (const f of list) {
+        const r = await fetch(`/api/drafts/import?name=${encodeURIComponent(f.name)}`, {
+          method: 'POST',
+          headers: { 'X-GV-Import': '1', 'Content-Type': f.type || 'application/octet-stream' },
+          body: f
+        });
+        if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${r.status}`);
+      }
+      setMsg({ ok: true, text: `${list.length} fil${list.length > 1 ? 'er' : ''} lagt til for ingest.` });
+      onDone?.();
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        void upload(e.dataTransfer.files);
+      }}
+      className={`mt-2 flex min-h-[220px] flex-col items-center justify-center gap-2.5 rounded-2xl border border-dashed p-8 text-center transition-colors ${
+        over ? 'border-accent/60 bg-accent/[0.06]' : 'border-white/[0.09] bg-surface/40 hover:border-white/[0.16] hover:bg-surface/65'
+      }`}
+    >
+      <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/[0.08] bg-sunken text-soft">
+        <UploadIcon width={24} height={24} strokeWidth={1.7} />
+      </span>
+      <span className="text-sm font-semibold text-ink-strong">Slipp nye live-sett eller opptak her</span>
+      <span className="max-w-md text-xs leading-relaxed text-soft">
+        Dra inn lange WAV-, AIFF- eller FLAC-opptak (og valgfri <code className="font-mono text-ink">live_log.json</code> / cover) for automatisk kapittel- og tempodeteksjon.
+      </span>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => input.current?.click()}
+        className="mt-1 h-9 rounded-full border border-white/15 bg-sunken/80 px-4 text-xs font-semibold text-soft transition-colors hover:border-accent/50 hover:text-ink-strong disabled:opacity-50"
+      >
+        {busy ? 'Laster opp …' : 'Velg opptaksfiler …'}
+      </button>
+      <input
+        ref={input}
+        type="file"
+        multiple
+        accept=".wav,.wave,.aif,.aiff,.flac,image/png,image/jpeg,image/webp"
+        className="sr-only"
+        tabIndex={-1}
+        aria-label="Velg live-sett som skal importeres"
+        onChange={(e) => e.target.files && void upload(e.target.files)}
+      />
+      {msg && <span className={`text-xs ${msg.ok ? 'text-accent' : 'text-[#FF8A7A]'}`}>{msg.text}</span>}
+    </div>
+  );
+}
+
+/**
+ * Todelt Macro/Micro-bølgeform + synkronisert vertikal sporliste for Live-sett.
+ * - Øverst: Macro ("Mini-map") for hele settet med synlig zoom-utsnitt.
+ * - Nederst: Micro (innzoomet, horisontalt navigerbar bølgeform) med vertikale cue-linjer.
+ * - Til høyre: utvidbar, synkronisert sporliste som fremhever aktivt kapittel under avspilling.
+ */
+function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: number) => void }) {
+  const m = a.manifest;
+  const { queue, index, positionMs } = usePlayer();
+  const isPlayingThis = queue[index]?.manifest.id === m.id;
+  const currentMs = isPlayingThis ? positionMs : 0;
+  const progress = m.durationMs > 0 ? Math.min(1, Math.max(0, currentMs / m.durationMs)) : 0;
+
+  const [zoomCenter, setZoomCenter] = useState(0.2);
+  const [tracklistOpen, setTracklistOpen] = useState(true);
+  const windowSpan = 0.35; // 35 % av settet vises i Micro-visningen
+  const effCenter = isPlayingThis ? progress : zoomCenter;
+  const winStart = Math.max(0, Math.min(1 - windowSpan, effCenter - windowSpan / 2));
+  const winEnd = Math.min(1, winStart + windowSpan);
+
+  useEffect(() => {
+    if (isPlayingThis) setZoomCenter(progress);
+  }, [isPlayingThis, progress]);
+
+  const rawPeaks = a.analysis?.peaks ?? [];
+  const microSlice = useMemo(() => {
+    if (!rawPeaks.length) return [];
+    const s = Math.floor(winStart * rawPeaks.length);
+    const e = Math.max(s + 8, Math.ceil(winEnd * rawPeaks.length));
+    return downsample(rawPeaks.slice(s, e), 140).map((v) => Math.max(0.1, Math.pow(v, 0.8)));
+  }, [rawPeaks, winStart, winEnd]);
+
+  const cues = useMemo(
+    () =>
+      [...m.markers]
+        .filter((k) => k.kind === 'chapter' || k.kind === 'highlight' || k.kind === 'drop')
+        .sort((x, y) => x.startMs - y.startMs),
+    [m.markers]
+  );
+
+  const activeCueIdx = useMemo(() => {
+    let idx = -1;
+    for (let i = 0; i < cues.length; i++) {
+      if (currentMs >= cues[i]!.startMs) idx = i;
+    }
+    return idx;
+  }, [cues, currentMs]);
+
+  return (
+    <div className="mt-1 grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-white/[0.07] bg-sunken/70 p-3.5">
+        {/* 1. Macro Mini-map */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-soft">
+            <span>Oversikt (Mini-map)</span>
+            <span>
+              Utsnitt {formatTime(winStart * m.durationMs)} – {formatTime(winEnd * m.durationMs)}
+            </span>
+          </div>
+          <div
+            className="relative cursor-pointer rounded-lg border border-white/[0.06] bg-[#080A0F] px-2 py-1.5"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              const ratio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+              setZoomCenter(ratio);
+              onPlayAt(ratio * m.durationMs);
+            }}
+          >
+            <Waveform
+              peaks={rawPeaks}
+              bars={140}
+              height={22}
+              progress={progress}
+              active
+              markers={cues.map((c) => ({ pct: c.startMs / m.durationMs, label: c.label ?? 'CUE' }))}
+            />
+            {/* Fremhevet zoom-utsnitt på mini-map */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0.5 rounded border border-accent/70 bg-accent/[0.08]"
+              style={{ left: `${winStart * 100}%`, width: `${(winEnd - winStart) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        {/* 2. Micro (innzoomet bølgeform med vertikale cue-linjer) */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-soft">
+            <span>Innzoomet bølgeform · klikk for presis spoling</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={Math.round(effCenter * 100)}
+                onChange={(e) => setZoomCenter(Number(e.target.value) / 100)}
+                aria-label="Panorer i bølgeformen"
+                className="gv-range w-28"
+                style={{ ['--fill' as string]: `${effCenter * 100}%` }}
+              />
+            </div>
+          </div>
+          <div
+            className="relative flex h-[64px] cursor-pointer items-center gap-[2px] overflow-hidden rounded-xl border border-white/[0.07] bg-[#080A0F] px-2.5 pt-4"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect();
+              const localRatio = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+              const globalRatio = winStart + localRatio * (winEnd - winStart);
+              onPlayAt(globalRatio * m.durationMs);
+            }}
+          >
+            {microSlice.map((h, i) => {
+              const globalBarRatio = winStart + ((i + 0.5) / microSlice.length) * (winEnd - winStart);
+              const played = globalBarRatio <= progress;
+              return (
+                <span
+                  key={i}
+                  aria-hidden="true"
+                  className="flex-1 rounded-[2px] transition-colors"
+                  style={{ height: Math.round(h * 42), backgroundColor: played ? 'var(--accent)' : 'rgba(255,255,255,0.16)' }}
+                />
+              );
+            })}
+            {/* Vertikale cue-linjer direkte gjennom bølgeformen */}
+            {cues.map((c) => {
+              const pct = c.startMs / m.durationMs;
+              if (pct < winStart || pct > winEnd) return null;
+              const localPct = ((pct - winStart) / (winEnd - winStart)) * 100;
+              return (
+                <span key={`${c.label}-${c.startMs}`} aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${localPct}%` }}>
+                  <span className="absolute inset-y-0 -left-px w-[1.5px]" style={{ background: 'var(--accent)' }} />
+                  <span
+                    className="absolute top-1 -translate-x-1/2 whitespace-nowrap rounded bg-[#0A0C12]/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-ink-strong shadow"
+                    style={{ border: '1px solid color-mix(in srgb, var(--accent) 60%, transparent)' }}
+                  >
+                    {formatTime(c.startMs)} · {c.label}
+                  </span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Interaktiv, synkronisert vertikal sporliste på høyre side */}
+      {cues.length > 0 && (
+        <div className={`flex flex-col rounded-xl border border-white/[0.07] bg-sunken/70 p-3 ${tracklistOpen ? 'w-full lg:w-[270px]' : 'w-auto'}`}>
+          <button
+            type="button"
+            aria-expanded={tracklistOpen}
+            onClick={() => setTracklistOpen((o) => !o)}
+            className="flex items-center justify-between gap-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-soft hover:text-ink-strong"
+          >
+            <span>Sporliste ({cues.length})</span>
+            <ChevronDownIcon width={14} height={14} className={`transition-transform ${tracklistOpen ? '' : '-rotate-90'}`} />
+          </button>
+          {tracklistOpen && (
+            <ol className="gv-scroll m-0 mt-2.5 flex max-h-[150px] list-none flex-col gap-1 overflow-y-auto p-0">
+              {cues.map((c, idx) => {
+                const active = idx === activeCueIdx;
+                return (
+                  <li key={`${c.kind}-${c.startMs}`}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setZoomCenter(c.startMs / m.durationMs);
+                        onPlayAt(c.startMs);
+                      }}
+                      className={`flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-all ${
+                        active
+                          ? 'gv-neon-soft border-accent/70 bg-accent/[0.15] font-semibold text-ink-strong backdrop-blur-md'
+                          : c.confirmed
+                            ? 'border-white/[0.06] bg-white/[0.03] text-ink hover:border-white/15 hover:bg-white/[0.06]'
+                            : 'border-dashed border-white/15 bg-transparent text-soft hover:border-accent/45 hover:text-ink-strong'
+                      }`}
+                    >
+                      <span className={`tabular font-mono text-[11px] ${active ? 'text-accent' : 'text-soft'}`}>{formatTime(c.startMs)}</span>
+                      <span className="min-w-0 flex-1 truncate">{c.label}</span>
+                      {c.bpm && <span className="font-mono text-[10px] text-soft">{Math.round(c.bpm)}</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ArchiveRow({
+  a: latest,
+  entry,
+  onPlay,
+  onSaved,
+  versions,
+  shareCounts,
+  defaultExpanded = false
+}: {
+  a: LoadedAsset;
+  entry?: IngestLogEntry;
+  onPlay: (shown: LoadedAsset) => void;
+  onSaved: () => void;
+  versions: IndexEntry[];
+  shareCounts: Record<string, number>;
+  defaultExpanded?: boolean;
+}) {
   // Versjonsvelger (del 9 pkt. 13): eldre versjoner blir liggende i media/ og kan åpnes og spilles her.
   const [picked, setPicked] = useState<number>(latest.manifest.version);
   const [older, setOlder] = useState<LoadedAsset | null>(null);
@@ -704,77 +1088,235 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
   }, [m.slug, m.variant, m.version]);
   const rowRef = useRef<HTMLLIElement>(null);
   const focused = typeof location !== 'undefined' && decodeURIComponent(location.hash) === `#arkiv/${latest.manifest.slug}`;
+  const [expanded, setExpanded] = useState(defaultExpanded || focused || m.kind === 'set');
   useEffect(() => {
-    if (focused) rowRef.current?.scrollIntoView({ block: 'center' });
+    if (focused) {
+      setExpanded(true);
+      rowRef.current?.scrollIntoView({ block: 'center' });
+    }
   }, [focused]);
   const [editing, setEditing] = useState(false);
   const [markersOpen, setMarkersOpen] = useState(false);
-  const vars = paletteToCssVars(m.palette) as CSSProperties;
+  const [coverDrag, setCoverDrag] = useState(false);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const coverInput = useRef<HTMLInputElement>(null);
+
+  const handleCoverDrop = async (file: File | undefined) => {
+    if (!file) return;
+    if (!/^image\/(jpeg|png|webp|avif|gif|tiff)$/i.test(file.type) && !/\.(jpe?g|png|webp|avif|gif|tiff?)$/i.test(file.name)) return;
+    setCoverBusy(true);
+    try {
+      const manifests = await uploadAssetCover(m.slug, file);
+      usePlayer.getState().refreshManifests(manifests);
+      onSaved();
+    } catch {
+      /* feil ignoreres stille i raden eller logges */
+    } finally {
+      setCoverBusy(false);
+      if (coverInput.current) coverInput.current.value = '';
+    }
+  };
+
+  // Chameleon-farge: bruker låtas unike palett på Play-knapp og bølgeform i Arkiv
+  const rowPalette = useMemo(() => chameleonPalette(m), [m]);
+  const vars = useMemo(() => {
+    const base = paletteToCssVars(rowPalette);
+    base['--glow'] = withAlpha(rowPalette.primary, 0.38);
+    base['--glow-2'] = withAlpha(rowPalette.secondary, 0.16);
+    return base as CSSProperties;
+  }, [rowPalette]);
+
   const chapters = m.markers.filter((k) => k.kind === 'chapter' || k.kind === 'highlight');
+  const hasUnconfirmed = m.markers.some((k) => !k.confirmed);
+  const isOpen = expanded || editing || markersOpen;
+
   return (
-    <li id={`arkiv-${latest.manifest.slug}`} ref={rowRef} className={`flex flex-col gap-3 rounded-2xl border bg-surface p-4 ${focused ? 'border-accent/60 ring-1 ring-accent/40' : 'border-white/[0.06]'}`} style={vars}>
-      <div className="flex flex-wrap items-center gap-4">
-        <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={56} rounded={10} />
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="font-semibold text-ink-strong">
-            {m.title}
-            {m.variantLabel ? <span className="font-normal text-muted"> · {m.variantLabel}</span> : null}<DraftBadge m={m} className="ml-1.5" />
+    <li
+      id={`arkiv-${latest.manifest.slug}`}
+      ref={rowRef}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+          if (!coverDrag) setCoverDrag(true);
+        }
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) setCoverDrag(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        setCoverDrag(false);
+        const f = [...e.dataTransfer.files].find((x) => /^image\//i.test(x.type) || /\.(jpe?g|png|webp|avif|gif|tiff?)$/i.test(x.name)) ?? e.dataTransfer.files[0];
+        void handleCoverDrop(f);
+      }}
+      className={`flex flex-col gap-3 rounded-2xl border bg-surface px-4 py-3.5 transition-colors ${
+        coverDrag
+          ? 'border-accent ring-2 ring-accent/50'
+          : focused
+            ? 'border-accent/60 ring-1 ring-accent/40'
+            : isOpen
+              ? 'border-white/[0.11]'
+              : 'border-white/[0.06] hover:border-white/[0.11]'
+      }`}
+      style={vars}
+    >
+      <div
+        className="flex cursor-pointer flex-wrap items-center gap-3.5"
+        onClick={(e) => {
+          if ((e.target as HTMLElement).closest('button,select,input,a,label')) return;
+          setExpanded((o) => !o);
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => coverInput.current?.click()}
+          title="Klikk eller slipp et bilde her for å bytte cover"
+          aria-label={`Bytt cover for ${m.title}`}
+          className="group relative flex-none overflow-hidden rounded-[10px]"
+        >
+          <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={rowPalette} title={m.title} size={52} rounded={10} />
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[10px] bg-black/65 text-white opacity-0 transition-opacity group-hover:opacity-100">
+            <UploadIcon width={16} height={16} />
           </span>
-          <span className="text-xs text-[#C9C4B6]">{[m.artist, m.album && m.album !== m.title ? m.album : null, m.copyright].filter(Boolean).join(' · ')}</span>
-          {m.titleNeedsReview && <span className="text-[11px] text-accent">{t.titleNeedsReview}</span>}
-          {source && <span className="text-[11px] text-muted">Kildefil: <span className="text-[#C9C4B6]">{source}</span></span>}
-          {(() => {
-            const n = shareCounts[`${m.slug}::${m.variant ?? 'main'}::v${m.version}`] ?? 0;
-            return n > 0 ? <span className="text-[11px] text-muted">Delt {n} {n === 1 ? 'gang' : 'ganger'}</span> : null;
-          })()}
-          <span className="text-xs text-muted">
-            {m.kind} ·{' '}
-            {versions.length > 1 ? (
-              <label className="inline-flex items-center gap-1">
-                <span className="sr-only">Versjon av {m.title}</span>
-                <select value={picked} onChange={(e) => setPicked(Number(e.target.value))} className="rounded border border-white/15 bg-sunken px-1 text-xs text-soft focus:outline-none">
-                  {versions.map((v) => (
-                    <option key={v.version} value={v.version}>
-                      {versionName({ version: v.version, status: v.status })}
-                      {v.version === latest.manifest.version ? ' (vises)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              versionName(m)
-            )}{' '}
-            · {formatTime(m.durationMs)} · {m.loudness.integratedLufs} LUFS · {m.markers.length} markører
-            {m.venue ? ` · ${m.venue}` : ''}
-          </span>
+          {coverBusy && <span className="absolute inset-0 flex items-center justify-center rounded-[10px] bg-black/75 text-[9px] font-semibold text-white">…</span>}
+        </button>
+        <input
+          ref={coverInput}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          className="sr-only"
+          tabIndex={-1}
+          aria-label={`Velg cover for ${m.title}`}
+          onChange={(e) => void handleCoverDrop(e.target.files?.[0])}
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExpanded((o) => !o)}
+              aria-expanded={isOpen}
+              className=" inline-flex items-center gap-1.5 text-left text-[15px] font-semibold text-ink-strong hover:text-accent"
+            >
+              <span>{m.title}</span>
+              {m.variantLabel ? <span className="font-normal text-soft"> · {m.variantLabel}</span> : null}
+              <DraftBadge m={m} className="ml-1" />
+              <ChevronDownIcon width={14} height={14} className={`text-soft transition-transform ${isOpen ? '' : '-rotate-90'}`} />
+            </button>
+            {m.titleNeedsReview && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">{t.titleNeedsReview}</span>}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-xs text-soft">
+            <span className="rounded bg-white/[0.05] px-1.5 py-0.5 text-[11px] text-ink-strong">
+              {versions.length > 1 ? (
+                <label className="inline-flex items-center gap-1">
+                  <span className="sr-only">Versjon av {m.title}</span>
+                  <select value={picked} onChange={(e) => setPicked(Number(e.target.value))} className="bg-transparent font-mono text-[11px] text-ink-strong focus:outline-none">
+                    {versions.map((v) => (
+                      <option key={v.version} value={v.version} className="bg-sunken text-ink">
+                        {versionName({ version: v.version, status: v.status })}
+                        {v.version === latest.manifest.version ? ' (vises)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                versionName(m)
+              )}
+            </span>
+            <span>{formatTime(m.durationMs)}</span>
+            <span>·</span>
+            <span className="text-ink-strong">{m.loudness.integratedLufs} LUFS</span>
+            {m.bpm != null && (
+              <>
+                <span>·</span>
+                <span>{Math.round(m.bpm)} BPM</span>
+              </>
+            )}
+            <span>·</span>
+            <span>{m.markers.length} markører</span>
+            {m.venue ? (
+              <>
+                <span>·</span>
+                <span className="text-ink">{m.venue}</span>
+              </>
+            ) : null}
+            {source && (
+              <>
+                <span>·</span>
+                <span className="text-muted">
+                  Kildefil: <span className="text-soft">{source}</span>
+                </span>
+              </>
+            )}
+            {(() => {
+              const n = shareCounts[`${m.slug}::${m.variant ?? 'main'}::v${m.version}`] ?? 0;
+              return n > 0 ? (
+                <>
+                  <span>·</span>
+                  <span className="text-accent">
+                    Delt {n} {n === 1 ? 'gang' : 'ganger'}
+                  </span>
+                </>
+              ) : null;
+            })()}
+          </div>
         </div>
-        <span className="flex items-center gap-1.5 text-[11px] text-muted">
-          <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.primary }} />
-          <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full" style={{ background: m.palette.secondary }} />
-          {m.palette.source === 'fallback' ? 'standard (grønn)' : `${m.palette.primary}${m.palette.source === 'manual' ? ' (valgt)' : ''}`}
+
+        {/* Chameleon-fargeprikker (uten støyende hex-tekst) */}
+        <span className="flex items-center gap-1.5 px-1" title="Sporets aksentpalett (endres via Rediger)">
+          <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full ring-1 ring-white/15" style={{ background: rowPalette.primary, boxShadow: `0 0 8px ${rowPalette.primary}66` }} />
+          <span aria-hidden="true" className="h-3.5 w-3.5 rounded-full ring-1 ring-white/15" style={{ background: rowPalette.secondary }} />
         </span>
-        <button
-          type="button"
-          onClick={() => setMarkersOpen((o) => !o)}
-          aria-expanded={markersOpen}
-          className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50"
-        >
-          {markersOpen ? 'Lukk markører' : `Markører${m.markers.some((k) => !k.confirmed) ? ' ·' : ''}`}
-        </button>
-        <button
-          type="button"
-          onClick={() => setEditing((e) => !e)}
-          aria-expanded={editing}
-          className="min-h-11 rounded-full border border-white/15 px-4 text-xs font-semibold text-ink hover:border-accent/50"
-        >
-          {editing ? t.close : t.edit}
-        </button>
-        <MakeRelease a={a} onDone={onSaved} />
-        <button type="button" onClick={() => onPlay(a)} aria-label={`Spill ${m.title} v${m.version}`} className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-on-accent">
-          <PlayIcon width={18} height={18} className="ml-0.5" />
-        </button>
+
+        {/* Rene ikonknapper for Markører og Rediger */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              setMarkersOpen((o) => !o);
+              setExpanded(true);
+            }}
+            aria-expanded={markersOpen}
+            aria-label={markersOpen ? 'Lukk markører' : `Markører for ${m.title}`}
+            title={markersOpen ? 'Lukk markører' : `Rediger markører (${m.markers.length})`}
+            className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+              markersOpen ? 'border-accent bg-accent/15 text-accent' : 'border-white/10 bg-sunken/70 text-soft hover:border-accent/50 hover:text-ink-strong'
+            }`}
+          >
+            <PinMarkerIcon width={16} height={16} />
+            {hasUnconfirmed && !markersOpen && <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-accent" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing((e) => !e);
+              setExpanded(true);
+            }}
+            aria-expanded={editing}
+            aria-label={editing ? t.close : `${t.edit} ${m.title}`}
+            title={editing ? t.close : `${t.edit} metadata, farge og tekst`}
+            className={`flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+              editing ? 'border-accent bg-accent/15 text-accent' : 'border-white/10 bg-sunken/70 text-soft hover:border-accent/50 hover:text-ink-strong'
+            }`}
+          >
+            <EditPencilIcon width={16} height={16} />
+          </button>
+          <MakeRelease a={a} onDone={onSaved} />
+          <button
+            type="button"
+            onClick={() => onPlay(a)}
+            aria-label={`Spill ${m.title} v${m.version}`}
+            title={`Spill ${m.title}`}
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-accent text-on-accent shadow-[0_0_14px_var(--glow)] transition-transform hover:scale-105 active:scale-95"
+          >
+            <PlayIcon width={18} height={18} className="ml-0.5" />
+          </button>
+        </div>
       </div>
+
       <SunoNotice entry={entry} />
+
       {editing && (
         <>
           <MetaEditor
@@ -788,6 +1330,7 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
           <LyricsEditor a={a} />
         </>
       )}
+
       {markersOpen && (
         <MarkerEditor
           key={`${m.id}-${m.markers.map((k) => `${k.label}${k.startMs}${k.confirmed}`).join('|')}`}
@@ -796,17 +1339,53 @@ function ArchiveRow({ a: latest, entry, onPlay, onSaved, versions, shareCounts }
           onPlayAt={(ms) => usePlayer.getState().playFrom([a], 0, ms)}
         />
       )}
-      {!markersOpen && <Waveform peaks={a.analysis?.peaks ?? []} bars={120} height={40} progress={0} active markers={m.markers.filter((k) => k.kind === 'drop').map((k) => ({ pct: k.startMs / m.durationMs, label: 'DROP' }))} />}
-      {!markersOpen && chapters.length > 0 && (
-        <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-          {chapters.map((c) => (
-            <li key={`${c.kind}-${c.startMs}`} className="flex h-7 items-center gap-1.5 rounded-full border border-white/10 px-2.5 text-[11px]">
-              <span className="tabular text-muted">{formatTime(c.startMs)}</span>
-              {c.label}
-              {!c.confirmed && <span className="text-accent">· ubekreftet</span>}
-            </li>
-          ))}
-        </ol>
+
+      {isOpen && !markersOpen && (
+        m.kind === 'set' ? (
+          <LiveSetNavigator a={a} onPlayAt={(ms) => usePlayer.getState().playFrom([a], 0, ms)} />
+        ) : (
+          <div className="mt-1 flex flex-col gap-3 border-t border-white/[0.06] pt-4">
+            <div className="px-1 pt-2">
+              <Waveform
+                peaks={a.analysis?.peaks ?? []}
+                bars={120}
+                height={44}
+                progress={0}
+                active
+                markers={m.markers.filter((k) => k.kind === 'drop').map((k) => ({ pct: k.startMs / m.durationMs, label: 'DROP' }))}
+                onSeek={(r) => usePlayer.getState().playFrom([a], 0, r * m.durationMs)}
+              />
+            </div>
+            {chapters.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <ol className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+                  {chapters.map((c) => (
+                    <li key={`${c.kind}-${c.startMs}`}>
+                      <button
+                        type="button"
+                        onClick={() => usePlayer.getState().playFrom([a], 0, c.startMs)}
+                        title={c.confirmed ? `${c.label} (${formatTime(c.startMs)}) – bekreftet` : `${c.label} (${formatTime(c.startMs)}) – ubekreftet forslag`}
+                        className={`flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-[11px] transition-colors ${
+                          c.confirmed
+                            ? 'border-accent/65 bg-accent/20 font-medium text-ink-strong hover:bg-accent/30'
+                            : 'border-dashed border-accent/45 bg-[#0A0C12] text-soft hover:border-accent hover:text-ink-strong'
+                        }`}
+                      >
+                        <span className="tabular font-mono text-[10.5px] text-soft">{formatTime(c.startMs)}</span>
+                        <span>{c.label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ol>
+                {hasUnconfirmed && (
+                  <span className="font-mono text-[10px] text-muted" title="Klikk flagg-ikonet for å bekrefte eller flytte markører">
+                    Stiplet ramme = ubekreftet forslag
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )
       )}
     </li>
   );
