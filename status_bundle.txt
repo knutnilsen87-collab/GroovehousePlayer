@@ -28,7 +28,7 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-16T05:30:00+01:00"
+last_updated: "2026-11-16T12:00:00+01:00"
 updated_by: "Claude Code (Claude Opus 5.5)"
 
 # ============================================================
@@ -65,6 +65,7 @@ current_state:
     Utkast-import fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV: 86 av 153 låter importert i media/index.json (113 assets totalt), midlertidig pauset etter brukerens instruks frem til øvrige oppgaver er ferdige. ARBEIDSMAPPE: det jobbes BARE i F:\prosjekter_MAIN\GroovehousePlayer. H:\GroovehousePlayer er kun backup (speil), aldri arbeidsmappe: ikke rediger, bygg, ingest eller kjør git der.
     2026-11-16 (Claude Code): Antigravitys 31 ucommittede filer gjennomgått og committet i 8 commits (7108bb2..77b45af). pnpm typecheck (uten -s) feilet i MobilePlayer.tsx (død Tekst-gren) – fikset. En ustabil porttest i apps/server fikset. pnpm test 246/246 og pnpm typecheck grønne etterpå. Pushet til origin/setup/del-0 (3b54e66).
     2026-11-16 senere (Claude Code, ikke pushet): Del 19 skins (4ee433c): Kameleon standard, Grønn Neon + 7 andre + Echo Groove Nights (farger målt i docs/design/reference/echo-groove-nights.jpg), per enhet, egne skins i data/skins/, Android SystemBarsPlugin (krever ny APK). Coverpalettene i 9 manifester var overskrevet med grønt av Antigravity – regnet ut på nytt med recolorAll. «Utkast» → «Umastret» i alt synlig (36b972b), «Ta med umastret» på som standard, DJ-verktøy/Ctrl+K tar med begge; 152 manifester migrert til versionLabel «Umastret vN». Del 18 overgangs-presets (b7de7a8). pnpm vault:backup speiler F: → H:\GroovehousePlayer (første fulle backup 12,66 GB OK). pnpm test 286/286 og pnpm typecheck grønne; skins, Innstillinger → Utseende og settbyggerens presets sjekket i hodeløs Edge mot den bygde appen (0 konsollfeil). Vault-serveren er startet på nytt med nytt bygg.
+    2026-11-16 (Claude Code): origin/main merget inn (CLAUDE_CODE_SETUP.md med del 21 Raspberry Pi og del 22 visuell finpuss; rekkefølge del 19 → 22 → 20 → 21 → 13). Del 22 startet: «før»-bilder i docs/design/compare/del-22/ (Kameleon, Echo Groove Nights, OLED Svart; 1536×1024 og 390×844) med skjermbilder.mjs. Ingen kodeendringer ennå; plan lagt fram, venter på OK. Knuts beslutning: ikke Next.js, next/font eller WaveSurfer.js fra utkastene (WaveSurfer dekoder med Web Audio). Stolpe-bølgeform tegnes fra analysis.json på canvas. Observert: katalogen henter ~190 analysis.json (18 MB) ved oppstart, 20 s til 3+ min i hodeløs Edge.
     Del 5 synker posisjon via /api/playback (nyeste tidsstempel), ikke Supabase. Del 13 (lytterlenker) er kodet og testet lokalt, ikke deployet til Cloudflare.
     APK med oppdatereren: dist/android/groovehouse-vault-0.1.0.apk (versionCode 51), også publisert i data/app/apk.
     Ikke verifisert i nettleser denne økta: banneret «Fortsett her» og «Del lenke». Ikke verifisert: telefon/bil, WhatsApp, rekordbox, autostart etter ekte omstart.
