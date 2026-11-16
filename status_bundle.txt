@@ -28,8 +28,8 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-15T02:35:00+01:00"
-updated_by: "Grok Build"
+last_updated: "2026-11-16T05:00:00+01:00"
+updated_by: "Claude Code (Claude Opus 5.5)"
 
 # ============================================================
 # PROJECT IDENTITY / PROSJEKTIDENTITET
@@ -59,18 +59,23 @@ current_state:
     Ferdig: del 9, 11, 12, 10, 1 pkt. 7–8, 8, 15 (appen oppdaterer seg selv), 14 (nytt utseende), 2 (markør-editor),
     4 (parallell ingest, målt 10,6 → 6,4 s), 3 så langt det går uten fasit (eval:analysis, syntetisk BPM 12/16 → 16/16),
     16 (utkast holdt atskilt, album- og settplaner) og 17 (settbygger med rekordbox XML/M3U, tre forslag på under 0,3 s).
-    246 enhetstester grønne i shared, ingest, web, server og listen-worker (2026-11-15). Fargeløse cover og standard = grønn #06B211 (#14E177); gull bare i logoen.
+    246 enhetstester grønne i shared, ingest, web, server og listen-worker (2026-11-15). Standardfarge = grønn #06B211 (#14E177) i hele spilleren og alle manifestene i media/ (med mindre en låt har manuell farge fra Studio); gull bare i logoen.
+    UI/UX-oppgradering av spilleren (skjulbare «Nylig spilt»/«Spillelister», 16 rader på Hjem, mørke cover-placeholders uten grønne sirkler, søk øverst i sidemenyen, konsolidert analysekort til høyre, større transportknapper, forankrede faner, hover-handlinger på rader, dra-og-slipp av coverart direkte på cover-kortet øverst til venstre via PUT /api/assets/:slug/cover), Innstillinger (flytende «Ulagrede endringer»-linje, kompakte tall-steppere, mørke rullefelt, gv-range-slidere, puls på Watcher-indikator, p-6/p-8 kort) og Studio/Command Center (Drops: bakgrunns-bølgeform i lyttedekning, aktiv tilstand i mottakertabell koblet til lyttelogg, tydelig knappehierarki med solid «Kopier lenke», mørke status-tagger uten ramme, fargekodede PARTNER/INNER/SUPPORTER-badges; Arkiv: trekkspill-rader som åpner bølgeform ved klikk, dra-og-slipp coverart per rad, fjernet redundant plateselskaps- og fargekodetekst, Chameleon-farger fra coverkunst per låt, ikonknapper for Markører/Rediger, visuell outline/solid-koding av ubekreftede/bekreftede markører, høykontrast DROP-etiketter med vertikale cue-linjer; Live-sett: Macro/Micro-bølgeform med zoom/scroll, vertikale cue-punkter, synkronisert interaktiv tracklist med neon-utheving og drag-and-drop opplastingsboks).
+    Automatisk ord-synkronisert teksttranskribering (Demucs vokal-isolasjon + WhisperX forced word-level alignment via packages/ingest/scripts/lyrics_sync.py, POST /api/lyrics/:slug/transcribe, gh-ingest --lyrics og «Auto-transkriber»-knapp i LyricsEditor) + «Neon Studio Noir» karaoke-UI på desktop og mobil (ord-for-ord glød med gv-neon-text, indeks-gated state uten 60fps re-renders, klikk/trykk-på-ord for direkte spoling, auto-sentrert smooth scroll med vertikal fade-maske og pb-[45%]/pb-[48vh], samt fullskjerms «Tommelsone»-scene i MobilePlayer når Tekst-fanen er åpen).
+    Utkast-import fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV: 86 av 153 låter importert i media/index.json (113 assets totalt), midlertidig pauset etter brukerens instruks frem til øvrige oppgaver er ferdige. ARBEIDSMAPPE: det jobbes BARE i F:\prosjekter_MAIN\GroovehousePlayer. H:\GroovehousePlayer er kun backup (speil), aldri arbeidsmappe: ikke rediger, bygg, ingest eller kjør git der.
+    2026-11-16 (Claude Code): Antigravitys 31 ucommittede filer gjennomgått og committet i 8 commits (7108bb2..77b45af). pnpm typecheck (uten -s) feilet i MobilePlayer.tsx (død Tekst-gren) – fikset. En ustabil porttest i apps/server fikset. pnpm test 246/246 og pnpm typecheck grønne etterpå.
     Del 5 synker posisjon via /api/playback (nyeste tidsstempel), ikke Supabase. Del 13 (lytterlenker) er kodet og testet lokalt, ikke deployet til Cloudflare.
     APK med oppdatereren: dist/android/groovehouse-vault-0.1.0.apk (versionCode 51), også publisert i data/app/apk.
     Ikke verifisert i nettleser denne økta: banneret «Fortsett her» og «Del lenke». Ikke verifisert: telefon/bil, WhatsApp, rekordbox, autostart etter ekte omstart.
   recommended_next_action: >
-    Knut fyller fasit i fixtures/truth.json (del 3). Si ja til wrangler login før lytter-Workeren legges ut. Prøv «Fortsett her» mellom PC og telefon, og en lyttelenke på WhatsApp når Workeren er oppe.
+    Gjenoppta utkast-importen av de resterende ~67 WAV-filene fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV (pnpm gh-ingest --backlog --drafts --yes), kjør pnpm vault:install for å publisere siste UI-bygg til den lokale serveren, og fyll fasit i fixtures/truth.json (del 3). Si ja til wrangler login før lytter-Workeren legges ut.
   active_blockers:
     - "Del 3: fasit for 5–10 låter i fixtures/truth.json. WAV-ene i REASONDONE har ingen BPM- eller toneart-tagger (lest 2026-11-15). keyMethod er krumhansl."
     - "Del 13: wrangler login, D1, R2 og ruten listen.groovehouserecords.com er ikke kjørt. Spør før wrangler login."
     - "Del 5: Supabase er ikke koblet på. Synk går via Vault-serveren."
+    - "Utkast-import fra F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV (86 av 153 importert) er satt på pause etter brukerens ønske frem til øvrige oppgaver er ferdige."
     - 'Google Drive synkroniserer F:\prosjekter_MAIN (Knut tar dette selv).'
-  last_verified_at: "2026-11-15T02:35:00+01:00"
+  last_verified_at: "2026-11-16T03:53:30+01:00"
 
 # ============================================================
 # TASK AND SCOPE / OPPGAVE OG AVGRENSNING
@@ -336,6 +341,21 @@ validation:
 # EXECUTION LOG / HENDELSESLOGG
 # ============================================================
 execution_log:
+  - at: "2026-11-16T03:53:30+01:00"
+    actor: "Antigravity"
+    action: >
+      Bygget automatisk ord-synkronisert vokaltranskribering (Demucs + WhisperX) i gh-ingest/Studio API
+      og «Neon Studio Noir» karaoke-UI + mobil «Tommelsone»-scene:
+      1) packages/ingest/scripts/lyrics_sync.py (Demucs --two-stems vocals + WhisperX forced alignment -> JSON + Enhanced LRC).
+      2) packages/ingest/src/lyrics-sync.ts, api.ts (POST /api/lyrics/:slug/transcribe) og cli.ts (--lyrics).
+      3) packages/shared/src/studio.ts (parseLyricWords for JSON/Enhanced LRC/LRC + wordIndexAt binærsøk).
+      4) apps/web/src/components/LyricsEditor.tsx («Auto-transkriber (Demucs + WhisperX)»-knapp, .json/.lrc-import, ORD-SYNK-badge) og apps/web/src/lib/library.ts (transcribeLyrics + live-oppdatering av useLyrics).
+      5) apps/web/src/components/Deck.tsx (LyricsView med ord-for-ord gv-neon-text glød, indeks-gated state uten 60fps re-renders, klikk/trykk-på-ord spoling, auto-sentrert scrollIntoView, vertikal maskImage-fade og pb-[45%]/pb-[48vh]).
+      6) apps/web/src/components/MobilePlayer.tsx (FullPlayer i 100dvh «Tommelsone»-modus når Tekst-fanen er valgt: z-0 tekst-scene øverst 0-62% og z-10 flytende kontrollpanel nederst med BigWaveform ved 65-75% og Transport + Safe Area ved 75-100%).
+      Tidligere i samme økt: Studio UI/UX-oppgradering (Drops, Arkiv, Live-sett), dra-og-slipp coverart på CoverCard/ArchiveRow (PUT /api/assets/:slug/cover), automatisk omstart av server ved pnpm vault:install, og utkast-import av 86/153 WAV-filer fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV (pauset etter brukerens instruks).
+    command: "git grep design-token-sjekk; pnpm test (kjørt av Knut i PowerShell: 247/247 tester grønne i shared, listen-worker, web, ingest, server)"
+    result: "completed"
+    evidence: "Ingen forbudte fargekoder utenfor Brand.tsx/config.ts. 113 assets i media/index.json (27 opprinnelige + 86 nye utkast)."
   - at: "2026-11-15T02:35:00+01:00"
     actor: "Grok Build"
     action: "Del 3 undersøkt uten å finne på fasit. Del 5 (posisjon via Vault) og del 13 (lytterhandler, Worker-pakke, Del lenke, varsel om ny tilgang) kodet. Segment-URL bundet til enheten. Cloudflare ikke deployet."
@@ -425,6 +445,21 @@ execution_log:
 # CHANGED SURFACES / BERØRTE FILER OG TJENESTER
 # ============================================================
 changed_surfaces:
+  - path: "packages/ingest/scripts/lyrics_sync.py, packages/ingest/src/lyrics-sync.ts, packages/ingest/src/api.ts, packages/ingest/src/cli.ts"
+    change: "Demucs vokal-isolering + WhisperX ord-synkronisert transkribering (--lyrics i gh-ingest og POST /api/lyrics/:slug/transcribe)"
+    reason: "Automatisk ord-synkronisert lyrics-pipeline"
+  - path: "packages/shared/src/studio.ts"
+    change: "LyricWord, LyricWordLine, parseLyricWords (JSON/Enhanced LRC/LRC) og wordIndexAt binærsøk"
+    reason: "Støtte for millisekund-presis ord-for-ord synkronisering i avspilleren"
+  - path: "apps/web/src/components/Deck.tsx, apps/web/src/components/MobilePlayer.tsx, apps/web/src/components/LyricsEditor.tsx, apps/web/src/lib/library.ts"
+    change: "Neon Studio Noir karaoke-visning med ord-for-ord glød, klikk-på-ord spoling, auto-scroll med fade-maske, mobil Tommelsone-scene og Auto-transkriber-knapp"
+    reason: "Brukerens spesifikasjon for ord-synkronisert karaoke på desktop og mobil"
+  - path: "apps/web/src/pages/CommandCenter.tsx, apps/web/src/components/Waveform.tsx, packages/ingest/src/ingest.ts"
+    change: "Studio UI/UX (Drops, Arkiv, Live-sett) + dra-og-slipp coverart via PUT /api/assets/:slug/cover"
+    reason: "Brukerens UI/UX-spesifikasjon for Studio og coverart"
+  - path: "apps/server/src/vault.ts, groovehouse.config.json"
+    change: "Automatisk omstart av kjørende server ved pnpm vault:install; draftDirs satt til F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV"
+    reason: "Oppdatering av kjørende server og import av utkast"
   - path: "status_bundle.txt"
     change: "Fylt ut med prosjektstatus"
     reason: "Brukerens forespørsel"
@@ -480,10 +515,13 @@ repo_health:
 # ============================================================
 artifacts:
   - path: "media/index.json"
-    purpose: "Katalogen webappen leser (12 elementer)"
+    purpose: "Katalogen webappen leser (113 elementer: 27 opprinnelige + 86 utkast importert fra WAV)"
     verified_exists: true
   - path: "media/ingest-log.json"
     purpose: "Logg over ingest med advarsler (bl.a. manglende cover)"
+    verified_exists: true
+  - path: "packages/ingest/scripts/lyrics_sync.py"
+    purpose: "Python-skript for Demucs vokal-isolering og WhisperX ord-synkronisert transkribering"
     verified_exists: true
   - path: "apps/web/dist/"
     purpose: "Bygget webapp som serveren leverer"
@@ -581,36 +619,42 @@ closure_readiness:
 handoff:
   summary: >
     Lokal musikkspiller. Ferdig og beskrevet i docs/PROGRESS.md: del 0–2, 4, 6–12, 14–17.
-    Del 3 venter på fasit (keyMethod krumhansl). Del 5 synker avspillingsposisjon via Vault-serveren.
-    Del 13 er kodet (Worker + Del lenke) og ikke deployet. 246 enhetstester grønne 2026-11-15.
-    Committet lokalt som a0e035b. Ikke pushet.
-  next_action: "Be Knut om fasit i fixtures/truth.json, og om ja til wrangler login før deploy. Ikke finn på BPM eller Camelot."
+    I tillegg ferdigstilt i denne økta: komplett UI/UX-oppgradering av spilleren, Innstillinger og Studio (Drops, Arkiv, Live-sett),
+    dra-og-slipp coverart (PUT /api/assets/:slug/cover), automatisk ord-synkronisert vokaltranskribering (Demucs + WhisperX via
+    packages/ingest/scripts/lyrics_sync.py, POST /api/lyrics/:slug/transcribe, gh-ingest --lyrics), og «Neon Studio Noir» karaoke-UI
+    med ord-for-ord glød, klikk-på-ord spoling, auto-scroll med fade-maske og mobil «Tommelsone»-scene.
+    86 av 153 utkast fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV er importert (113 assets i media/index.json); de resterende ~67 venter
+    på klarsignal fra Knut for å gjenopptas. Del 3 venter på fasit (keyMethod krumhansl). Del 5 synker posisjon via Vault-serveren.
+    Del 13 er kodet (Worker + Del lenke) og ikke deployet.
+  next_action: "Gjenoppta utkast-importen (pnpm gh-ingest --backlog --drafts --yes) når Knut gir klarsignal, og kjør pnpm vault:install for å oppdatere bygget i den lokale serveren."
   next_checks:
+    - "Fullføre import av de resterende ~67 utkastene fra F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV."
+    - "Kjøre pnpm vault:install for å publisere siste web-bygg (karaoke-UI, dra-og-slipp coverart og Studio-oppgraderinger) til %LOCALAPPDATA%\\GroovehouseVault."
     - "Spiller mobilen via ts.net uten PIN?"
-    - "Får «Opprett snarvei» over Wi-Fi Groovehouse-ikonet?"
-    - "Peker Serve fortsatt på riktig port (pnpm vault:remote status)?"
-    - "Er REASONDONE uendret?"
-    - "Skal LAN-modus fortsatt stå på nå som Tailscale finnes?"
+    - "Er REASONDONE og F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV uendret?"
   relevant_files:
     - "status_bundle.txt"
     - "CLAUDE_CODE_SETUP.md"
     - "README.md"
     - "docs/CLAUDE_CODE_PROMPT.md"
     - "groovehouse.config.json"
-    - "apps/server/src/server.ts"
-    - "apps/server/src/vault.ts"
-    - "apps/server/src/remote-cli.ts"
-    - "packages/ingest/src/config.ts"
+    - "packages/ingest/scripts/lyrics_sync.py"
+    - "packages/ingest/src/lyrics-sync.ts"
+    - "packages/ingest/src/api.ts"
     - "packages/ingest/src/ingest.ts"
-    - "packages/ingest/src/analyze.ts"
+    - "packages/shared/src/studio.ts"
+    - "apps/web/src/components/Deck.tsx"
+    - "apps/web/src/components/MobilePlayer.tsx"
+    - "apps/web/src/components/LyricsEditor.tsx"
     - "apps/web/src/pages/CommandCenter.tsx"
-    - "apps/web/src/lib/player.ts"
+    - "apps/server/src/vault.ts"
   warnings:
-    - "Aldri skriv, flytt eller slett noe i F:\\EchoGroove\\EchoAI\\REASONDONE."
+    - "Aldri skriv, flytt eller slett noe i F:\\EchoGroove\\EchoAI\\REASONDONE eller F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV."
+    - 'Jobb bare i F:\prosjekter_MAIN\GroovehousePlayer. H:\GroovehousePlayer er backup (pnpm vault:backup speiler dit), aldri arbeidsmappe.'
     - "Hemmeligheter (Supabase-nøkler, PIN) skal aldri i git eller chat. Bruk .env eller Windows Credential Manager."
     - "Spør Knut før installasjoner, planlagte oppgaver, snarveier, brannmurregler eller push."
     - "Ikke endre de låste beslutningene uten å spørre."
-    - "Antigravity-sandkassen ga EPERM på F:\\ for pnpm; Claude Code-økta hadde ikke det problemet."
+    - "Pakkenavn i pnpm-filtre er @gv/web, @gv/ingest, @gv/server, @gv/shared, @gv/listen-worker (ikke @groovehouse/*)."
     - "Ikke godta *.ts.net, ikke fjern Host-sjekken, og ikke slå på Tailscale Funnel."
     - "PC-navn, tailnet-ID og andre lokale verdier skal i groovehouse.local.json (usporet), aldri i sporede filer."
   last_agent: "Claude Code (Claude Opus 5.5)"
