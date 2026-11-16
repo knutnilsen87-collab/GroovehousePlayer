@@ -13,6 +13,7 @@ import { Waveform } from '../components/Waveform';
 import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, uploadAssetCover, useCatalog, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { useLyricsQueue } from '../lib/library';
 import { AiCoverCard } from '../components/AiCover';
+import { SkippedImportsCard } from '../components/SkippedImports';
 import { admin as t } from '../lib/i18n';
 import { usePlayer } from '../lib/player';
 import { useSkin, useSkinId } from '../lib/skin';
@@ -332,6 +333,7 @@ function IngestStrip({ assets, log, onDone }: { assets: LoadedAsset[]; log: Inge
           <span className="font-mono text-xs text-soft">{progress.percent} % · HLS, analyse og LUFS kjører samtidig</span>
         </div>
       )}
+      <SkippedImportsCard onImported={onDone} />
       <LyricsQueueCard />
       <AiCoverCard />
       {recent.map((a) => (
@@ -350,10 +352,36 @@ function LyricsQueueCard() {
   const running = q.jobs.find((j) => j.status === 'running');
   const waiting = q.jobs.filter((j) => j.status === 'waiting');
   const finished = q.jobs.filter((j) => j.status !== 'running' && j.status !== 'waiting').slice(-3).reverse();
-  if (!running && !waiting.length && !finished.length && q.enabled && q.python) return null;
+  const b = q.batch;
+  const batchAct = async (action: 'start' | 'pause' | 'resume' | 'stop') => {
+    await fetch('/api/lyrics-batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action }) }).catch(() => null);
+  };
   return (
     <div role="status" aria-label="Tekstkø" className="gv-panel flex min-h-32 flex-col gap-2 p-4">
       <span className="gv-label">Tekst {q.enabled ? '' : '· automatikk av'}</span>
+      {b ? (
+        <div className="flex flex-col gap-1.5 rounded-lg bg-white/[0.03] p-2.5">
+          <span className="text-[13px] text-ink-strong">
+            Nattkjøring: {b.done} av {b.total} {b.paused ? '· på pause' : b.inWindow ? '· kjører nå' : `· starter kl. ${String(b.window.from).padStart(2, '0')}`}
+          </span>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.08]">
+            <div className="h-full rounded-full bg-accent" style={{ width: `${b.total ? (b.done / b.total) * 100 : 0}%` }} />
+          </div>
+          {b.next && <span className="truncate font-mono text-[13px] text-muted">Neste: {b.next}</span>}
+          <span className="flex gap-1.5">
+            <button type="button" onClick={() => batchAct(b.paused ? 'resume' : 'pause')} className="h-8 rounded-full bg-accent/[0.16] px-3 text-[13px] font-semibold text-accent">
+              {b.paused ? 'Fortsett' : 'Pause'}
+            </button>
+            <button type="button" onClick={() => batchAct('stop')} className="h-8 rounded-full bg-white/[0.06] px-3 text-[13px] text-soft">
+              Stopp
+            </button>
+          </span>
+        </div>
+      ) : (
+        <button type="button" onClick={() => batchAct('start')} className="h-8 self-start rounded-full bg-white/[0.06] px-3 text-[13px] text-soft hover:text-ink-strong" title="Tekst på alle låter (ikke live-sett) mellom kl. 01 og 07, med lav prioritet">
+          Tekst på alle låter i natt …
+        </button>
+      )}
       {!q.python && <span className="text-xs text-soft">Fant ikke .venv-lyrics (demucs/whisperx). Bruker «python» fra PATH.</span>}
       {running ? (
         <>
@@ -372,7 +400,7 @@ function LyricsQueueCard() {
           {j.status === 'done' ? '✓' : j.status === 'skipped' ? '↷' : '✗'} {j.title}
           <span className="font-mono text-muted">
             {' '}
-            · {j.status === 'done' ? `${j.words} ord, ${j.mode === 'auto' ? 'auto – sjekk' : 'ordtider'}` : j.note} · {Math.round((j.ms ?? 0) / 1000)} s
+            · {j.status === 'done' ? (j.mode === 'instrumental' ? 'instrumental' : `${j.words} ord, ${j.mode === 'auto' ? 'auto – sjekk' : 'ordtider'}`) : j.note} · {Math.round((j.ms ?? 0) / 1000)} s
           </span>
         </span>
       ))}

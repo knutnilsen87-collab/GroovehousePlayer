@@ -6,6 +6,7 @@ import { findRoot, loadConfig, loadDotEnv } from '@gv/ingest/config';
 import { startWatcher } from '@gv/ingest/watcher';
 import { sharedLyricsQueue } from '@gv/ingest/lyrics-queue';
 import { receiveFromBulkImg, takeOverdueWarnings } from '@gv/ingest/bulkimg';
+import { createFingerprintStore, createHashCache, createSkippedStore } from '@gv/ingest/incoming';
 import { credRead } from './credstore';
 import type { PinRecord } from './lan-auth';
 import { lanAddresses } from './lan';
@@ -82,6 +83,12 @@ async function main() {
   const queueLyrics = (res: { manifest: { slug: string; title: string } }, sourceFile: string | null) =>
     lyricsQueue.enqueue(res.manifest.slug, { title: res.manifest.title, audioFile: sourceFile });
   let port = config.ports.server;
+  // Sanger som finnes fra før importeres ikke på nytt (samme lyd → stille, samme låt → «Hoppet over» i Studio)
+  const incoming = {
+    ctx: { mediaDir, dataDir, hashes: createHashCache(dataDir), fingerprints: createFingerprintStore(dataDir) },
+    skipped: createSkippedStore(dataDir),
+    onListed: (it: { fileName: string; matchTitle: string }) => notify('Hoppet over – finnes allerede', `${it.fileName} ligner «${it.matchTitle}». Velg i Studio.`, log)
+  };
 
   // Watcheren leser config ved start; startes på nytt når innstillingene endres (del 8).
   const startWatch = () => {
@@ -96,6 +103,7 @@ async function main() {
       mediaDir,
       config: loadConfig(root),
       log,
+      incoming,
       // Del 1 pkt. 8: Windows-varsel når en ny bounce er klar
       onIngested: (res, sourceFile) => {
         const msg = readyMessage(res.manifest);
@@ -109,16 +117,18 @@ async function main() {
   let draftWatchers: Array<ReturnType<typeof startWatcher>> = [];
   const startDraftWatch = () => {
     const dirs: string[] = [];
-    const d = loadConfig(root).draftDir;
-    const draftDir = d ? path.resolve(root, d) : null;
-    if (draftDir && existsSync(draftDir)) dirs.push(draftDir);
-    else if (draftDir) log(`! Mappa for umastrede låter finnes ikke: ${draftDir}`);
+    // Alle mappene for umastrede låter (draftDirs; gamle draftDir virker fortsatt)
+    for (const d of loadConfig(root).draftDirs) {
+      const draftDir = path.resolve(root, d);
+      if (existsSync(draftDir)) dirs.push(draftDir);
+      else log(`! Mappa for umastrede låter finnes ikke: ${draftDir}`);
+    }
     const inbox = path.join(root, 'data', 'drafts-inbox');
     mkdirSync(inbox, { recursive: true });
     dirs.push(inbox);
     return dirs.map((dir) => {
       log(`Watcher for umastrede låter: ${dir} (leser bare)`);
-      return startWatcher({ exportDir: dir, mediaDir, config: loadConfig(root), log, status: 'draft', onIngested: queueLyrics });
+      return startWatcher({ exportDir: dir, mediaDir, config: loadConfig(root), log, status: 'draft', onIngested: queueLyrics, incoming });
     });
   };
 
@@ -184,6 +194,15 @@ async function main() {
 
   watcher = startWatch();
   draftWatchers = startDraftWatch();
+  // Ved oppstart: ta med filer i REASONDONE og mappene for umastrede låter som ikke er importert ennå
+  // (etter en pause eller når PC-en har vært av). Duplikatsjekken hopper over alt som finnes fra før.
+  setTimeout(async () => {
+    for (const w of [watcher, ...draftWatchers]) {
+      if (!w) continue;
+      const n = await w.catchUp().catch((err) => (log(`! Innhenting feilet: ${err instanceof Error ? err.message : err}`), 0));
+      if (n) log(`Innhenting: ${n} lydfiler i ${w.status().exportDir} sjekkes mot det som finnes`);
+    }
+  }, 3000);
   const stopListenPoll = startListenPoll();
 
   const stop = async (sig: string) => {

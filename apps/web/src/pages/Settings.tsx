@@ -30,7 +30,7 @@ export function SettingsView() {
   if (error && !state) return <p role="alert" className="text-[#F2A08F]">Kunne ikke hente innstillingene: {error}</p>;
   if (!state || !draft) return <p className="text-muted">Henter innstillinger…</p>;
 
-  const ALL_KEYS: Array<keyof Editable> = ['exportDir', 'draftDir', 'ingest', 'audio', 'defaults', 'titleCleanup', 'colors', 'drops'];
+  const ALL_KEYS: Array<keyof Editable> = ['exportDir', 'draftDirs', 'ingest', 'lyrics', 'covers', 'audio', 'defaults', 'titleCleanup', 'colors', 'drops'];
   const dirty = (k: keyof Editable) => JSON.stringify(draft[k]) !== JSON.stringify(state.settings[k]);
   const dirtyKeys = ALL_KEYS.filter(dirty);
   const hasUnsaved = dirtyKeys.length > 0;
@@ -91,7 +91,7 @@ export function SettingsView() {
         )}
       </div>
 
-      <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir') || dirty('draftDir')} onSave={() => save(['exportDir', 'draftDir'], 'Mappene er lagret.')} onReload={load} />
+      <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir') || dirty('draftDirs')} onSave={() => save(['exportDir', 'draftDirs'], 'Mappene er lagret.')} onReload={load} />
       <RulesSection draft={draft} set={set} />
       <Section
         title="Lyd"
@@ -341,10 +341,17 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
         </p>
       )}
       <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
-        Mappe for umastrede låter (undermapper tillatt)
-        <input value={draft.draftDir ?? ''} onChange={(e) => set('draftDir', e.target.value || null)} placeholder="D:\Musikk\Umastret" className={`${field} font-mono text-[13px]`} spellCheck={false} />
+        Mapper for umastrede låter (undermapper tillatt, én per linje)
+        <textarea
+          value={draft.draftDirs.join('\n')}
+          onChange={(e) => set('draftDirs', e.target.value.split(/\r?\n/))}
+          placeholder={'F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV\nF:\\prosjekter_MAIN\\GroovehousePlayer\\umastret-sync'}
+          rows={Math.max(2, draft.draftDirs.length + 1)}
+          className="w-full rounded-xl border border-white/10 bg-sunken px-3 py-2 font-mono text-[13px] text-ink focus:border-accent/60 focus:outline-none"
+          spellCheck={false}
+        />
         <span className="text-xs leading-relaxed text-soft">
-          Låter herfra blir <b className="font-mono text-ink-strong">UMASTRET</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med{' '}
+          Alle mappene overvåkes, og ved oppstart tas filer som ikke er importert ennå, med. Låter som finnes fra før, importeres ikke på nytt (se «Hoppet over» i Studio). MP3 og M4A godtas her. Låter herfra blir <b className="font-mono text-ink-strong">UMASTRET</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med{' '}
           <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-ink-strong">pnpm gh-ingest --backlog --drafts</code>. Du kan også dra filer inn på ingest-kortet («Importer som umastret»).
         </span>
       </label>

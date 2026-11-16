@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { findRoot, loadConfig } from './config';
@@ -27,8 +27,8 @@ export interface LyricsJob {
   /** Hva som skjer nå (bare når status = running). */
   stage: LyricsStage | 'start' | null;
   /** auto = transkribert fra lyden, aligned = Knuts tekst med ordtider. */
-  mode: 'auto' | 'aligned' | null;
-  reason: 'ingest' | 'studio' | 'pasted';
+  mode: 'auto' | 'aligned' | 'instrumental' | null;
+  reason: 'ingest' | 'studio' | 'pasted' | 'batch';
   queuedAt: string;
   startedAt: string | null;
   finishedAt: string | null;
@@ -40,7 +40,32 @@ export interface LyricsQueueStatus {
   enabled: boolean;
   python: string | null;
   jobs: LyricsJob[];
+  batch: BatchStatus | null;
 }
+
+/**
+ * Nattkjøring: tekst på mange låter. Lagres i data/lyrics-batch.json (overlever omstart), kjører bare i
+ * nattvinduet (standard 01–07) og bare når ingen andre tekstjobber venter. Kan settes på pause i Studio.
+ */
+export interface BatchFile {
+  slugs: Array<{ slug: string; title: string }>;
+  done: string[];
+  paused: boolean;
+  window: { from: number; to: number };
+  startedAt: string;
+}
+export interface BatchStatus {
+  total: number;
+  done: number;
+  paused: boolean;
+  inWindow: boolean;
+  window: { from: number; to: number };
+  next: string | null;
+}
+export const inNightWindow = (d: Date, w: { from: number; to: number }) => {
+  const h = d.getHours();
+  return w.from <= w.to ? h >= w.from && h < w.to : h >= w.from || h < w.to;
+};
 
 /** Har teksten ordtider (Enhanced LRC)? */
 export const hasWordTimes = (text: string) => /<\d{1,2}:\d{2}(?:\.\d+)?>/.test(text);
@@ -63,6 +88,8 @@ export interface LyricsQueueOptions {
   settings?: () => { auto: boolean; model: string; language: string | null };
   /** Kan byttes i tester. */
   run?: typeof transcribeLyricsForSlug;
+  /** Klokka (tester). */
+  clock?: () => Date;
 }
 
 const HISTORY = 30;
@@ -76,6 +103,44 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
   const jobs: LyricsJob[] = [];
   const sidecars = new Map<string, string | null>();
   let busy: Promise<void> | null = null;
+  const clock = opts.clock ?? (() => new Date());
+  const batchPath = path.join(opts.dataDir, 'lyrics-batch.json');
+  const readBatch = (): BatchFile | null => {
+    try {
+      return existsSync(batchPath) ? (JSON.parse(readFileSync(batchPath, 'utf8')) as BatchFile) : null;
+    } catch {
+      return null;
+    }
+  };
+  const writeBatch = (b: BatchFile | null) => {
+    if (!b) return void rmSync(batchPath, { force: true });
+    mkdirSync(opts.dataDir, { recursive: true });
+    writeFileSync(`${batchPath}.tmp`, JSON.stringify(b, null, 2));
+    renameSync(`${batchPath}.tmp`, batchPath);
+  };
+  /** Legger neste låt fra nattkjøringen i køen hvis det er natt, ikke pause, og ingenting annet venter. */
+  const feedBatch = () => {
+    const b = readBatch();
+    if (!b || b.paused || !inNightWindow(clock(), b.window)) return;
+    if (jobs.some((j) => j.status === 'waiting' || j.status === 'running')) return;
+    const next = b.slugs.find((x) => !b.done.includes(x.slug));
+    if (!next) {
+      log(`♪ Nattkjøring ferdig: tekst på ${b.done.length} låter`);
+      writeBatch(null);
+      return;
+    }
+    const job: LyricsJob = { slug: next.slug, title: next.title, status: 'waiting', stage: null, mode: null, reason: 'batch', queuedAt: now(), startedAt: null, finishedAt: null, ms: null, words: null, note: null };
+    jobs.push(job);
+    kick();
+  };
+  const markBatchDone = (slug: string) => {
+    const b = readBatch();
+    if (!b || b.done.includes(slug)) return;
+    b.done.push(slug);
+    writeBatch(b);
+  };
+  const tick = setInterval(feedBatch, 60_000);
+  tick.unref?.();
 
   const now = () => new Date().toISOString();
   const trim = () => {
@@ -90,7 +155,13 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
     const t0 = Date.now();
     try {
       const existing = await store.get(job.slug);
-      if (existing && existing.format === 'lrc' && hasWordTimes(existing.text) && job.reason === 'ingest') {
+      const meta = await store.getMeta(job.slug);
+      if (meta?.source === 'instrumental' && job.reason !== 'studio') {
+        job.status = 'skipped';
+        job.note = 'instrumental';
+        return;
+      }
+      if (existing && existing.format === 'lrc' && hasWordTimes(existing.text) && job.reason !== 'studio') {
         job.status = 'skipped';
         job.note = 'har ordtider fra før';
         return;
@@ -118,7 +189,7 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
       job.mode = res.mode;
       job.words = res.wordCount;
       job.status = 'done';
-      log(`  ✓ Tekst: ${job.title} – ${res.wordCount} ord (${res.mode === 'auto' ? 'automatisk, sjekk teksten' : 'ordtider'}) på ${((Date.now() - t0) / 1000).toFixed(0)} s`);
+      log(res.mode === 'instrumental' ? `  ✓ Tekst: ${job.title} – instrumental (ingen vokal)` : `  ✓ Tekst: ${job.title} – ${res.wordCount} ord (${res.mode === 'auto' ? 'automatisk, sjekk teksten' : 'ordtider'}) på ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     } catch (err) {
       job.status = 'failed';
       job.note = err instanceof Error ? err.message.split('\n')[0]!.slice(0, 300) : String(err);
@@ -128,6 +199,8 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
       job.finishedAt = now();
       job.ms = Date.now() - t0;
       sidecars.delete(job.slug);
+      // Nattkjøringen går videre også om én låt feiler (den står som feilet i Studio)
+      if (job.reason === 'batch') markBatchDone(job.slug);
       trim();
     }
   }
@@ -138,6 +211,7 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
       for (let job = jobs.find((j) => j.status === 'waiting'); job; job = jobs.find((j) => j.status === 'waiting')) await work(job);
     })().finally(() => {
       busy = null;
+      feedBatch();
     });
   }
 
@@ -160,8 +234,29 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
     },
     status(): LyricsQueueStatus {
       const p = path.join(root, '.venv-lyrics');
-      return { enabled: settings().auto, python: existsSync(p) ? '.venv-lyrics' : null, jobs: jobs.map((j) => ({ ...j })) };
+      const b = readBatch();
+      const batch: BatchStatus | null = b
+        ? { total: b.slugs.length, done: b.done.length, paused: b.paused, inWindow: inNightWindow(clock(), b.window), window: b.window, next: b.slugs.find((x) => !b.done.includes(x.slug))?.title ?? null }
+        : null;
+      return { enabled: settings().auto, python: existsSync(p) ? '.venv-lyrics' : null, jobs: jobs.map((j) => ({ ...j })), batch };
     },
+    /** Start nattkjøring for disse låtene (erstatter en eventuell gammel liste). */
+    startBatch(slugs: Array<{ slug: string; title: string }>, window = { from: 1, to: 7 }) {
+      writeBatch({ slugs, done: [], paused: false, window, startedAt: now() });
+      feedBatch();
+    },
+    /** Pause/fortsett/stopp fra Studio. Pause stopper ikke en låt som allerede er i gang. */
+    controlBatch(action: 'pause' | 'resume' | 'stop') {
+      const b = readBatch();
+      if (!b) return false;
+      if (action === 'stop') writeBatch(null);
+      else writeBatch({ ...b, paused: action === 'pause' });
+      if (action === 'resume') feedBatch();
+      return true;
+    },
+    /** Kjør nattkjøringen nå (tester og «Start nå» i Studio). */
+    feedBatch,
+    close: () => clearInterval(tick),
     /** Venter til en bestemt jobb er ferdig (Studio-knappen «Synkroniser nå» bruker samme kø). */
     wait: async (job: LyricsJob): Promise<LyricsJob> => {
       while (job.status === 'waiting' || job.status === 'running') await new Promise((r) => setTimeout(r, 500));

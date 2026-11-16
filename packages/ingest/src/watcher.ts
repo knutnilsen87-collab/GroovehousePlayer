@@ -1,9 +1,11 @@
+import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { watch, type FSWatcher } from 'chokidar';
 import type { VaultConfig } from './config';
 import { probe } from './ffmpeg';
 import { ingestFolder, ingestRelease, type IngestResult, type StepStatus } from './ingest';
-import { AUDIO_RE, IMAGE_RE, scanFlat } from './sources';
+import { classifyIncoming, type IncomingCtx, type SkippedItem, type SkippedStore } from './incoming';
+import { AUDIO_RE, DRAFT_AUDIO_RE, IMAGE_RE, scanFlat } from './sources';
 
 /**
  * Overvåker eksportmappa. Den leses bare: watcheren flytter, endrer eller sletter aldri noe der.
@@ -31,6 +33,11 @@ export interface WatcherOptions {
    * behandles som flate filer i sin egen mappe og ingestes som utkast.
    */
   status?: 'release' | 'draft';
+  /**
+   * Duplikatsjekk før import (sanger som finnes fra før importeres ikke på nytt). Uten denne importeres
+   * alt som før (tester og CLI med --force).
+   */
+  incoming?: { ctx: IncomingCtx; skipped: SkippedStore; onListed?: (it: SkippedItem) => void };
 }
 
 const SUBFOLDER_TRIGGER = /\.(wav|wave|aif|aiff|flac)$|^cover\.(png|jpe?g|webp)$|^live_log\.json$/i;
@@ -45,7 +52,7 @@ export interface WatcherStatus {
   lastEvent: { at: string; text: string } | null;
 }
 
-export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void>; status: () => WatcherStatus } {
+export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void>; status: () => WatcherStatus; catchUp: () => Promise<number> } {
   const exportDir = path.resolve(opts.exportDir);
   const drafts = opts.status === 'draft';
   const log = opts.log ?? ((l: string) => console.log(l));
@@ -74,14 +81,33 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
   async function runJob(job: Job): Promise<Done[]> {
     if (job.kind === 'folder') return (await ingestFolder(job.folder, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status })).map((res) => ({ res, sourceFile: null }));
     // Utkast: fila tolkes i sin egen mappe (prosjektmapper); release: rett i eksportmappa som før
-    const scan = await scanFlat(drafts ? path.dirname(job.file) : exportDir, opts.config);
+    const scan = await scanFlat(drafts ? path.dirname(job.file) : exportDir, opts.config, { lossy: drafts });
     const isImage = IMAGE_RE.test(job.file);
     const release = scan.releases.find((r) => (isImage ? r.coverPath === job.file : r.masters.some((m) => m.path === job.file)));
     if (!release) {
       log(isImage ? '  ! fant ingen lydfil med samme navn som bildet – venter' : '  ↷ eldre versjon enn det som finnes – hopper over');
       return [];
     }
-    for (const m of release.masters) await probe(m.path); // kaster hvis fila er halvskrevet
+    const durations = new Map<string, number>();
+    for (const m of release.masters) durations.set(m.path, (await probe(m.path)).durationMs); // kaster hvis fila er halvskrevet
+    if (!isImage && opts.incoming) {
+      // Sanger som finnes fra før: samme lyd → stille; samme låt → lista i Studio; stems hoppes over
+      const keep = [];
+      for (const m of release.masters) {
+        const v = await classifyIncoming(opts.incoming.ctx, { file: m.path, fileName: m.fileName, slug: m.slug, variant: m.variant, title: m.titleFromFile, durationMs: durations.get(m.path) ?? 0, status: drafts ? 'draft' : 'release' });
+        await opts.incoming.ctx.hashes.save();
+        if (v.action === 'import') keep.push(m);
+        else if (v.action === 'known') continue;
+        else if (v.action === 'stem') log(`  ↷ ${m.fileName}: ${v.reason} – hoppet over`);
+        else if (await opts.incoming.skipped.add(v.item)) {
+          log(`  ↷ ${m.fileName}: finnes allerede (${v.item.reason}, ligner «${v.item.matchTitle}») – lagt i «Hoppet over» i Studio`);
+          event(`hoppet over: ${m.fileName} (ligner ${v.item.matchTitle})`);
+          opts.incoming.onListed?.(v.item);
+        }
+      }
+      if (!keep.length) return [];
+      release.masters = keep;
+    }
     return withSources(await ingestRelease(release, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: opts.status }), release.masters);
   }
 
@@ -119,7 +145,7 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
     const folder = path.dirname(file);
     let job: Job | null = null;
     if (drafts || path.resolve(folder) === exportDir) {
-      if (AUDIO_RE.test(name) || IMAGE_RE.test(name)) job = { kind: 'flat', file: path.resolve(file) };
+      if ((drafts ? DRAFT_AUDIO_RE : AUDIO_RE).test(name) || IMAGE_RE.test(name)) job = { kind: 'flat', file: path.resolve(file) };
     } else if (SUBFOLDER_TRIGGER.test(name)) {
       job = { kind: 'folder', folder };
     }
@@ -143,6 +169,23 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
       await busy;
     },
     status: () => ({ exportDir, queued: queue.length + (busy ? 1 : 0), busy: !!busy, lastEvent }),
+    /**
+     * Ved oppstart: legg alle lydfiler i mappa i køen. Duplikatsjekken (hash mot det som finnes) gjør at bare
+     * filer som ikke er importert ennå blir importert, så ingenting blir liggende igjen etter en pause.
+     */
+    catchUp: async (): Promise<number> => {
+      const files: string[] = [];
+      const walk = async (d: string, left: number) => {
+        for (const e of await readdir(d, { withFileTypes: true }).catch(() => [])) {
+          const full = path.join(d, e.name);
+          if (e.isFile() && (drafts ? DRAFT_AUDIO_RE : AUDIO_RE).test(e.name)) files.push(full);
+          else if (e.isDirectory() && !e.name.startsWith('.') && left > 0 && drafts) await walk(full, left - 1);
+        }
+      };
+      await walk(exportDir, 8);
+      for (const f of files.sort()) enqueue(f);
+      return files.length;
+    },
     /** Venter til køen er tom (brukes i tester). */
     idle: async () => {
       while (busy) await busy;

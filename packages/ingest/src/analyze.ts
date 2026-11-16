@@ -273,7 +273,7 @@ function accumulateHpcp(mag: Float64Array, binHz: number, hpcp: number[], hpcpAl
 }
 
 /** In-place radix-2 FFT. */
-function fft(re: Float64Array, im: Float64Array): void {
+export function fft(re: Float64Array, im: Float64Array): void {
   const n = re.length;
   for (let a = 1, j = 0; a < n; a++) {
     let bit = n >> 1;

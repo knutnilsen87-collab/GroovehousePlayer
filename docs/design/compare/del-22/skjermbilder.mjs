@@ -43,7 +43,9 @@ ws.addEventListener('message', (e) => {
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map((a) => a.value ?? a.description).join(' '));
 });
 const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
-const evalJs = async (expr) => (await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true })).result?.result?.value;
+// Tidsgrense på hvert kall: forsvinner forbindelsen (f.eks. når Vault-serveren startes på nytt), går skriptet videre
+const withTimeout = (p, ms = 20000) => Promise.race([p, new Promise((r) => setTimeout(() => r({}), ms))]);
+const evalJs = async (expr) => (await withTimeout(send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }))).result?.result?.value;
 
 await send('Page.enable');
 await send('Runtime.enable');

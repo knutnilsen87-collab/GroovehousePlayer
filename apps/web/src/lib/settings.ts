@@ -22,6 +22,8 @@ export interface Editable {
   exportDir: string | null;
   /** Del 16: utkastmappa (umastrede låter). */
   draftDir: string | null;
+  /** Alle mappene for umastrede låter (overvåkes, leses bare). */
+  draftDirs: string[];
 }
 export interface WatcherStatus {
   exportDir: string;

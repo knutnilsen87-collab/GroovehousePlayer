@@ -33,6 +33,11 @@ export interface VaultConfig {
   /** Del 16: utkastmappa (umastrede låter, undermapper tillatt). Lokal; ellers GH_DRAFT_DIR. Kun lesing. */
   draftDir: string | null;
   /**
+   * Alle mappene for umastrede låter (overvåkes, leses bare). `draftDir` = den første, for bakoverkompatibilitet.
+   * Lokal: `draftDirs` (liste) eller gamle `draftDir` i groovehouse.local.json; ellers GH_DRAFT_DIR.
+   */
+  draftDirs: string[];
+  /**
    * Del 23 nivå 2: AI-cover via bulkIMG / AURORA Asset Studio (løs kobling, ingen nøkler i Vault).
    * Vault skriver CSV-er til `bulkimgInbox` og leser eksporter (med manifest.json) fra `bulkimgExports`.
    * Maskinspesifikt: lagres bare i groovehouse.local.json.
@@ -74,6 +79,7 @@ const FALLBACK: VaultConfig = {
   analysis: { keyMethod: 'krumhansl' },
   exportDir: null,
   draftDir: null,
+  draftDirs: [],
   covers: { bulkimgInbox: 'F:\\prosjekter_MAIN\\bulkIMG\\imports\\groovehouse', bulkimgExports: 'F:\\prosjekter_MAIN\\bulkIMG\\repo\\exports' }
 };
 export const DEFAULTS: Readonly<VaultConfig> = FALLBACK;
@@ -135,12 +141,21 @@ export function loadConfig(root = findRoot()): VaultConfig {
     analysis: { keyMethod: (l.analysis?.keyMethod ?? j.analysis?.keyMethod) === 'edma' ? 'edma' : 'krumhansl' },
     // Eksportmappa er maskinspesifikk: bare fra den lokale fila (eller .env)
     exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null,
-    draftDir: typeof l.draftDir === 'string' && l.draftDir ? l.draftDir : process.env.GH_DRAFT_DIR ?? null,
+    draftDir: draftDirsOf(l)[0] ?? null,
+    draftDirs: draftDirsOf(l),
     covers: {
       bulkimgInbox: typeof l.covers?.bulkimgInbox === 'string' && l.covers.bulkimgInbox ? l.covers.bulkimgInbox : FALLBACK.covers.bulkimgInbox,
       bulkimgExports: typeof l.covers?.bulkimgExports === 'string' && l.covers.bulkimgExports ? l.covers.bulkimgExports : FALLBACK.covers.bulkimgExports
     }
   };
+}
+
+/** Mappene for umastrede låter: `draftDirs` (liste) → gamle `draftDir` → GH_DRAFT_DIR. Duplikater fjernes. */
+function draftDirsOf(l: { draftDirs?: unknown; draftDir?: unknown }): string[] {
+  const list = Array.isArray(l.draftDirs) ? l.draftDirs.filter((d): d is string => typeof d === 'string' && !!d.trim()) : [];
+  if (!list.length && typeof l.draftDir === 'string' && l.draftDir) list.push(l.draftDir);
+  if (!list.length && process.env.GH_DRAFT_DIR) list.push(process.env.GH_DRAFT_DIR);
+  return [...new Map(list.map((d) => [path.resolve(d).toLowerCase(), d.trim()])).values()];
 }
 
 /** Slår LAN-modus av/på i groovehouse.config.json (resten av fila beholdes). Overlever omstart. */

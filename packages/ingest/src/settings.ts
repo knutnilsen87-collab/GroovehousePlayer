@@ -26,15 +26,17 @@ export interface SettingsPatch {
   exportDir?: string | null;
   /** Del 16: utkastmappa (lokal, kun lesing). */
   draftDir?: string | null;
+  /** Alle mappene for umastrede låter (erstatter draftDir). */
+  draftDirs?: string[];
 }
 
-export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'lyrics' | 'covers' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir' | 'draftDir'>;
+export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'lyrics' | 'covers' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir' | 'draftDir' | 'draftDirs'>;
 
 export const BACKUP_FILE = 'groovehouse.config.backup.json';
 const TIERS = ['partner', 'inner_circle', 'supporter', 'teaser'] as const;
 
 export function editableOf(cfg: VaultConfig): Editable {
-  return { audio: cfg.audio, ingest: cfg.ingest, lyrics: cfg.lyrics, covers: cfg.covers, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir, draftDir: cfg.draftDir };
+  return { audio: cfg.audio, ingest: cfg.ingest, lyrics: cfg.lyrics, covers: cfg.covers, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir, draftDir: cfg.draftDir, draftDirs: cfg.draftDirs };
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
@@ -94,6 +96,16 @@ export function validateSettings(patch: SettingsPatch, base: VaultConfig): strin
     else if (!existsSync(d) || !statSync(d).isDirectory()) e.push('Mappa for umastrede låter finnes ikke');
     else if (ex && path.resolve(d).toLowerCase() === path.resolve(ex).toLowerCase()) e.push('Mappa for umastrede låter kan ikke være den samme som eksportmappa (release-klare)');
   }
+  if (patch.draftDirs !== undefined) {
+    const ex = (patch.exportDir ?? base.exportDir ?? '').trim();
+    for (const raw of patch.draftDirs) {
+      const d = raw.trim();
+      if (!d) continue;
+      if (!path.isAbsolute(d)) e.push(`Mappa for umastrede låter må være en full sti: ${d}`);
+      else if (!existsSync(d) || !statSync(d).isDirectory()) e.push(`Mappa for umastrede låter finnes ikke: ${d}`);
+      else if (ex && path.resolve(d).toLowerCase() === path.resolve(ex).toLowerCase()) e.push('En mappe for umastrede låter kan ikke være den samme som eksportmappa (release-klare)');
+    }
+  }
   return e;
 }
 
@@ -109,7 +121,8 @@ function applyPatch(base: VaultConfig, p: SettingsPatch): VaultConfig {
     defaults: { ...base.defaults, ...(p.defaults ?? {}) },
     titleCleanup: p.titleCleanup ? { remove: p.titleCleanup.remove.map((w) => (typeof w === 'string' ? w.trim() : w)) } : base.titleCleanup,
     exportDir: p.exportDir === undefined ? base.exportDir : p.exportDir?.trim() || null,
-    draftDir: p.draftDir === undefined ? base.draftDir : p.draftDir?.trim() || null
+    draftDir: p.draftDirs ? (p.draftDirs.map((d) => d.trim()).filter(Boolean)[0] ?? null) : p.draftDir === undefined ? base.draftDir : p.draftDir?.trim() || null,
+    draftDirs: p.draftDirs ? p.draftDirs.map((d) => d.trim()).filter(Boolean) : p.draftDir === undefined ? base.draftDirs : p.draftDir?.trim() ? [p.draftDir.trim(), ...base.draftDirs.slice(1)] : base.draftDirs.slice(1)
   };
 }
 
@@ -132,16 +145,18 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
   for (const k of ['audio', 'ingest', 'lyrics', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) if (patch[k]) j[k] = next[k];
   writeAtomic(shared, j);
 
-  if (patch.exportDir !== undefined || patch.draftDir !== undefined || patch.covers !== undefined) {
+  if (patch.exportDir !== undefined || patch.draftDir !== undefined || patch.draftDirs !== undefined || patch.covers !== undefined) {
     const local = path.join(root, LOCAL_CONFIG_FILE);
     const l = existsSync(local) ? (JSON.parse(readFileSync(local, 'utf8')) as Record<string, unknown>) : {};
     if (patch.exportDir !== undefined) {
       if (next.exportDir) l.exportDir = next.exportDir;
       else delete l.exportDir;
     }
-    if (patch.draftDir !== undefined) {
-      if (next.draftDir) l.draftDir = next.draftDir;
-      else delete l.draftDir;
+    if (patch.draftDir !== undefined || patch.draftDirs !== undefined) {
+      // Lagres som liste; den gamle enkeltnøkkelen fjernes
+      delete l.draftDir;
+      if (next.draftDirs.length) l.draftDirs = next.draftDirs;
+      else delete l.draftDirs;
     }
     if (patch.covers !== undefined) l.covers = { bulkimgInbox: next.covers.bulkimgInbox.trim(), bulkimgExports: next.covers.bulkimgExports.trim() };
     writeAtomic(local, l);

@@ -176,7 +176,120 @@ def generate_lyrics_sync(audio_path, output_json, output_lrc=None, model_name="l
         return words
 
 
+# ---------------------------------------------------------------- vedvarende modus (--serve)
+#
+# Vault-serveren holder én Python-prosess i live mens det er jobber, så Demucs-, Whisper- og align-modellene
+# lastes én gang (ikke per låt). Én JSON-linje inn per jobb på stdin, én JSON-linje ut på stdout.
+# Fremdrift på stderr: «STAGE: <jobb-id> <navn>». Prosessen avsluttes når stdin lukkes.
+
+INSTRUMENTAL_RATIO = 0.06  # vokal-RMS / miks-RMS under dette = instrumental (ingen WhisperX)
+
+
+class Models:
+    def __init__(self):
+        import torch  # type: ignore
+
+        self.torch = torch
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.compute_type = "float16" if self.device == "cuda" else "int8"
+        self.demucs = None
+        self.whisper = {}
+        self.align = {}
+        self.detector = None
+
+    def separate(self, audio_path: str):
+        """Vokalen (mono 16 kHz, numpy) og forholdet vokal/miks, med Demucs i samme prosess."""
+        import torchaudio  # type: ignore
+        from demucs.apply import apply_model  # type: ignore
+        from demucs.audio import AudioFile  # type: ignore
+        from demucs.pretrained import get_model  # type: ignore
+
+        if self.demucs is None:
+            self.demucs = get_model("htdemucs")
+            self.demucs.to(self.device)
+            self.demucs.eval()
+        m = self.demucs
+        wav = AudioFile(audio_path).read(streams=0, samplerate=m.samplerate, channels=m.audio_channels)
+        ref = wav.mean(0)
+        mean, std = ref.mean(), ref.std() + 1e-8
+        with self.torch.no_grad():
+            sources = apply_model(m, ((wav - mean) / std)[None], device=self.device, split=True, overlap=0.25, progress=False)[0]
+        sources = sources * std + mean
+        vocals = sources[m.sources.index("vocals")].mean(0)
+        mix = wav.mean(0)
+        ratio = float(vocals.pow(2).mean().sqrt() / (mix.pow(2).mean().sqrt() + 1e-8))
+        v16 = torchaudio.functional.resample(vocals.cpu(), m.samplerate, 16000).numpy().astype("float32")
+        return v16, ratio
+
+    def whisper_model(self, name: str, language):
+        import whisperx  # type: ignore
+
+        key = (name, language)
+        if key not in self.whisper:
+            self.whisper[key] = whisperx.load_model(name, self.device, compute_type=self.compute_type, language=language)
+        return self.whisper[key]
+
+    def align_model(self, lang: str):
+        import whisperx  # type: ignore
+
+        if lang not in self.align:
+            self.align[lang] = whisperx.load_align_model(language_code=lang, device=self.device)
+        return self.align[lang]
+
+
+def serve():
+    import whisperx  # type: ignore
+
+    models = Models()
+    print(json.dumps({"ready": True, "device": models.device}), flush=True)
+    for raw in sys.stdin:
+        raw = raw.strip()
+        if not raw:
+            continue
+        job = json.loads(raw)
+        jid = job.get("id", "")
+        st = lambda name: print(f"STAGE: {jid} {name}", file=sys.stderr, flush=True)
+        try:
+            st("demucs")
+            audio, ratio = models.separate(job["audio"])
+            if ratio < INSTRUMENTAL_RATIO and not job.get("text"):
+                print(json.dumps({"id": jid, "ok": True, "instrumental": True, "ratio": round(ratio, 4), "words": 0}), flush=True)
+                continue
+            text = (job.get("text") or "").strip()
+            language = job.get("language")
+            if text:
+                lang = language
+                if not lang:
+                    st("language")
+                    lang = models.whisper_model("base", None).detect_language(audio) or "en"
+                segments_in = [{"text": " ".join(l.strip() for l in text.splitlines() if l.strip()), "start": 0.0, "end": len(audio) / 16000.0}]
+            else:
+                st("transcribe")
+                res = models.whisper_model(job.get("model") or "large-v2", language).transcribe(audio, batch_size=16 if models.device == "cuda" else 4)
+                segments_in = res["segments"]
+                lang = res.get("language") or language or "en"
+            st("align")
+            model_a, meta = models.align_model(lang)
+            segments = whisperx.align(segments_in, model_a, meta, audio, models.device, return_char_alignments=False).get("segments", [])
+            words = words_of(segments)
+            if text and len(words) == len(" ".join(text.split()).split()):
+                lrc = lrc_from_text_lines(text, words)
+            else:
+                lrc = lrc_from_segments(segments)
+            st("write")
+            with open(job["out_json"], "w", encoding="utf-8") as f:
+                json.dump(words, f, ensure_ascii=False, indent=2)
+            with open(job["out_lrc"], "w", encoding="utf-8") as f:
+                f.write("\n".join(lrc) + ("\n" if lrc else ""))
+            print(json.dumps({"id": jid, "ok": True, "instrumental": False, "ratio": round(ratio, 4), "words": len(words), "language": lang}), flush=True)
+        except Exception as exc:  # noqa: BLE001 – rapporteres til Vault, prosessen lever videre
+            print(json.dumps({"id": jid, "ok": False, "error": f"{type(exc).__name__}: {exc}"[:500]}), flush=True)
+
+
 def main():
+    if "--serve" in sys.argv:
+        serve()
+        return
     parser = argparse.ArgumentParser(description="Isoler vokal med Demucs og synkroniser ord med WhisperX.")
     parser.add_argument("audio_path", help="Sti til lydfil (WAV/FLAC/MP3)")
     parser.add_argument("output_json", help="Sti til utdata JSON-fil")

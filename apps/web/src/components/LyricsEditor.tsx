@@ -73,6 +73,11 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="gv-label m-0">Tekst & Karaoke-synk</h3>
+          {meta?.source === 'instrumental' && (
+            <span title="Demucs fant ingen vokal, så WhisperX ble hoppet over. Lim inn tekst og lagre hvis det likevel er tekst." className="rounded-full bg-white/[0.08] px-2 py-0.5 text-[11px] font-semibold text-soft">
+              Instrumental
+            </span>
+          )}
           {meta?.source === 'auto' && !meta.approved && (
             <span className="flex items-center gap-1.5">
               <span title="Teksten er transkribert automatisk fra lyden. Les den gjennom, rett feil og godkjenn." className="rounded-full bg-accent-2/[0.18] px-2 py-0.5 text-[11px] font-semibold text-ink-strong">

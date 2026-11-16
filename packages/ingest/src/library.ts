@@ -85,7 +85,7 @@ export interface Lyrics {
  * `approved`), `aligned` = Knuts tekst med beregnede ordtider, `manual` = skrevet/limt inn.
  */
 export interface LyricsMeta {
-  source: 'auto' | 'aligned' | 'manual';
+  source: 'auto' | 'aligned' | 'manual' | 'instrumental';
   approved: boolean;
   at: string;
 }

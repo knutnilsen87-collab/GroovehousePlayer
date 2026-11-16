@@ -14,6 +14,8 @@ import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type Playli
 import { createFavoritesStore, createListenStore, LibraryError } from './library';
 import { hasWordTimes, sharedLyricsQueue } from './lyrics-queue';
 import { buildCoverPrompt, bulkImgStatus, COVER_STYLES, receiveFromBulkImg, sendToBulkImg } from './bulkimg';
+import { createSkippedStore } from './incoming';
+import { importSkipped } from './import-actions';
 import { findBrandLogo, handleSkins } from './skins-store';
 import { handleFx } from './fx-store';
 import { BUILT_IN_SKIN_IDS } from '@gv/shared';
@@ -80,6 +82,7 @@ export function createApiHandler(opts: ApiOptions) {
   // Tekstkøen (Demucs + WhisperX) deles med watcheren i serveren; samme lager, så skrivingene går i rekkefølge
   const lyricsQueue = sharedLyricsQueue({ mediaDir: opts.mediaDir, dataDir, root });
   const lyrics = lyricsQueue.store;
+  const skippedStore = createSkippedStore(dataDir);
   const listens = createListenStore(path.join(dataDir, 'listens.json'));
   let version = '0.0.0';
   try {
@@ -241,6 +244,30 @@ export function createApiHandler(opts: ApiOptions) {
       return send(res, 200, { manifest: next });
     }
 
+    // «Hoppet over – finnes allerede»: filer som ligner en låt i Vault. Knut velger ny versjon, egen låt eller å la være.
+    if (url.pathname === '/api/import-skipped' && req.method === 'GET') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return send(res, 200, { items: await skippedStore.list() });
+    }
+    const sk = url.pathname.match(/^\/api\/import-skipped\/([0-9a-f-]{36})$/);
+    if (sk && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const body = ((await readJson(req).catch(() => ({}))) ?? {}) as { choice?: unknown };
+      const choice = body.choice;
+      if (choice !== 'version' && choice !== 'separate' && choice !== 'dismiss') return send(res, 400, { error: 'choice må være version, separate eller dismiss' });
+      const it = await skippedStore.take(sk[1]!);
+      if (!it) return send(res, 404, { error: 'finnes ikke i lista' });
+      if (choice === 'dismiss') return send(res, 200, { ok: true });
+      try {
+        const results = await importSkipped(it, choice, { mediaDir: opts.mediaDir, cfg: config() });
+        for (const r of results) lyricsQueue.enqueue(r.manifest.slug, { title: r.manifest.title, audioFile: it.file });
+        return send(res, 200, { manifests: results.map((r) => r.manifest) });
+      } catch (err) {
+        await skippedStore.add(it); // tilbake i lista, så valget kan prøves igjen
+        return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+      }
+    }
+
     // Del 23 nivå 2: AI-cover via bulkIMG (CSV ut til innboksen, cover inn fra eksportmappa)
     if (url.pathname.startsWith('/api/ai-covers')) {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
@@ -301,6 +328,23 @@ export function createApiHandler(opts: ApiOptions) {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
       return send(res, 200, lyricsQueue.status());
     }
+    // Nattkjøring: tekst på alle låter (ikke live-sett), 01–07, med pause/fortsett/stopp fra Studio
+    if (url.pathname === '/api/lyrics-batch' && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const body = ((await readJson(req).catch(() => ({}))) ?? {}) as { action?: unknown };
+      if (body.action === 'start') {
+        const idx = JSON.parse(await readFile(path.join(opts.mediaDir, 'index.json'), 'utf8')) as CatalogIndex;
+        const bySlug = new Map<string, string>();
+        for (const a of idx.assets) if (a.kind !== 'set' && !bySlug.has(a.slug)) bySlug.set(a.slug, a.title);
+        lyricsQueue.startBatch([...bySlug.entries()].map(([slug, title]) => ({ slug, title })));
+        return send(res, 200, lyricsQueue.status());
+      }
+      if (body.action === 'pause' || body.action === 'resume' || body.action === 'stop') {
+        if (!lyricsQueue.controlBatch(body.action)) return send(res, 404, { error: 'ingen nattkjøring' });
+        return send(res, 200, lyricsQueue.status());
+      }
+      return send(res, 400, { error: 'action må være start, pause, resume eller stop' });
+    }
     const tr = url.pathname.match(/^\/api\/lyrics\/([a-z0-9][a-z0-9-]{0,120})\/(transcribe|approve)$/);
     if (tr && req.method === 'POST') {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
@@ -332,7 +376,10 @@ export function createApiHandler(opts: ApiOptions) {
         } else if (what === 'lyrics' && slug) {
           if (req.method === 'GET') {
             const l = await lyrics.get(slug);
-            return l ? send(res, 200, l) : send(res, 404, { error: 'ingen tekst' });
+            if (l) return send(res, 200, l);
+            // Instrumental (Demucs fant ingen vokal): ingen tekstfil, men merket vises i Studio
+            const meta = await lyrics.getMeta(slug);
+            return meta?.source === 'instrumental' ? send(res, 200, { slug, format: 'txt', text: '', meta }) : send(res, 404, { error: 'ingen tekst' });
           }
           if (req.method === 'PUT') {
             const body = (await readJson(req, 400_000)) as { format?: unknown; text?: unknown };

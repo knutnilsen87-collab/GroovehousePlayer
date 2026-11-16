@@ -59,7 +59,7 @@ export interface LyricsData {
   meta?: LyricsMeta | null;
 }
 export interface LyricsMeta {
-  source: 'auto' | 'aligned' | 'manual';
+  source: 'auto' | 'aligned' | 'manual' | 'instrumental';
   approved: boolean;
   at: string;
 }
@@ -130,8 +130,8 @@ export interface LyricsJob {
   title: string;
   status: 'waiting' | 'running' | 'done' | 'skipped' | 'failed';
   stage: 'start' | 'demucs' | 'language' | 'transcribe' | 'align' | 'write' | null;
-  mode: 'auto' | 'aligned' | null;
-  reason: 'ingest' | 'studio' | 'pasted';
+  mode: 'auto' | 'aligned' | 'instrumental' | null;
+  reason: 'ingest' | 'studio' | 'pasted' | 'batch';
   queuedAt: string;
   startedAt: string | null;
   finishedAt: string | null;
@@ -143,6 +143,7 @@ export interface LyricsQueueStatus {
   enabled: boolean;
   python: string | null;
   jobs: LyricsJob[];
+  batch: { total: number; done: number; paused: boolean; inWindow: boolean; window: { from: number; to: number }; next: string | null } | null;
 }
 /** Tekstkøen (Studio): hentes hvert 2. sekund mens noe står i kø eller kjører, ellers hvert 15. */
 export function useLyricsQueue(): LyricsQueueStatus | null {

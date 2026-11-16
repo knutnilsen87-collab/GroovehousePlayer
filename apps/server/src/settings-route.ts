@@ -167,12 +167,13 @@ export function createSettingsRoute(h: SettingsHooks) {
 
 function pickPatch(body: Record<string, unknown>): SettingsPatch {
   const patch: SettingsPatch = {};
-  for (const k of ['audio', 'ingest', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) {
+  for (const k of ['audio', 'ingest', 'lyrics', 'covers', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) {
     const v = body[k];
     if (v && typeof v === 'object' && !Array.isArray(v)) (patch as Record<string, unknown>)[k] = v;
   }
   if (body.exportDir === null || typeof body.exportDir === 'string') patch.exportDir = body.exportDir as string | null;
   if (body.draftDir === null || typeof body.draftDir === 'string') patch.draftDir = body.draftDir as string | null;
+  if (Array.isArray(body.draftDirs) && body.draftDirs.length <= 20 && body.draftDirs.every((d) => typeof d === 'string')) patch.draftDirs = body.draftDirs as string[];
   return patch;
 }
 

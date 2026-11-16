@@ -11,6 +11,8 @@ import { backfillAnalysis } from './spectrum';
 import { indexSources, readSources, sourcesFile } from './source-index';
 import { createLyricsQueue } from './lyrics-queue';
 import { fillVaultCovers } from './vault-covers';
+import { probe } from './ffmpeg';
+import { classifyIncoming, createFingerprintStore, createHashCache, createSkippedStore } from './incoming';
 import { readOverrides, scanDrafts, scanFlat, type ReleaseSource } from './sources';
 
 const HELP = `
@@ -153,7 +155,7 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
   if (args.includes('--backlog')) {
     // Del 16: --drafts = utkastmappa (med undermapper), ingestes som utkast
     const drafts = args.includes('--drafts');
-    const configured = drafts ? loadConfig().draftDir : loadConfig().exportDir;
+    const configured = drafts ? (loadConfig().draftDirs[0] ?? null) : loadConfig().exportDir;
     const dir = path.resolve(base, target ?? configured ?? '');
     if (!target && !configured)
       throw new Error(drafts ? 'Mangler mappe for umastrede låter: velg den i Studio → Innstillinger, sett GH_DRAFT_DIR i .env eller oppgi mappa' : 'Mangler eksportmappe: velg eksportmappe i Studio → Innstillinger, sett GH_EXPORT_DIR i .env eller oppgi mappa');
@@ -179,14 +181,39 @@ ${r.done} oppdatert, ${r.current} var allerede oppdatert, ${r.missing} uten mast
       rl.close();
       if (!/^(j|ja|y|yes)$/i.test(answer.trim())) return;
     }
+    // Samme regler som watcheren: samme lyd → stille, stems → hoppes over, samme låt → «Hoppet over» i Studio
+    const dataDir = path.join(root, 'data');
+    const ctx = { mediaDir, dataDir, hashes: createHashCache(dataDir), fingerprints: createFingerprintStore(dataDir) };
+    const skippedStore = createSkippedStore(dataDir);
+    const skippedOut: string[] = [];
     for (const r of unique) {
       console.log(`\n── ${r.masters[0]!.fileName}`);
       try {
+        if (!force) {
+          const keep = [];
+          for (const m of r.masters) {
+            const v = await classifyIncoming(ctx, { file: m.path, fileName: m.fileName, slug: m.slug, variant: m.variant, title: m.titleFromFile, durationMs: (await probe(m.path)).durationMs, status: drafts ? 'draft' : 'release' });
+            await ctx.hashes.save();
+            if (v.action === 'import') keep.push(m);
+            else if (v.action === 'known') skippedOut.push(`  ↷ ${m.fileName}: samme lyd finnes allerede`);
+            else if (v.action === 'stem') skippedOut.push(`  ↷ ${m.fileName}: ${v.reason}`);
+            else {
+              await skippedStore.add(v.item);
+              skippedOut.push(`  ↷ ${m.fileName}: ligner «${v.item.matchTitle}» (${v.item.reason}${v.item.similarity != null ? ` ${Math.round(v.item.similarity * 100)} %` : ''}) → «Hoppet over» i Studio`);
+            }
+          }
+          if (!keep.length) {
+            console.log('  ↷ hoppet over (se oppsummeringen)');
+            continue;
+          }
+          r.masters = keep;
+        }
         results.push(...withSource(await ingestRelease(r, { mediaDir, force, config: cfg, report, status: drafts ? 'draft' : 'release' }), r.masters));
       } catch (err) {
         console.error(`  ✗ ${err instanceof Error ? err.message.split('\n')[0] : err}`);
       }
     }
+    if (skippedOut.length) console.log(`\nHoppet over (${skippedOut.length}):\n${skippedOut.join('\n')}`);
   } else {
     if (!target) throw new Error('Mangler mappe eller fil');
     const abs = path.resolve(base, target);

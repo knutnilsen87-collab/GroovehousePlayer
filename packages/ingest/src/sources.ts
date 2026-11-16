@@ -6,6 +6,8 @@ import { matchRule, type VaultConfig } from './config';
 import type { LiveLog } from './livelog';
 
 export const AUDIO_RE = /\.(wav|wave|aif|aiff|flac)$/i;
+/** Mappene for umastrede låter tar også tapsbaserte filer (Suno, mobilopptak o.l.). Release-mappa er bare tapsfri. */
+export const DRAFT_AUDIO_RE = /\.(wav|wave|aif|aiff|flac|mp3|m4a|aac|ogg|opus)$/i;
 export const IMAGE_RE = /\.(png|jpe?g|webp)$/i;
 const COVER_RE = /^cover\.(png|jpe?g|webp)$/i;
 
@@ -144,7 +146,7 @@ export interface FlatScan {
 export async function scanDrafts(dir: string, cfg: VaultConfig, depth = 8): Promise<FlatScan> {
   const out: FlatScan = { releases: [], ignored: [], orphanImages: [] };
   const walk = async (d: string, left: number) => {
-    const s = await scanFlat(d, cfg);
+    const s = await scanFlat(d, cfg, { lossy: true });
     out.releases.push(...s.releases);
     out.ignored.push(...s.ignored.map((f) => path.relative(dir, path.join(d, f))));
     out.orphanImages.push(...s.orphanImages.map((f) => path.relative(dir, path.join(d, f))));
@@ -156,7 +158,8 @@ export async function scanDrafts(dir: string, cfg: VaultConfig, depth = 8): Prom
   return out;
 }
 
-export async function scanFlat(dir: string, cfg: VaultConfig): Promise<FlatScan> {
+export async function scanFlat(dir: string, cfg: VaultConfig, opts: { lossy?: boolean } = {}): Promise<FlatScan> {
+  const audioRe = opts.lossy ? DRAFT_AUDIO_RE : AUDIO_RE;
   const abs = path.resolve(dir);
   const entries = (await readdir(abs, { withFileTypes: true })).filter((e) => e.isFile()).map((e) => e.name);
   const bySlug = new Map<string, MasterSource[]>();
@@ -165,7 +168,7 @@ export async function scanFlat(dir: string, cfg: VaultConfig): Promise<FlatScan>
 
   for (const f of entries.sort((a, b) => a.localeCompare(b, 'nb'))) {
     const full = path.join(abs, f);
-    if (AUDIO_RE.test(f)) {
+    if (audioRe.test(f)) {
       const p = parseFlatName(f, cfg.titleCleanup);
       const ms: MasterSource = {
         path: full,
