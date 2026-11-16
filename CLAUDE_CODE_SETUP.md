@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -814,6 +814,45 @@ Mål: ingen låt skal stå med tomt cover. Vault lager et passende cover automat
 **Tester:** samme låt gir samme Vault-cover, palett fra generert cover, at ekte cover alltid vinner, batch med kostnadsvarsel og bekreftelse, at nøkkelen aldri havner i logger eller filer, og at tekst legges på av Vault (ikke i AI-bildet).
 
 **Ferdig når:** alle låter i biblioteket har et cover. De som manglet, har et Vault-cover som passer stilen. Knut lager AI-cover for én låt i stilen Echo Groove Nights, velger én av fire varianter, og ser at spilleren skifter farge etter det nye coveret.
+
+## Del 24 – Utgivelser via LANDR (release-pakke)
+
+**Fakta:** LANDR har ingen åpen API for distribusjon. Mastering-API-et deres er for partnerplattformer, ikke for enkeltbrukere. Vault kan derfor **ikke** sende en utgivelse direkte inn på Knuts LANDR-konto. Vault gjør i stedet alt forarbeidet, så selve innsendingen på landr.com tar et par minutter.
+
+**Release-pakke**
+1. **«Forbered utgivelse»** på en låt, et album eller en Album-plan (del 16). Den lager en mappe i `releases/<dato>-<tittel>/` (gitignored) med dette:
+   - **Lyd:** master-WAV i et format LANDR godtar (16- eller 24-bit, 44,1 kHz, stereo, laget fra `master.flac`), med navn `01 - Tittel.wav`. Sjekk true peak og at fila ikke er klippet, og varsle hvis den er det.
+   - **Cover:** 3000×3000 RGB JPG/PNG fra coveret (del 23). Advarsel hvis det er generert eller AI-laget, så Knut tar et bevisst valg.
+   - **Metadata** (`metadata.json` + lesbar `metadata.txt`):
+     - tittel, artist «Echo Groove», label «Groovehouse Records», ℗/©-linje
+     - sjanger, språk, eksplisitt ja/nei
+     - utgivelsesdato, ISRC/UPC hvis Knut har dem
+     - BPM og toneart, sangtekst (del 22/tekst)
+     - kreditering
+     - om AI er brukt i musikk eller cover (distributører spør)
+   - **Sjekkliste** over hva som mangler.
+2. **Kopier-knapper** for hvert felt i et eget panel, i samme rekkefølge som LANDRs utgivelsesskjema. Knappen **«Åpne LANDR»** åpner landr.com i nettleseren.
+3. Blokker utgivelse av låter med status **Umastret**, med mindre Knut bekrefter «Utgi likevel».
+
+**Status og oversikt**
+4. Hver låt får en **utgivelsesstatus**: Ikke planlagt → Forberedt → Sendt til LANDR → Planlagt (dato) → Ute. Knut setter den med ett trykk. Når låta er ute, kan han lime inn lenker (Spotify, Apple Music osv.), og de vises i Kreditering.
+5. En **utgivelseskalender** i Studio viser planlagte og utgitte låter.
+
+**LANDR-mastering (uten API)**
+6. **«Send til LANDR-mastering»** eksporterer umastrede låter som WAV til en mappe for opplasting. Knut laster opp og ned selv på landr.com.
+7. En overvåket mappe for **LANDR-masters** (sti i Innstillinger). Filer der kobles til riktig låt via slug eller navn og blir en ny versjon med kilden «LANDR-master». **Spør Knut** om LANDR-mastere skal regnes som **release-klare** (i dag gjør bare REASONDONE det).
+
+**Ikke i denne delen:** automatisk utfylling av LANDR-skjemaet. Det kan Claude gjøre i nettleseren for Knut ved behov, med hans godkjenning for hver innsending, men Vault skal ikke skrape eller automatisere LANDR på egen hånd.
+
+**Tester:**
+- Lydformat og true peak-sjekk.
+- Cover 3000×3000 RGB.
+- At metadata er komplett, og at manglende felt vises i sjekklista.
+- Blokkering av umastrede låter.
+- Kobling av LANDR-mastere til riktig låt.
+- At `releases/` er gitignored.
+
+**Ferdig når:** Knut trykker «Forbered utgivelse» på en låt, får en komplett mappe og et panel med kopier-knapper, sender den inn på landr.com på noen minutter, og setter status til «Sendt til LANDR».
 
 ## Del 15 – Oppdatering av Android-appen
 
