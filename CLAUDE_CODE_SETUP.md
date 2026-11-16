@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 25 (utgitte låter)** → **del 26 (albumbygger)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -650,8 +650,29 @@ Mål: settene settbyggeren lager skal ha overganger som er **så jevne som mulig
     - Stil bygger på **Knuts egne tagger**: ett trykk per låt («Deep», «Tech», «Cyber-Soul», egne navn) pluss en automatisk likhetsvektor fra analysen (BPM, swing, bass, lysstyrke, vokalandel). Vault foreslår tagger for nye låter ut fra likhet med de Knut har tagget. Ingen sjangergjenkjenning fra lyd utover det.
     - «Skift mot Tech» gjør at de neste forslagene og resten av settet glir mot låter tagget Tech, gradvis over 2–3 låter.
 
+### E. «Lag sett fra denne låta» (frølåt)
+20. Ny handling **«Lag sett fra denne»**, tilgjengelig her:
+    - i «⋯»-menyen på alle låter
+    - i fullskjermspilleren
+    - på låtrader i Bibliotek og DJ-verktøy
+    - ved langt trykk på hjertet
+
+    **Ett trykk** gir et sett med standardvalgene. Det skal være raskt.
+21. **Standardvalg** (kan endres i et lite ark før eller etter):
+    - Varighet 60 min.
+    - Kurve **Reise**.
+    - Frølåta plasseres der den passer kurven best ut fra energien (lav energi gir start, høy gir toppen). Kan overstyres: **Start**, **Topp** eller **Avslutning**.
+    - Umastrede låter er med (del 16).
+22. **Frølåta setter retningen** for hele settet, ikke bare naboene:
+    - Låter som ligner på frølåta (groove, bass-karakter, stil-tagger, toneområde og BPM-område) vektes opp, mer jo nærmere frølåta de ligger i settet.
+    - Settet kan bevege seg bort fra frølåta og tilbake, slik en DJ bygger rundt en favoritt.
+    - Med Vibe Shifter (D) kan Knut si «start som denne, slutt mer Tech».
+23. Overgangsreglene (B), presetene (del 18) og renderte overganger (C) gjelder som for andre sett. Resultatet gir tre forslag og lagres under **Live-sett → Planlagte sett** med navnet «Fra *<frølåt>*».
+24. **«Mer som denne»**: en lett variant uten sett-struktur. Den gir en kø på 10–20 låter som ligner, sortert for jevne overganger, og kan lagres som spilleliste.
+
 ### Tester og ferdig når
 **Tester:**
+- Frølåt: alltid med og på valgt eller beregnet plass, og likhet med frølåta øker gjennomsnittlig nær frølåta.
 - Groove-mål på syntetiske filer med kjent swing (0/10/20 %) innen ±2 %.
 - Vokalkart mot hånd-merkede tidsintervaller på 3 låter.
 - Takt-justering i rendret overgang < 15 ms på fixtures.
@@ -659,7 +680,7 @@ Mål: settene settbyggeren lager skal ha overganger som er **så jevne som mulig
 - Determinisme.
 - Rendering av et 60-min sett under 60 s på Knuts PC.
 
-**Ferdig når:** Knut lager et 60-min sett. Alle overgangene har en rendret forhåndsvisning som han kan høre på telefonen. Ingen er rødmerket uten at et alternativ er foreslått. Han gir tommel opp på minst 80 % av overgangene ved første gjennomlytting.
+**Ferdig når:** Knut trykker «Lag sett fra denne» på en låt han liker og får tre 60-min sett bygget rundt den på under 5 s. Alle overgangene har en rendret forhåndsvisning som han kan høre på telefonen. Ingen er rødmerket uten at et alternativ er foreslått. Han gir tommel opp på minst 80 % av overgangene ved første gjennomlytting.
 
 ## Del 21 – Vault på Raspberry Pi (alltid på, PC-en kan være av)
 
@@ -798,6 +819,118 @@ Mål: ingen låt skal stå med tomt cover. Vault lager et passende cover automat
 **Tester:** samme låt gir samme Vault-cover, palett fra generert cover, at ekte cover alltid vinner, batch med kostnadsvarsel og bekreftelse, at nøkkelen aldri havner i logger eller filer, og at tekst legges på av Vault (ikke i AI-bildet).
 
 **Ferdig når:** alle låter i biblioteket har et cover. De som manglet, har et Vault-cover som passer stilen. Knut lager AI-cover for én låt i stilen Echo Groove Nights, velger én av fire varianter, og ser at spilleren skifter farge etter det nye coveret.
+
+## Del 24 – Utgivelser via LANDR (release-pakke)
+
+**Fakta:** LANDR har ingen åpen API for distribusjon. Mastering-API-et deres er for partnerplattformer, ikke for enkeltbrukere. Vault kan derfor **ikke** sende en utgivelse direkte inn på Knuts LANDR-konto. Vault gjør i stedet alt forarbeidet, så selve innsendingen på landr.com tar et par minutter.
+
+**Release-pakke**
+1. **«Forbered utgivelse»** på en låt, et album eller en Album-plan (del 16). Den lager en mappe i `releases/<dato>-<tittel>/` (gitignored) med dette:
+   - **Lyd:** master-WAV i et format LANDR godtar (16- eller 24-bit, 44,1 kHz, stereo, laget fra `master.flac`), med navn `01 - Tittel.wav`. Sjekk true peak og at fila ikke er klippet, og varsle hvis den er det.
+   - **Cover:** 3000×3000 RGB JPG/PNG fra coveret (del 23). Advarsel hvis det er generert eller AI-laget, så Knut tar et bevisst valg.
+   - **Metadata** (`metadata.json` + lesbar `metadata.txt`):
+     - tittel, artist «Echo Groove», label «Groovehouse Records», ℗/©-linje
+     - sjanger, språk, eksplisitt ja/nei
+     - utgivelsesdato, ISRC/UPC hvis Knut har dem
+     - BPM og toneart, sangtekst (del 22/tekst)
+     - kreditering
+     - om AI er brukt i musikk eller cover (distributører spør)
+   - **Sjekkliste** over hva som mangler.
+2. **Kopier-knapper** for hvert felt i et eget panel, i samme rekkefølge som LANDRs utgivelsesskjema. Knappen **«Åpne LANDR»** åpner landr.com i nettleseren.
+3. Blokker utgivelse av låter med status **Umastret**, med mindre Knut bekrefter «Utgi likevel».
+
+**Status og oversikt**
+4. Hver låt får en **utgivelsesstatus**: Ikke planlagt → Forberedt → Sendt til LANDR → Planlagt (dato) → Ute. Knut setter den med ett trykk. Når låta er ute, kan han lime inn lenker (Spotify, Apple Music osv.), og de vises i Kreditering.
+5. En **utgivelseskalender** i Studio viser planlagte og utgitte låter.
+
+**LANDR-mastering (uten API)**
+6. **«Send til LANDR-mastering»** eksporterer umastrede låter som WAV til en mappe for opplasting. Knut laster opp og ned selv på landr.com.
+7. En overvåket mappe for **LANDR-masters** (sti i Innstillinger). Filer der kobles til riktig låt via slug eller navn og blir en ny versjon med kilden «LANDR-master». **Spør Knut** om LANDR-mastere skal regnes som **release-klare** (i dag gjør bare REASONDONE det).
+
+**Ikke i denne delen:** automatisk utfylling av LANDR-skjemaet. Det kan Claude gjøre i nettleseren for Knut ved behov, med hans godkjenning for hver innsending, men Vault skal ikke skrape eller automatisere LANDR på egen hånd.
+
+**Tester:**
+- Lydformat og true peak-sjekk.
+- Cover 3000×3000 RGB.
+- At metadata er komplett, og at manglende felt vises i sjekklista.
+- Blokkering av umastrede låter.
+- Kobling av LANDR-mastere til riktig låt.
+- At `releases/` er gitignored.
+
+**Ferdig når:** Knut trykker «Forbered utgivelse» på en låt, får en komplett mappe og et panel med kopier-knapper, sender den inn på landr.com på noen minutter, og setter status til «Sendt til LANDR».
+
+## Del 25 – Utgitte låter i Vault
+
+Mål: låter Knut allerede har gitt ut (via LANDR eller andre steder), skal ligge i Vault med full analyse og kunne brukes i spillelister, sett og deling, merket som **Utgitt** med utgivelsesinfo og lenker.
+
+**Status**
+1. Ny status **Utgitt** i tillegg til Release-klar og Umastret. Rekkefølgen i biblioteket blir **Utgitt → Release-klar → Umastret**. Segmentet blir «Alle · Utgitt · Release-klar · Umastret».
+   - Brikke **UTGITT** og en liten markering på coveret.
+   - Utgitte låter regnes som mastret: de er med i settbygger, «Passer etter …» og deling som standard.
+
+**Kilde**
+2. **Spør Knut hvor filene til de utgitte låtene ligger.** Det kan være én mappe (f.eks. LANDR-nedlastinger), flere mapper, eller allerede i REASONDONE eller utkastmappa.
+   - Ny kilde `GH_RELEASED_DIR` (kun lesing), satt i Innstillinger og i `groovehouse.local.json`.
+   - Ingest som før. Status Utgitt settes fra mappa.
+3. **Finnes låta allerede i Vault** (samme tittel eller lyd): match med lyd-hash først, deretter lydlikhet (kromagram-korrelasjon) og tittel. Den utgitte fila blir en egen versjon merket «Utgitt master», og låta får status Utgitt.
+   - Usikre treff vises i en liste der Knut bekrefter eller avviser med ett trykk. Ingenting slås sammen uten bekreftelse.
+4. **Har Knut ikke lenger fila:** «Legg til utgitt låt uten lyd». Den viser metadata og lenker, men kan ikke spilles. Slike låter vises med «Mangler lyd», så han ser hva han bør hente.
+
+**Utgivelsesinfo**
+5. Per låt: utgivelsesdato, distributør (LANDR), UPC/ISRC, release-tittel (single/EP/album) og lenker til Spotify, Apple Music, YouTube, Tidal og Beatport. Vises under Kreditering.
+6. **Rask utfylling:** lim inn en Spotify- eller Apple-lenke, så fylles det som kan leses fra lenken (tittel og dato der det er mulig). Import av en CSV eksportert fra LANDR med tittel, ISRC, UPC og dato, hvis LANDR tilbyr det. Ellers manuelt.
+7. Del 24 (release-pakke) setter status til Utgitt automatisk når Knut markerer en utgivelse som «Ute».
+8. Delt tekst (del 10 og 13) kan for utgitte låter ta med «Ute nå på Spotify» med lenken, av/på i delings-arket.
+
+**Tester:** status fra mappe, matching på hash og lydlikhet med bekreftelse, at ingenting slås sammen uten OK, låter uten lyd vises riktig og kan ikke spilles, lenkeparsing og at Utgitt er med i settbyggeren som standard.
+
+**Ferdig når:** Knut peker Vault på mappa med utgitte låter. De dukker opp som Utgitt med cover og analyse. Låter som også lå i REASONDONE, kobles sammen etter at han bekrefter. Han limer inn en Spotify-lenke på én låt og ser den under Kreditering.
+
+## Del 26 – Albumbygger: beste utvalg og rekkefølge
+
+Mål: Knut velger format (single, EP eller album) og eventuelt en pool av låter. Vault foreslår **hvilke låter** som hører sammen og **i hvilken rekkefølge**, etter prinsippene for å sekvensere album. Det er andre regler enn for DJ-sett (del 17/20): et album skal ha **variasjon og bue**, ikke sømløs flyt.
+
+**Utvalg (hvilke låter)**
+1. **Pool:** et Album-plan (del 16), låter med bestemte stil-tagger, en frølåt («album rundt denne», som del 20 E), eller hele biblioteket. Utgitte låter er utelatt som standard (del 25). Umastrede er med (del 16), merket.
+2. **Sammenheng:** velg et sett som henger sammen i lyd og stil (groove, bass-karakter, stil-tagger og BPM-område fra del 20, og nær toneområde). Unngå både for like låter (seks låter som høres like ut) og utbrytere.
+3. **Kvalitetssignaler** som vekter opp:
+   - Knuts hjerter (favoritter)
+   - antall avspillinger og fullførte lyttinger (lokal logg)
+   - om låta er mastret
+   - lytteinnsikt fra delte drops (del 13), hvis det finnes
+
+   Knut kan også markere en låt som **«Singel-kandidat»**.
+4. **Format og lengde:**
+   - **Single:** 1–3 låter.
+   - **EP:** 4–6 låter, ca. 15–30 min.
+   - **Album:** 8–14 låter, ca. 35–55 min.
+   - **Vinyl-modus:** delt i side A og B, maks ca. 18–22 min per side, med sterk åpner på begge sider.
+
+**Rekkefølge (hvordan albumet bygges)**
+5. **Åpning:** låt 1 er representativ og fanger raskt (tidlig hook, kort intro). Den sterkeste låta eller singelen ligger blant de tre første, fordi strømmetjenestene favoriserer starten av et album.
+6. **Bue:** åpning → oppbygging → midtpunkt → pustepause → klimaks → avslutning. Siste låt har en tydelig eller rolig slutt. Vis energikurven (del 20) og la Knut velge eller tegne bue.
+7. **Variasjon mellom nabolåter** (straff for for mye likhet):
+   - Ikke samme toneart mer enn to ganger på rad. Toneartsskifter er ønsket for kontrast, men unngå skurrende hopp mellom slutt og start (siste akkord mot første toneart).
+   - Varier tempo og energi. Ikke tre rolige eller tre harde etter hverandre.
+   - Ikke to vokal-tunge låter med samme stemning rett etter hverandre.
+   - Spre singel-kandidatene.
+8. **Lydbilde:** jevnt lydnivå (LUFS) gjennom albumet. Advar om låter som stikker seg ut (særlig umastrede) og foreslå mastering via del 24.
+9. **Overganger mellom spor:** foreslå pause (0–2 s) eller **gapless** der låtene glir i hverandre. Alternativt en **kontinuerlig DJ-mix-versjon** av albumet, med renderte overganger fra del 20.
+
+**Bruk**
+10. **«Bygg album»** i Studio og fra «⋯» på en Album-plan:
+    - Velg format og pool (eventuelt frølåt).
+    - Få **tre forslag**: «sterkest først», «beste bue» og «mest sammenheng».
+    - Hvert forslag har en kort forklaring per plass («Åpner: kort intro, hook etter 0:20»), sporliste, total tid og energikurve.
+11. Lås låter eller plasser, dra for å flytte, **«Bytt ut»** gir fem alternativer som passer plassen, og **«Bygg på nytt»** beholder det låste.
+12. **Lagre** som Album-plan (del 16) med «x av y mastret». **Forhåndslytt** albumet med 20 sekunder fra hver låt (rundt hooken) for å høre helheten raskt.
+13. Videre til **utgivelse** (del 24): release-pakke for hele albumet med sporrekkefølge, nummererte filer og albummetadata.
+
+**Senere (ikke i denne delen):** forslag til albumtittel og sporrekkefølge for vinyl med testpress-lengder.
+
+**Tester:** formatlengder og sidelengder for vinyl, at regel for sterk åpning og singel blant de tre første holder, variasjonsregler (toneart, tempo, energi, vokal), at låste plasser respekteres, determinisme med frø, at utgitte låter er utelatt som standard, og forhåndslytting med riktige hook-utdrag.
+
+**Ferdig når:** Knut velger «Album, 10 låter» fra hele biblioteket. Han får tre forslag på noen sekunder, hører gjennom ett med 20-sekunders utdrag, bytter ut én låt, lagrer som Album-plan og lager release-pakke for albumet.
 
 ## Del 15 – Oppdatering av Android-appen
 
