@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 25 (utgitte låter)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 25 (utgitte låter)** → **del 26 (albumbygger)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -880,6 +880,52 @@ Mål: låter Knut allerede har gitt ut (via LANDR eller andre steder), skal ligg
 **Tester:** status fra mappe, matching på hash og lydlikhet med bekreftelse, at ingenting slås sammen uten OK, låter uten lyd vises riktig og kan ikke spilles, lenkeparsing og at Utgitt er med i settbyggeren som standard.
 
 **Ferdig når:** Knut peker Vault på mappa med utgitte låter. De dukker opp som Utgitt med cover og analyse. Låter som også lå i REASONDONE, kobles sammen etter at han bekrefter. Han limer inn en Spotify-lenke på én låt og ser den under Kreditering.
+
+## Del 26 – Albumbygger: beste utvalg og rekkefølge
+
+Mål: Knut velger format (single, EP eller album) og eventuelt en pool av låter. Vault foreslår **hvilke låter** som hører sammen og **i hvilken rekkefølge**, etter prinsippene for å sekvensere album. Det er andre regler enn for DJ-sett (del 17/20): et album skal ha **variasjon og bue**, ikke sømløs flyt.
+
+**Utvalg (hvilke låter)**
+1. **Pool:** et Album-plan (del 16), låter med bestemte stil-tagger, en frølåt («album rundt denne», som del 20 E), eller hele biblioteket. Utgitte låter er utelatt som standard (del 25). Umastrede er med (del 16), merket.
+2. **Sammenheng:** velg et sett som henger sammen i lyd og stil (groove, bass-karakter, stil-tagger og BPM-område fra del 20, og nær toneområde). Unngå både for like låter (seks låter som høres like ut) og utbrytere.
+3. **Kvalitetssignaler** som vekter opp:
+   - Knuts hjerter (favoritter)
+   - antall avspillinger og fullførte lyttinger (lokal logg)
+   - om låta er mastret
+   - lytteinnsikt fra delte drops (del 13), hvis det finnes
+
+   Knut kan også markere en låt som **«Singel-kandidat»**.
+4. **Format og lengde:**
+   - **Single:** 1–3 låter.
+   - **EP:** 4–6 låter, ca. 15–30 min.
+   - **Album:** 8–14 låter, ca. 35–55 min.
+   - **Vinyl-modus:** delt i side A og B, maks ca. 18–22 min per side, med sterk åpner på begge sider.
+
+**Rekkefølge (hvordan albumet bygges)**
+5. **Åpning:** låt 1 er representativ og fanger raskt (tidlig hook, kort intro). Den sterkeste låta eller singelen ligger blant de tre første, fordi strømmetjenestene favoriserer starten av et album.
+6. **Bue:** åpning → oppbygging → midtpunkt → pustepause → klimaks → avslutning. Siste låt har en tydelig eller rolig slutt. Vis energikurven (del 20) og la Knut velge eller tegne bue.
+7. **Variasjon mellom nabolåter** (straff for for mye likhet):
+   - Ikke samme toneart mer enn to ganger på rad. Toneartsskifter er ønsket for kontrast, men unngå skurrende hopp mellom slutt og start (siste akkord mot første toneart).
+   - Varier tempo og energi. Ikke tre rolige eller tre harde etter hverandre.
+   - Ikke to vokal-tunge låter med samme stemning rett etter hverandre.
+   - Spre singel-kandidatene.
+8. **Lydbilde:** jevnt lydnivå (LUFS) gjennom albumet. Advar om låter som stikker seg ut (særlig umastrede) og foreslå mastering via del 24.
+9. **Overganger mellom spor:** foreslå pause (0–2 s) eller **gapless** der låtene glir i hverandre. Alternativt en **kontinuerlig DJ-mix-versjon** av albumet, med renderte overganger fra del 20.
+
+**Bruk**
+10. **«Bygg album»** i Studio og fra «⋯» på en Album-plan:
+    - Velg format og pool (eventuelt frølåt).
+    - Få **tre forslag**: «sterkest først», «beste bue» og «mest sammenheng».
+    - Hvert forslag har en kort forklaring per plass («Åpner: kort intro, hook etter 0:20»), sporliste, total tid og energikurve.
+11. Lås låter eller plasser, dra for å flytte, **«Bytt ut»** gir fem alternativer som passer plassen, og **«Bygg på nytt»** beholder det låste.
+12. **Lagre** som Album-plan (del 16) med «x av y mastret». **Forhåndslytt** albumet med 20 sekunder fra hver låt (rundt hooken) for å høre helheten raskt.
+13. Videre til **utgivelse** (del 24): release-pakke for hele albumet med sporrekkefølge, nummererte filer og albummetadata.
+
+**Senere (ikke i denne delen):** forslag til albumtittel og sporrekkefølge for vinyl med testpress-lengder.
+
+**Tester:** formatlengder og sidelengder for vinyl, at regel for sterk åpning og singel blant de tre første holder, variasjonsregler (toneart, tempo, energi, vokal), at låste plasser respekteres, determinisme med frø, at utgitte låter er utelatt som standard, og forhåndslytting med riktige hook-utdrag.
+
+**Ferdig når:** Knut velger «Album, 10 låter» fra hele biblioteket. Han får tre forslag på noen sekunder, hører gjennom ett med 20-sekunders utdrag, bytter ut én låt, lagrer som Album-plan og lager release-pakke for albumet.
 
 ## Del 15 – Oppdatering av Android-appen
 
