@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 25 (utgitte låter)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -853,6 +853,33 @@ Mål: ingen låt skal stå med tomt cover. Vault lager et passende cover automat
 - At `releases/` er gitignored.
 
 **Ferdig når:** Knut trykker «Forbered utgivelse» på en låt, får en komplett mappe og et panel med kopier-knapper, sender den inn på landr.com på noen minutter, og setter status til «Sendt til LANDR».
+
+## Del 25 – Utgitte låter i Vault
+
+Mål: låter Knut allerede har gitt ut (via LANDR eller andre steder), skal ligge i Vault med full analyse og kunne brukes i spillelister, sett og deling, merket som **Utgitt** med utgivelsesinfo og lenker.
+
+**Status**
+1. Ny status **Utgitt** i tillegg til Release-klar og Umastret. Rekkefølgen i biblioteket blir **Utgitt → Release-klar → Umastret**. Segmentet blir «Alle · Utgitt · Release-klar · Umastret».
+   - Brikke **UTGITT** og en liten markering på coveret.
+   - Utgitte låter regnes som mastret: de er med i settbygger, «Passer etter …» og deling som standard.
+
+**Kilde**
+2. **Spør Knut hvor filene til de utgitte låtene ligger.** Det kan være én mappe (f.eks. LANDR-nedlastinger), flere mapper, eller allerede i REASONDONE eller utkastmappa.
+   - Ny kilde `GH_RELEASED_DIR` (kun lesing), satt i Innstillinger og i `groovehouse.local.json`.
+   - Ingest som før. Status Utgitt settes fra mappa.
+3. **Finnes låta allerede i Vault** (samme tittel eller lyd): match med lyd-hash først, deretter lydlikhet (kromagram-korrelasjon) og tittel. Den utgitte fila blir en egen versjon merket «Utgitt master», og låta får status Utgitt.
+   - Usikre treff vises i en liste der Knut bekrefter eller avviser med ett trykk. Ingenting slås sammen uten bekreftelse.
+4. **Har Knut ikke lenger fila:** «Legg til utgitt låt uten lyd». Den viser metadata og lenker, men kan ikke spilles. Slike låter vises med «Mangler lyd», så han ser hva han bør hente.
+
+**Utgivelsesinfo**
+5. Per låt: utgivelsesdato, distributør (LANDR), UPC/ISRC, release-tittel (single/EP/album) og lenker til Spotify, Apple Music, YouTube, Tidal og Beatport. Vises under Kreditering.
+6. **Rask utfylling:** lim inn en Spotify- eller Apple-lenke, så fylles det som kan leses fra lenken (tittel og dato der det er mulig). Import av en CSV eksportert fra LANDR med tittel, ISRC, UPC og dato, hvis LANDR tilbyr det. Ellers manuelt.
+7. Del 24 (release-pakke) setter status til Utgitt automatisk når Knut markerer en utgivelse som «Ute».
+8. Delt tekst (del 10 og 13) kan for utgitte låter ta med «Ute nå på Spotify» med lenken, av/på i delings-arket.
+
+**Tester:** status fra mappe, matching på hash og lydlikhet med bekreftelse, at ingenting slås sammen uten OK, låter uten lyd vises riktig og kan ikke spilles, lenkeparsing og at Utgitt er med i settbyggeren som standard.
+
+**Ferdig når:** Knut peker Vault på mappa med utgitte låter. De dukker opp som Utgitt med cover og analyse. Låter som også lå i REASONDONE, kobles sammen etter at han bekrefter. Han limer inn en Spotify-lenke på én låt og ser den under Kreditering.
 
 ## Del 15 – Oppdatering av Android-appen
 
