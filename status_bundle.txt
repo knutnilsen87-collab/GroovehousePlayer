@@ -74,7 +74,7 @@ current_state:
     - "Del 3: fasit for 5–10 låter i fixtures/truth.json. WAV-ene i REASONDONE har ingen BPM- eller toneart-tagger (lest 2026-11-15). keyMethod er krumhansl."
     - "Del 13: wrangler login, D1, R2 og ruten listen.groovehouserecords.com er ikke kjørt. Spør før wrangler login."
     - "Del 5: Supabase er ikke koblet på. Synk går via Vault-serveren."
-    - "Utkast-import fra F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV (86 av 153 importert) er satt på pause etter brukerens ønske frem til øvrige oppgaver er ferdige."
+    - "Utkast-import fra F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV : 152 av 153 inne (2026-11-16; 151 fantes fra før, Reach For The Stars ny). Sunshine (1).wav (nyere versjon) feiler med EPERM på media/sunshine/main/v1001 fordi en annen prosess (trolig Google Drive-synk) holder mappa. Gammel Sunshine-versjon spilles fortsatt. 4 filer hoppet over som eldre versjoner."
     - 'Google Drive synkroniserer F:\prosjekter_MAIN (Knut tar dette selv).'
   last_verified_at: "2026-11-16T03:53:30+01:00"
 
