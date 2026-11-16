@@ -157,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 20 (jevnere autosett)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -655,6 +655,49 @@ Mål: settene settbyggeren lager skal ha overganger som er **så jevne som mulig
 - Rendering av et 60-min sett under 60 s på Knuts PC.
 
 **Ferdig når:** Knut lager et 60-min sett. Alle overgangene har en rendret forhåndsvisning som han kan høre på telefonen. Ingen er rødmerket uten at et alternativ er foreslått. Han gir tommel opp på minst 80 % av overgangene ved første gjennomlytting.
+
+## Del 21 – Vault på Raspberry Pi (alltid på, PC-en kan være av)
+
+Mål: telefonen og appen virker som andre musikkapper, også når den store PC-en er av. En Raspberry Pi med ekstern disk står hjemme og spiller ut musikken døgnet rundt. PC-en er fortsatt studio: ingest, analyse, Demucs og rendering.
+
+**Spør Knut først:** hvilken Pi-modell og hvor mye RAM, og hvilken disk (SSD eller HDD, størrelse).
+- Pi 4 med 4 GB eller mer og Pi 5 er gode nok.
+- Pi 3 eller eldre: si fra at den er for svak for HLS-servering til flere enheter samtidig og for ffmpeg.
+- Disk: SSD via USB 3 anbefales. Det trengs minst 3× dagens `media/` for vekst.
+
+**Arbeidsdeling**
+1. **Pi = spillerserver.** Kjører `apps/server` i «spiller-modus»: API, `/media`, spillelister, favoritter, posisjoner, tekst, markører, enhetstokens, app-oppdateringer (del 15) og eventuelt fildeling (del 10, med ffmpeg på Pi-en).
+   - **Ingen** ingest, Demucs eller rendering på Pi-en. Studio-handlinger som krever det, sendes til PC-en eller vises som «Krever PC-en».
+2. **PC = studio.** Ingest og analyse som før. Etter hver ingest skyves nye eller endrede filer i `media/` til Pi-en (rsync over Tailscale eller LAN, kun endringer, med fremdrift i Studio).
+   - **`master.flac` blir på PC-en.** Pi-en får bare strøm-filer, cover og analyse. Valgfritt: også masterne, hvis Knut vil ha delingen i del 10 tilgjengelig uten PC.
+3. **Én sannhetskilde for brukerdata:** `data/` (spillelister, favoritter, posisjoner, tekster, markører, settplaner, presets, skins) bor på **Pi-en**. PC-ens server og Studio leser og skriver via Pi-ens API når den er tilgjengelig.
+   - Når Pi-en er nede, går PC-en over til en lokal kopi og synker tilbake etterpå. Konflikter løses per element med `updatedAt`, uten stille overskriving.
+
+**Oppsett på Pi-en**
+4. Raspberry Pi OS Lite 64-bit og Node LTS. `media/` og `data/` på den eksterne disken (ext4), montert fast i `/etc/fstab`.
+5. Vault kjører som **systemd-tjeneste** med automatisk omstart og logg i journald. Automatiske sikkerhetsoppdateringer (unattended-upgrades).
+6. Lag et oppsettskript (`pnpm pi:setup` fra PC-en over SSH) og en README-guide steg for steg for Knut: brenne SD-kort med Raspberry Pi Imager (sett vertsnavn `vault`, bruker og SSH-nøkkel), koble disken, kjør skriptet. Spør Knut før hvert steg som endrer Pi-en.
+
+**Tilgang utenfra (ingen porter åpnes i ruteren)**
+7. **Tailscale på Pi-en**, med Tailscale Serve og HTTPS. Adressen blir f.eks. `vault.tail1110e6.ts.net`, og står bare i `groovehouse.local.json`.
+8. **Valgfritt, Cloudflare Tunnel** fra Pi-en til `vault.groovehouserecords.com`, så appen virker **uten VPN**:
+   - Bare API og `/media` eksponeres.
+   - Enhetstoken kreves på alt.
+   - Cloudflare Access foran Studio-sidene.
+   - Rate limiting.
+
+   Spør Knut før tunnelen settes opp.
+
+**Appen**
+9. Appen husker flere kilder og velger automatisk i denne rekkefølgen: **Pi via tunnel/Tailscale → PC via Tailscale → nedlastet på telefonen**. Ingen ny paring nødvendig: enhetstokens flyttes fra PC til Pi ved første synk.
+10. **Nedlasting for offline:** last ned spillelister, sett eller hele biblioteket til appen. Det tar mest plass på telefonen og gjør bilen uavhengig av dekning. Vis brukt plass, og la Knut velge kvalitet.
+
+**Backup**
+11. Nattlig kopi av Pi-ens `data/` til PC-en (H:) og omvendt for `media/`. Én disk er ikke backup. Status vises i Studio («Siste backup: i natt 03:00»).
+
+**Tester:** synk av media (bare endringer, avbrudd og fortsettelse), konflikter i data/ (to enheter endrer samme liste), automatisk kildevalg i appen, at Pi-en aldri får ingest-jobber, at tunnelen avviser alt uten token, og omstart av Pi-en (tjenesten kommer opp av seg selv).
+
+**Ferdig når:** Knut slår av den store PC-en. Han spiller en spilleliste i bilen fra telefonen, lager en ny liste, slår på PC-en igjen og ser lista der. En ny bounce fra Reason dukker opp på telefonen noen minutter etter at PC-en har ingestet den.
 
 ## Del 15 – Oppdatering av Android-appen
 
