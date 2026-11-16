@@ -80,7 +80,7 @@ export function CommandPalette({
         />
         <div className="flex items-center justify-between gap-2 px-4 py-2">
           <StatusSegment value={status} onChange={setStatus} />
-          <span className="font-mono text-[10px] text-muted">{pool.length} treff mulig</span>
+          <span className="font-mono text-[11px] text-muted">{pool.length} treff mulig</span>
         </div>
         <ul id="gv-search-results" role="listbox" className="m-0 max-h-[50vh] list-none overflow-y-auto p-2">
           {results.length === 0 && <li className="px-3 py-6 text-center text-sm text-muted">Ingen treff</li>}

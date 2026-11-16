@@ -36,7 +36,7 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
       >
         <SearchIcon width={18} height={18} className="flex-none text-soft" />
         <span className="truncate">Søk…</span>
-        <kbd className="ml-auto rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-muted">Ctrl K</kbd>
+        <kbd className="ml-auto rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-muted">Ctrl K</kbd>
       </button>
       <nav aria-label="Hovedmeny" className="gv-scroll -mx-1 flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-1">
         {item('home', 'Hjem', HomeIcon)}
@@ -65,7 +65,7 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
         <a href="/studio" className={`${cls(false)} no-underline`}>
           <VaultIcon width={20} height={20} className="flex-none" />
           Vault
-          <span className="ml-auto font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">Studio</span>
+          <span className="ml-auto font-mono text-[11px] font-semibold uppercase tracking-[0.18em] text-muted">Studio</span>
         </a>
       </nav>
       <div className="flex flex-col gap-1 pt-3">
@@ -80,7 +80,7 @@ export function Sidebar({ view, setView, onSearch, playlists }: { view: View; se
 
 /** Mobil og app: fem faner. Søk er knappen øverst til høyre. */
 export function BottomNav({ view, setView }: { view: View; setView: (v: View) => void }) {
-  const cls = (active: boolean) => `relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[10px] font-medium ${active ? 'text-accent' : 'text-muted'}`;
+  const cls = (active: boolean) => `relative flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium ${active ? 'text-accent' : 'text-muted'}`;
   const tab = (id: View, label: string, Icon: IconT) => (
     <button type="button" className={cls(view === id)} aria-current={view === id ? 'page' : undefined} onClick={() => setView(id)}>
       {view === id && <span aria-hidden="true" className="gv-neon absolute top-0 h-0.5 w-8 rounded-full bg-accent" />}

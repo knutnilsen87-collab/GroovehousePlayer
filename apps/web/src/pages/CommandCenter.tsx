@@ -10,7 +10,7 @@ import { DraftBadge } from '../components/Draft';
 import { loadPlaybackSettings } from '../lib/settings';
 import { SettingsView } from './Settings';
 import { Waveform } from '../components/Waveform';
-import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, uploadAssetCover, useCatalog, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
+import { assetUrl, downsample, findMain, lastLogFor, loadVersion, saveAssetMeta, uploadAssetCover, useCatalog, useFullAsset, useIngestLog, useIngestProgress, versionsOf, type IndexEntry, type IngestLogEntry, type LoadedAsset } from '../lib/catalog';
 import { useLyricsQueue } from '../lib/library';
 import { AiCoverCard } from '../components/AiCover';
 import { SkippedImportsCard } from '../components/SkippedImports';
@@ -426,7 +426,7 @@ function IngestCard({ a, entry }: { a: LoadedAsset; entry?: IngestLogEntry }) {
             </span>
           </div>
         </div>
-        <span className="rounded-md bg-accent/15 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-[1.2px] text-accent">KLAR</span>
+        <span className="rounded-md bg-accent/15 px-2 py-0.5 font-mono text-[11px] font-semibold tracking-[1.2px] text-accent">KLAR</span>
       </div>
       <SunoNotice entry={entry} />
       {m.titleNeedsReview && <p className="m-0 text-[11px] text-accent">{t.titleNeedsReview}</p>}
@@ -517,7 +517,7 @@ function DropCard({ drop, assets, selected, onSelect }: { drop: SeedDrop; assets
         <span className="text-sm font-semibold text-ink-strong">{drop.title}</span>
         <span className="text-[11px] text-soft">{meta}</span>
       </span>
-      <span className={`rounded-md border px-2 py-1 font-mono text-[10px] font-semibold tracking-[1.2px] ${TIER_STYLE[drop.tier]}`}>{drop.tier.toUpperCase()}</span>
+      <span className={`rounded-md border px-2 py-1 font-mono text-[11px] font-semibold tracking-[1.2px] ${TIER_STYLE[drop.tier]}`}>{drop.tier.toUpperCase()}</span>
     </button>
   );
 }
@@ -557,7 +557,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
         <div className="flex items-center gap-4">
           <CoverArt src={assetUrl(asset, m.files.coverThumb)} palette={m.palette} title={m.title} size={72} rounded={12} />
           <div className="flex flex-col gap-1">
-            <span className={`font-mono text-[10px] font-semibold tracking-[2px] ${TIER_BADGE_TEXT[drop.tier]}`}>{drop.tier.toUpperCase()}-DROP</span>
+            <span className={`font-mono text-[11px] font-semibold tracking-[2px] ${TIER_BADGE_TEXT[drop.tier]}`}>{drop.tier.toUpperCase()}-DROP</span>
             <h2 className="m-0 font-display text-[26px] font-semibold uppercase tracking-[1px] text-ink-strong">{drop.title}</h2>
             <span className="text-xs text-soft">
               {dropAssets.length} assets · {drop.recipients.length} mottakere · maks {drop.maxDevices} enheter per lenke
@@ -615,7 +615,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
           <div className="relative mt-5 overflow-x-auto">
             <table className="w-full min-w-[760px] border-collapse text-[13px]">
               <thead>
-                <tr className="text-left font-mono text-[10px] font-semibold tracking-[1.5px] text-soft">
+                <tr className="text-left font-mono text-[11px] font-semibold tracking-[1.5px] text-soft">
                   <th scope="col" className="pb-2.5 pl-3 pr-2.5 font-semibold">{t.recipient.toUpperCase()}</th>
                   <th scope="col" className="px-2.5 pb-2.5 font-semibold">{t.opened.toUpperCase()}</th>
                   <th scope="col" className="px-2.5 pb-2.5 font-semibold">
@@ -692,7 +692,7 @@ function RecipientRow({ r, asset, dropMs, maxDevices, selected, onSelect }: { r:
           })}
           {dropMs !== null && (
             <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-20 w-[1.5px] bg-[#E5B84B]" style={{ left: `${(dropMs / m.durationMs) * 100}%` }}>
-              <span className="absolute -top-2 -translate-x-1/2 rounded bg-obsidian px-1 font-mono text-[8px] font-bold tracking-wider text-[#F3CF7A]">DROP</span>
+              <span className="absolute -top-2 -translate-x-1/2 rounded bg-obsidian px-1 font-mono text-[11px] font-bold tracking-wider text-[#F3CF7A]">DROP</span>
             </span>
           )}
         </div>
@@ -919,6 +919,7 @@ function SetDropZone({ onDone }: { onDone?: () => void }) {
  */
 function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: number) => void }) {
   const m = a.manifest;
+  const full = useFullAsset(a);
   const { queue, index, positionMs } = usePlayer();
   const isPlayingThis = queue[index]?.manifest.id === m.id;
   const currentMs = isPlayingThis ? positionMs : 0;
@@ -935,7 +936,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
     if (isPlayingThis) setZoomCenter(progress);
   }, [isPlayingThis, progress]);
 
-  const rawPeaks = a.analysis?.peaks ?? [];
+  const rawPeaks = full.analysis?.peaks ?? [];
   const microSlice = useMemo(() => {
     if (!rawPeaks.length) return [];
     const s = Math.floor(winStart * rawPeaks.length);
@@ -964,7 +965,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
       <div className="flex min-w-0 flex-col gap-3 rounded-xl bg-sunken/70 p-3.5">
         {/* 1. Macro Mini-map */}
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-soft">
+          <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.14em] text-soft">
             <span>Oversikt (Mini-map)</span>
             <span>
               Utsnitt {formatTime(winStart * m.durationMs)} – {formatTime(winEnd * m.durationMs)}
@@ -998,7 +999,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
 
         {/* 2. Micro (innzoomet bølgeform med vertikale cue-linjer) */}
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-soft">
+          <div className="flex items-center justify-between font-mono text-[11px] uppercase tracking-[0.14em] text-soft">
             <span>Innzoomet bølgeform · klikk for presis spoling</span>
             <div className="flex items-center gap-2">
               <input
@@ -1043,7 +1044,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
                 <span key={`${c.label}-${c.startMs}`} aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10" style={{ left: `${localPct}%` }}>
                   <span className="absolute inset-y-0 -left-px w-[1.5px]" style={{ background: 'var(--accent)' }} />
                   <span
-                    className="absolute top-1 -translate-x-1/2 whitespace-nowrap rounded bg-sunken/95 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-ink-strong shadow"
+                    className="absolute top-1 -translate-x-1/2 whitespace-nowrap rounded bg-sunken/95 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-ink-strong shadow"
                     style={{ border: '1px solid color-mix(in srgb, var(--accent) 60%, transparent)' }}
                   >
                     {formatTime(c.startMs)} · {c.label}
@@ -1062,7 +1063,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
             type="button"
             aria-expanded={tracklistOpen}
             onClick={() => setTracklistOpen((o) => !o)}
-            className="flex items-center justify-between gap-2 text-left font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-soft hover:text-ink-strong"
+            className="flex items-center justify-between gap-2 text-left font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-soft hover:text-ink-strong"
           >
             <span>Sporliste ({cues.length})</span>
             <ChevronDownIcon width={14} height={14} className={`transition-transform ${tracklistOpen ? '' : '-rotate-90'}`} />
@@ -1089,7 +1090,7 @@ function LiveSetNavigator({ a, onPlayAt }: { a: LoadedAsset; onPlayAt: (ms: numb
                     >
                       <span className={`tabular font-mono text-[11px] ${active ? 'text-accent' : 'text-soft'}`}>{formatTime(c.startMs)}</span>
                       <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                      {c.bpm && <span className="font-mono text-[10px] text-soft">{Math.round(c.bpm)}</span>}
+                      {c.bpm && <span className="font-mono text-[11px] text-soft">{Math.round(c.bpm)}</span>}
                     </button>
                   </li>
                 );
@@ -1235,7 +1236,7 @@ function ArchiveRow({
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[10px] bg-black/65 text-white opacity-0 transition-opacity group-hover:opacity-100">
             <UploadIcon width={16} height={16} />
           </span>
-          {coverBusy && <span className="absolute inset-0 flex items-center justify-center rounded-[10px] bg-black/75 text-[9px] font-semibold text-white">…</span>}
+          {coverBusy && <span className="absolute inset-0 flex items-center justify-center rounded-[10px] bg-black/75 text-[11px] font-semibold text-white">…</span>}
         </button>
         <input
           ref={coverInput}
@@ -1259,7 +1260,7 @@ function ArchiveRow({
               <DraftBadge m={m} className="ml-1" />
               <ChevronDownIcon width={14} height={14} className={`text-soft transition-transform ${isOpen ? '' : '-rotate-90'}`} />
             </button>
-            {m.titleNeedsReview && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">{t.titleNeedsReview}</span>}
+            {m.titleNeedsReview && <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[11px] font-medium text-accent">{t.titleNeedsReview}</span>}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-mono text-xs text-soft">
@@ -1427,14 +1428,14 @@ function ArchiveRow({
                             : 'border-dashed border-accent/45 bg-sunken text-soft hover:border-accent hover:text-ink-strong'
                         }`}
                       >
-                        <span className="tabular font-mono text-[10.5px] text-soft">{formatTime(c.startMs)}</span>
+                        <span className="tabular font-mono text-[11px] text-soft">{formatTime(c.startMs)}</span>
                         <span>{c.label}</span>
                       </button>
                     </li>
                   ))}
                 </ol>
                 {hasUnconfirmed && (
-                  <span className="font-mono text-[10px] text-muted" title="Klikk flagg-ikonet for å bekrefte eller flytte markører">
+                  <span className="font-mono text-[11px] text-muted" title="Klikk flagg-ikonet for å bekrefte eller flytte markører">
                     Stiplet ramme = ubekreftet forslag
                   </span>
                 )}

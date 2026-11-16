@@ -33,7 +33,15 @@ export interface SbTrack {
   outroMs: number;
   bpmConfidence: number | null;
   keyConfidence: number | null;
+  /**
+   * Samme låt under ulike titler/slugs (lydlikhet eller lik tittel etter rensing, data/dupe-groups.json).
+   * Settbyggeren og «Bytt ut» bruker aldri to låter fra samme gruppe. Mangler = slug.
+   */
+  group?: string | null;
 }
+
+/** Hvilken «låt» et spor er: duplikatgruppa hvis den finnes, ellers slug (alle versjoner og varianter). */
+export const songKey = (t: Pick<SbTrack, 'slug' | 'group'>) => t.group ?? t.slug;
 
 export type CurveKind = 'warmup' | 'peak' | 'journey' | 'closing' | 'custom';
 export const CURVE_NAMES: Record<CurveKind, string> = { warmup: 'Oppvarming', peak: 'Peak time', journey: 'Reise', closing: 'Avslutning', custom: 'Egen' };
@@ -291,14 +299,15 @@ export function candidates(all: SbTrack[], opts: BuildOptions): SbTrack[] {
     if (ex.has(t.slug) && !must.has(t.id)) continue;
     if (t.draft && !opts.includeDrafts && !must.has(t.id)) continue;
     if (!must.has(t.id) && t.bpm != null && ((opts.bpmMin != null && t.bpm < opts.bpmMin) || (opts.bpmMax != null && t.bpm > opts.bpmMax))) continue;
-    bySlug.set(t.slug, [...(bySlug.get(t.slug) ?? []), t]);
+    bySlug.set(songKey(t), [...(bySlug.get(songKey(t)) ?? []), t]);
   }
   const preferExtended = opts.durationMin >= 30;
   return [...bySlug.values()].map((vs) => {
     const forced = vs.find((v) => must.has(v.id));
     if (forced) return forced;
     const ext = vs.find((v) => v.extended);
-    const orig = vs.find((v) => !v.variant) ?? vs[0]!;
+    // Flere låter i samme duplikatgruppe: release-klar (f.eks. LANDR-master) før umastret
+    const orig = vs.find((v) => !v.variant && !v.draft) ?? vs.find((v) => !v.variant) ?? vs.find((v) => !v.draft) ?? vs[0]!;
     return preferExtended && ext ? ext : orig;
   });
 }
@@ -344,7 +353,7 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
     if (m.position != null && m.position >= 0) pinned.set(m.position, t);
     else mustFree.push(t);
   }
-  const avoidCost = (t: SbTrack) => (avoid.has(t.slug) ? 0.35 : 0);
+  const avoidCost = (t: SbTrack) => (avoid.has(songKey(t)) ? 0.35 : 0);
   const energyCost = (t: SbTrack, midMs: number) => (Math.abs(t.energy - curveAt(opts.curve, Math.min(1, midMs / ctx.targetMs), opts.customCurve)) / 9) * 2 * w.energy;
 
   // ---- Beam search
@@ -365,20 +374,22 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
       const fixed = pinned.get(pos);
       const opts2 = fixed ? [fixed] : pool;
       for (const t of opts2) {
-        if (s.used.has(t.slug)) continue;
-        if (!fixed && [...pinned.values()].some((p) => p.slug === t.slug)) continue; // står på en annen plass
+        if (s.used.has(songKey(t))) continue;
+        if (!fixed && [...pinned.values()].some((p) => songKey(p) === songKey(t))) continue; // står på en annen plass
         if (pos === 0 && !fixed && !startOk(t)) continue;
         const prev = s.seq[pos - 1];
         let c = s.cost + (prev ? pairCost(ctx, prev, t) : t.introMs < 16 * barMsOf(t.bpm) ? 0.3 : 0) + energyCost(t, s.ms + t.durationMs / 2) + avoidCost(t);
         // Variasjon: samme toneart for mange på rad
         if (pos >= 3 && t.camelot && s.seq.slice(-3).every((x) => x.camelot === t.camelot)) c += 0.5 * w.variation;
         const used = new Set(s.used);
-        used.add(t.slug);
+        used.add(songKey(t));
         const st = { seq: [...s.seq, t], used, ms: s.ms + t.durationMs, cost: c };
         if (st.ms >= ctx.targetMs * 0.97) done.push(st);
         else next.push(st);
       }
     }
+    // Tomt for låter før lengden er nådd (liten katalog): behold det lengste vi har, ikke gi opp
+    if (!next.length) break;
     next.sort((a, b) => a.cost / a.seq.length - b.cost / b.seq.length);
     // Litt bredde i toppen: ikke bare varianter av samme start
     beam = next.slice(0, BEAM);
@@ -416,8 +427,8 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
       [cand[i], cand[j]] = [cand[j]!, cand[i]!];
     } else if (r < 0.8) {
       if (mustIds.has(cand[i]!.id)) continue;
-      const used = new Set(cand.map((t) => t.slug));
-      const free = pool.filter((t) => !used.has(t.slug) && ![...pinned.values()].some((p) => p.slug === t.slug));
+      const used = new Set(cand.map(songKey));
+      const free = pool.filter((t) => !used.has(songKey(t)) && ![...pinned.values()].some((p) => songKey(p) === songKey(t)));
       if (!free.length) continue;
       cand[i] = free[Math.floor(rand() * free.length)]!;
     } else {
@@ -425,8 +436,8 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
       const total = cand.reduce((s, t) => s + t.durationMs, 0);
       if (total > ctx.targetMs && cand.length > 2 && !mustIds.has(cand[i]!.id)) cand.splice(i, 1);
       else {
-        const used = new Set(cand.map((t) => t.slug));
-        const free = pool.filter((t) => !used.has(t.slug));
+        const used = new Set(cand.map(songKey));
+        const free = pool.filter((t) => !used.has(songKey(t)));
         if (!free.length) continue;
         cand.splice(i + 1, 0, free[Math.floor(rand() * free.length)]!);
       }
@@ -448,7 +459,7 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
 
 /** Sett inn festede låter uten plass der de koster minst (erstatter den som passer dårligst ved behov). */
 function withMust(seq: SbTrack[], must: SbTrack[], ctx: Ctx): SbTrack[] {
-  let out = seq.filter((t) => !must.some((m) => m.slug === t.slug));
+  let out = seq.filter((t) => !must.some((m) => songKey(m) === songKey(t)));
   for (const m of must) {
     let bestI = 0;
     let bestC = Infinity;
@@ -501,7 +512,7 @@ export function buildAlternatives(all: SbTrack[], opts: BuildOptions): Array<Set
       // Vis delscorer mot den valgte kurven (ikke den løftede)
       const ev = evaluate(r.tracks, opts);
       out.push({ ...r, cost: ev.cost, parts: ev.parts, score: totalScore(ev.parts), character: ch });
-      for (const t of r.tracks) avoid.add(t.slug);
+      for (const t of r.tracks) avoid.add(songKey(t));
     }
   });
   return out;
@@ -514,11 +525,12 @@ export const sampleCurve = (kind: CurveKind, custom?: number[], n = 11) => Array
 export function replacementsFor(seq: SbTrack[], pos: number, all: SbTrack[], opts: BuildOptions, n = 5): Array<{ track: SbTrack; cost: number }> {
   const w: Weights = { ...DEFAULT_WEIGHTS, ...opts.weights };
   const ctx: Ctx = { w, opts, targetMs: opts.durationMin * 60_000, matrix: new Map(), known: new Set(opts.knownPairs ?? []) };
-  const used = new Set(seq.map((t) => t.slug));
+  // Ingen andre versjoner av låtene i settet, heller ikke av den som byttes ut
+  const used = new Set(seq.map(songKey));
   const before = seq.slice(0, pos).reduce((s, t) => s + t.durationMs, 0);
   const total = seq.reduce((s, t) => s + t.durationMs, 0);
   return candidates(all, opts)
-    .filter((t) => !used.has(t.slug))
+    .filter((t) => !used.has(songKey(t)))
     .map((t) => {
       const a = seq[pos - 1];
       const b = seq[pos + 1];

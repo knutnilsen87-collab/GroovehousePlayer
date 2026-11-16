@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { BUILTIN_SMART, isDraft, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
+import { BUILTIN_SMART, bpmLabel, isDraft, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
 import { SetBuilder } from '../components/SetBuilder';
 import { assetUrl, type LoadedAsset, type Track } from '../lib/catalog';
 import { fetchListens, type ListenLog } from '../lib/library';
@@ -47,10 +47,10 @@ function Row({ t, onPlay, sub }: { t: Track; onPlay: PlayFn; sub?: string }) {
           <span className={`truncate text-[15px] font-semibold ${cur ? 'text-accent' : 'text-ink-strong'}`}>
             {m.title}<DraftBadge m={m} className="ml-1.5" />
           </span>
-          <span className="truncate font-mono text-[11px] text-muted">{sub ?? [m.bpm ? `${Math.round(m.bpm)} BPM` : null, m.key ? `${keyShort(m.key.name)} ${m.key.camelot}` : null, formatTime(m.durationMs)].filter(Boolean).join(' · ')}</span>
+          <span className="truncate font-mono text-[11px] text-muted">{sub ?? [bpmLabel(m), m.key ? `${keyShort(m.key.name)} ${m.key.camelot}` : null, formatTime(m.durationMs)].filter(Boolean).join(' · ')}</span>
         </span>
       </button>
-      <HeartButton slug={m.slug} title={m.title} size={18} className="h-10 w-10" />
+      <HeartButton slug={m.slug} title={m.title} size={18} className="h-11 w-11" />
     </li>
   );
 }
@@ -91,7 +91,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
         <section aria-label="Fortsett der du slapp" className="gv-panel flex items-center gap-4 p-3 lg:hidden" style={skinTrackVars(resume.a.manifest.palette) as CSSProperties}>
           <CoverArt src={assetUrl(resume.a, resume.a.manifest.files.coverThumb)} palette={resume.a.manifest.palette} title={resume.a.manifest.title} size={64} rounded={10} />
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="gv-label !text-[10px]">Fortsett der du slapp</span>
+            <span className="gv-label !text-[11px]">Fortsett der du slapp</span>
             <span className="truncate text-base font-semibold text-ink-strong">{resume.a.manifest.title}</span>
             <span className="font-mono text-[11px] text-soft">
               {formatTime(resume.at)} / {formatTime(resume.a.manifest.durationMs)}
@@ -115,7 +115,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
           >
             <h2 id="gv-home-played" className="gv-label m-0 flex items-center gap-2">
               Nylig spilt
-              <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] font-medium text-soft">{recentlyPlayed.length}</span>
+              <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] font-medium text-soft">{recentlyPlayed.length}</span>
             </h2>
             <span className="inline-flex items-center gap-1.5 text-xs text-soft">
               {playedOpen ? 'Skjul' : 'Vis'}
@@ -165,7 +165,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
           >
             <h2 id="gv-home-lists" className="gv-label m-0 flex items-center gap-2">
               Spillelister
-              <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] font-medium text-soft">{lists.length}</span>
+              <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] font-medium text-soft">{lists.length}</span>
             </h2>
             <span className="inline-flex items-center gap-1.5 text-xs text-soft">
               {listsOpen ? 'Skjul' : 'Vis'}
@@ -255,10 +255,10 @@ function CamelotWheel({ counts, selected, highlight, onPick }: { counts: Map<str
     <svg viewBox={`0 0 ${size} ${size}`} className="h-auto w-full max-w-[360px]" role="group" aria-label="Camelot-hjul">
       {ring(156, 108, 'B')}
       {ring(106, 58, 'A')}
-      <text x={c} y={c - 4} textAnchor="middle" className="fill-[#8B93A1] font-mono text-[10px]">
+      <text x={c} y={c - 4} textAnchor="middle" className="fill-[#8B93A1] font-mono text-[11px]">
         B = dur
       </text>
-      <text x={c} y={c + 10} textAnchor="middle" className="fill-[#8B93A1] font-mono text-[10px]">
+      <text x={c} y={c + 10} textAnchor="middle" className="fill-[#8B93A1] font-mono text-[11px]">
         A = moll
       </text>
     </svg>
@@ -424,7 +424,7 @@ export function StatsView({ tracks, onPlay }: { tracks: Track[]; onPlay: PlayFn 
               <span key={d.d} title={`${d.d}: ${hours(d.ms)}`} className="flex-1 rounded-t bg-accent/70" style={{ height: `${Math.max(2, (d.ms / maxDay) * 100)}%`, opacity: d.ms ? 1 : 0.25 }} />
             ))}
           </div>
-          <div className="mt-1 flex justify-between font-mono text-[10px] text-muted">
+          <div className="mt-1 flex justify-between font-mono text-[11px] text-muted">
             <span>{days[0]!.d.slice(5)}</span>
             <span>i dag</span>
           </div>

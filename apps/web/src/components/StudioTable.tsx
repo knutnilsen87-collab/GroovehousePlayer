@@ -1,4 +1,4 @@
-import { formatTime, isDraft, keyShort } from '@gv/shared/web';
+import { bpmUncertain, formatTime, isDraft, keyShort } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { DRAG_ITEMS } from './Playlists';
@@ -64,7 +64,7 @@ export function VariantSelect({ t, value, onChange }: { t: Track; value: LoadedA
         </select>
         <ChevronDownIcon width={12} height={12} className="pointer-events-none absolute right-0 text-soft" />
       </span>
-      <span aria-hidden="true" className="rounded bg-white/[0.04] px-1 font-mono text-[9px] tracking-[1px]">
+      <span aria-hidden="true" className="rounded bg-white/[0.04] px-1 font-mono text-[11px] tracking-[1px]">
         {t.variants.length} VAR
       </span>
     </label>
@@ -191,14 +191,14 @@ export function StudioTable({
                   <div className="flex min-w-0 flex-col">
                     <button type="button" onClick={() => onPlay(t)} className={`truncate text-left text-[14.5px] ${isCur ? 'font-bold text-accent' : 'font-semibold text-ink-strong'} hover:underline`}>
                       {m.title}
-                      {m.kind === 'set' && <span className="ml-2 rounded bg-white/[0.08] px-1 align-middle font-label text-[9px] font-bold tracking-[0.14em] text-soft">LIVE</span>}
+                      {m.kind === 'set' && <span className="ml-2 rounded bg-white/[0.08] px-1 align-middle font-label text-[11px] font-bold tracking-[0.14em] text-soft">LIVE</span>}
                       <DraftBadge m={m} className="ml-2" />
                     </button>
                     <VariantSelect t={t} value={a} onChange={(v) => onPlay(t, v)} />
                   </div>
                 </td>
                 <td className="hidden truncate py-2.5 pr-3 text-[13.5px] font-normal text-soft xl:table-cell">{m.artist ?? 'Echo Groove'}</td>
-                <td className="py-2.5 font-mono text-[13.5px] font-medium text-ink-strong">{m.bpm != null ? Math.round(m.bpm) : '–'}</td>
+                <td className="py-2.5 font-mono text-[13.5px] font-medium text-ink-strong">{m.bpm != null ? <span title={bpmUncertain(m) ? 'Usikker BPM – sjekk med øret' : undefined}>{bpmUncertain(m) ? '≈' : ''}{Math.round(m.bpm)}</span> : '–'}</td>
                 <td className="py-2.5 font-mono text-[13.5px] font-medium text-ink-strong">
                   {m.key ? (
                     <>

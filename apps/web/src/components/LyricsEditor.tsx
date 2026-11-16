@@ -103,7 +103,7 @@ export function LyricsEditor({ a }: { a: LoadedAsset }) {
             </span>
           )}
           {wordParsed.wordSynced && (
-            <span className="rounded-full border border-accent/40 bg-accent/15 px-2 py-0.5 font-mono text-[10px] font-semibold text-accent">
+            <span className="rounded-full border border-accent/40 bg-accent/15 px-2 py-0.5 font-mono text-[11px] font-semibold text-accent">
               ORD-SYNK ({wordParsed.words.length} ord)
             </span>
           )}

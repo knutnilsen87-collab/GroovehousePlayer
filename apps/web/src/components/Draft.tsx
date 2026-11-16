@@ -12,7 +12,7 @@ import { skinTrackVars } from '../lib/skin';
 export function DraftBadge({ m, className = '' }: { m: Pick<AssetManifest, 'version' | 'status'>; className?: string }) {
   if (!isDraft(m)) return null;
   return (
-    <span title="Umastret – holdes atskilt fra release-klare" className={`inline-flex flex-none items-center rounded border border-dashed border-white/40 px-1 py-px align-middle font-mono text-[9px] font-semibold tracking-[0.14em] text-soft ${className}`}>
+    <span title="Umastret – holdes atskilt fra release-klare" className={`inline-flex flex-none items-center rounded border border-dashed border-white/40 px-1 py-px align-middle font-mono text-[11px] font-semibold tracking-[0.14em] text-soft ${className}`}>
       UMASTRET
     </span>
   );
@@ -28,7 +28,8 @@ export function trackVars(m: Pick<AssetManifest, 'palette' | 'version' | 'status
 
 // ---------------------------------------------------------------- Segment: Release-klar · Utkast · Alle
 
-const KEY = (view: string) => `gv:status:${view}`;
+// Bibliotek og Hjem: ny nøkkel (v2), så standarden «Alle (gruppert)» gjelder også der et gammelt valg var lagret
+const KEY = (view: string) => (view === 'library' || view === 'home' ? `gv:status:v2:${view}` : `gv:status:${view}`);
 const read = (view: string, dflt: StatusFilter): StatusFilter => {
   try {
     const v = localStorage.getItem(KEY(view));
@@ -40,7 +41,8 @@ const read = (view: string, dflt: StatusFilter): StatusFilter => {
 
 /**
  * Valget huskes per visning (bibliotek, hjem, dj, søk …). Standard: bare release-klare, unntatt der
- * Knut har bedt om begge (del 16, 2026-11-15): DJ-verktøy («Passer etter …») og Ctrl+K tar med umastrede.
+ * Knut har bedt om begge (del 16, 2026-11-15): DJ-verktøy («Passer etter …») og Ctrl+K tar med umastrede,
+ * og Bibliotek og Hjem viser «Alle (gruppert)»: Release-klar øverst, Umastret under (2026-11-16).
  */
 export function useStatusFilter(view: string, dflt: StatusFilter = 'release'): [StatusFilter, (f: StatusFilter) => void] {
   const [f, setF] = useState<StatusFilter>(() => read(view, dflt));
@@ -72,10 +74,10 @@ export function StatusSegment({ value, onChange, counts }: { value: StatusFilter
           role="radio"
           aria-checked={value === id}
           onClick={() => onChange(id)}
-          className={`h-8 rounded-lg px-3 text-xs ${value === id ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : 'border border-transparent text-soft hover:text-ink-strong'}`}
+          className={`h-11 rounded-lg px-3 text-xs lg:h-8 ${value === id ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : 'border border-transparent text-soft hover:text-ink-strong'}`}
         >
           {name}
-          {counts && id !== 'all' && <span className="ml-1 font-mono text-[10px] text-muted">{counts[id]}</span>}
+          {counts && id !== 'all' && <span className="ml-1 font-mono text-[11px] text-muted">{counts[id]}</span>}
         </button>
       ))}
     </div>

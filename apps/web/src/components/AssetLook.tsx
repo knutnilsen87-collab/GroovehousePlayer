@@ -83,7 +83,7 @@ export function AssetLook({ a, onSaved }: { a: LoadedAsset; onSaved: () => void 
             </span>
           </div>
           <div className="flex w-32 flex-col justify-end rounded-xl p-2" style={{ background: `radial-gradient(circle at 30% 20%, ${secondary}55, ${OBSIDIAN} 70%)`, border: `1px solid ${primary}55` }}>
-            <span className="text-[10px] uppercase tracking-[0.14em]" style={{ color: primary }}>
+            <span className="text-[11px] uppercase tracking-[0.14em]" style={{ color: primary }}>
               Drop
             </span>
             <span className="truncate text-[11px] text-ink">{m.title}</span>

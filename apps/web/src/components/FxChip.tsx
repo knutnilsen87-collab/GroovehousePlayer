@@ -6,7 +6,7 @@ import { formatTime } from '@gv/shared/web';
 /** Del 18: brikken for en preset (farge + ikon + navn). */
 export function PresetBadge({ p, small = false }: { p: FxPreset; small?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full border font-sans font-semibold ${small ? 'px-1.5 py-px text-[10px]' : 'px-2 py-0.5 text-[11px]'}`} style={{ borderColor: `${p.color}88`, color: p.color, background: `${p.color}14` }}>
+    <span className={`inline-flex items-center gap-1 rounded-full border font-sans font-semibold ${small ? 'px-1.5 py-px text-[11px]' : 'px-2 py-0.5 text-[11px]'}`} style={{ borderColor: `${p.color}88`, color: p.color, background: `${p.color}14` }}>
       <span aria-hidden="true">{p.icon}</span>
       {p.name}
     </span>
@@ -58,7 +58,7 @@ export function TransitionFx({ a, b, info, preset, reason, learned }: { a: SbTra
         </button>
         <span className="font-sans text-[11px] text-muted">{learned ? `★ ${reason}` : reason}</span>
       </div>
-      <ol className="m-0 flex list-none flex-wrap gap-x-3 gap-y-0.5 p-0 text-[10px] text-muted" aria-label={`Steg i ${preset.name}`}>
+      <ol className="m-0 flex list-none flex-wrap gap-x-3 gap-y-0.5 p-0 text-[11px] text-muted" aria-label={`Steg i ${preset.name}`}>
         {steps.map((s, i) => (
           <li key={i}>
             <span className="text-ink">takt {s.bar > 0 ? `+${s.bar}` : s.bar}</span> · {s.track} {formatTime(s.atMs)} · {s.text}

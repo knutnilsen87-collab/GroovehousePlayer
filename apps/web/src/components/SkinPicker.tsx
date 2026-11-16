@@ -111,8 +111,8 @@ export function SkinPicker() {
                 <SkinPreview skin={s} />
                 <span className="flex items-center gap-2 px-1 text-sm font-semibold text-ink-strong">
                   {s.name}
-                  {s.id === 'kameleon' && <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">standard</span>}
-                  {!s.builtIn && <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em] text-muted">egen</span>}
+                  {s.id === 'kameleon' && <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">standard</span>}
+                  {!s.builtIn && <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">egen</span>}
                 </span>
                 <span className="px-1 text-xs leading-snug text-soft">{s.description || (s.mode === 'chameleon' ? 'Coveret styrer fargene.' : 'Faste farger.')}</span>
               </button>

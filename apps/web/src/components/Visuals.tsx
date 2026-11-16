@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { beatMs, formatTimeMs, sectionsOf, type Loop } from '@gv/shared/web';
-import { downsample, type LoadedAsset } from '../lib/catalog';
+import { downsample, useFullAsset, type LoadedAsset } from '../lib/catalog';
 import { useSpectrum } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
 
@@ -146,7 +146,9 @@ function barPath(bars: number[], height: number): Path2D {
  * Klikk = spol. Dra = sett A·B-løkke (festes til takter; hold Shift for å slå av).
  * Tastatur: ←/→ 5 s, Shift+←/→ 1 s.
  */
-export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop, children }: { asset: LoadedAsset; height?: number; loop: Loop | null; onSeek: (ms: number) => void; onLoop: (a: number, b: number, snap: boolean) => void; children?: React.ReactNode }) {
+export function BigWaveform({ asset: assetIn, height = 120, loop, onSeek, onLoop, children }: { asset: LoadedAsset; height?: number; loop: Loop | null; onSeek: (ms: number) => void; onLoop: (a: number, b: number, snap: boolean) => void; children?: React.ReactNode }) {
+  // Full analyse (analysis.json) hentes når låta vises; til da tegnes den lette fra katalogen
+  const asset = useFullAsset(assetIn);
   const { ref, w } = useCanvasSize();
   const m = asset.manifest;
   const dur = m.durationMs;
@@ -279,7 +281,9 @@ export function BigWaveform({ asset, height = 120, loop, onSeek, onLoop, childre
  * Vindu rundt spillehodet (standard ±8 s, 2–30 s med hjul eller klyp). Dra for å spole.
  * Takt-rutenett ut fra BPM (tydeligere strek hver 4. slag) og seksjonsmarkørene.
  */
-export function ZoomWaveform({ asset, height = 96, onSeek }: { asset: LoadedAsset; height?: number; onSeek: (ms: number) => void }) {
+export function ZoomWaveform({ asset: assetIn, height = 96, onSeek }: { asset: LoadedAsset; height?: number; onSeek: (ms: number) => void }) {
+  // Full analyse (analysis.json) hentes når låta vises; til da tegnes den lette fra katalogen
+  const asset = useFullAsset(assetIn);
   const { ref, w } = useCanvasSize();
   const m = asset.manifest;
   const [half, setHalf] = useState(8000);
@@ -330,7 +334,7 @@ export function ZoomWaveform({ asset, height = 96, onSeek }: { asset: LoadedAsse
         ctx.fillRect(x, mid - h / 2, step - 0.5, h);
       }
       // Seksjoner
-      ctx.font = '600 9px "Geist Mono", monospace';
+      ctx.font = '600 11px "Geist Mono", monospace';
       for (const s of sections) {
         const x = (s.startMs - t0) / msPerPx;
         if (x < -40 || x > w) continue;
@@ -383,7 +387,7 @@ export function ZoomWaveform({ asset, height = 96, onSeek }: { asset: LoadedAsse
         className="block w-full cursor-grab touch-none rounded-md active:cursor-grabbing"
         style={{ height }}
       />
-      <div className="flex justify-between font-mono text-[10px] text-muted">
+      <div className="flex justify-between font-mono text-[11px] text-muted">
         <span>−{(half / 1000).toFixed(0)} s</span>
         <span>{m.bpm ? `${m.bpm} BPM · takt-rutenett` : 'uten BPM'}</span>
         <span>+{(half / 1000).toFixed(0)} s</span>
@@ -401,7 +405,9 @@ const axisLabel = (f: number) => (f >= 1000 ? `${f / 1000}K` : String(f));
  * 48 bånd fra `spectrum48.bin`, valgt ut fra avspillingsposisjonen (ingen lydanalyse i nettleseren,
  * virker likt i Android-appen der lyden spilles native). Rask stigning, langsomt fall.
  */
-export function SpectrumView({ asset, height = 120 }: { asset: LoadedAsset; height?: number }) {
+export function SpectrumView({ asset: assetIn, height = 120 }: { asset: LoadedAsset; height?: number }) {
+  // Full analyse (analysis.json) hentes når låta vises; til da tegnes den lette fra katalogen
+  const asset = useFullAsset(assetIn);
   const { ref, w } = useCanvasSize();
   const spec = useSpectrum(asset);
   const shown = useRef<Float32Array>(new Float32Array(48));
@@ -461,7 +467,7 @@ export function SpectrumView({ asset, height = 120 }: { asset: LoadedAsset; heig
           <span className="absolute inset-0 flex items-center justify-center font-mono text-[11px] text-muted">{spec === null ? 'Analyserer…' : 'Laster spektrum…'}</span>
         ) : null}
       </div>
-      <div className="relative h-3 font-mono text-[9px] text-muted" aria-hidden="true">
+      <div className="relative h-3 font-mono text-[11px] text-muted" aria-hidden="true">
         {AXIS.map((f, i) => (
           <span key={f} className={`absolute ${i === 0 ? '' : i === AXIS.length - 1 ? '-translate-x-full' : '-translate-x-1/2'}`} style={{ left: `${(Math.log(f / 20) / Math.log(1000)) * 100}%` }}>
             {axisLabel(f)}

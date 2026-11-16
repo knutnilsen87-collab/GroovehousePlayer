@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { preferredVersion, type Analysis, type AssetManifest, type CatalogIndex } from '@gv/shared/web';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { preferredVersion, type Analysis, type AssetManifest, type CatalogIndex, type EnergyFeatures } from '@gv/shared/web';
 import { serverBase } from './connection';
 
 /** Media-mappa serveres under dette prefikset (Vite-dev og apps/server). */
@@ -14,7 +14,18 @@ export interface LoadedAsset {
   analysis: Analysis | null;
   /** Mappe-URL for denne versjonen, f.eks. /media/blue-fire/main/v2/ */
   base: string;
+  /**
+   * Fra den samlede katalogen (/api/catalog): analysen er lett (bølgeform i lav oppløsning, uten spektrumrammer
+   * og sub-bass). Komponenter som trenger detaljene bruker useFullAsset(), som henter analysis.json ved behov.
+   */
+  slim?: boolean;
+  /** Settbyggerens energigrunnlag, beregnet på serveren fra full analyse. */
+  features?: EnergyFeatures;
 }
+
+/** slug::variant → duplikatgruppe (samme låt under ulike titler). Fylles av den samlede katalogen. */
+let groups: Record<string, string> = {};
+export const dupeGroups = () => groups;
 
 export function assetUrl(a: LoadedAsset, file: string | null): string | null {
   if (!file) return null;
@@ -57,7 +68,34 @@ export function versionsOf(index: IndexEntry[], slug: string, variant: string | 
   return index.filter((e) => e.slug === slug && (e.variant ?? null) === variant).sort((a, b) => b.version - a.version);
 }
 
+const mediaBase = (manifestPath: string) => `${serverBase()}${MEDIA}/${manifestPath.replace(/manifest\.json$/, '')}`;
+
 export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null }> {
+  // Ett kall med alt listene trenger. Eldre server uten /api/catalog: hent filene én og én som før.
+  try {
+    const r = await fetch('/api/catalog', { cache: 'no-store' });
+    if (r.status === 404 && (r.headers.get('content-type') ?? '').includes('json')) {
+      const j = (await r.json().catch(() => ({}))) as { error?: string };
+      if (j.error === 'tomt hvelv') return { assets: [], index: [], error: null };
+    } else if (r.ok) {
+      const b = (await r.json()) as { index: IndexEntry[]; assets: Array<{ manifest: AssetManifest; analysis: Analysis | null; features?: EnergyFeatures }>; groups?: Record<string, string> };
+      groups = b.groups ?? {};
+      const byKey = new Map(b.index.map((e) => [versionKey(e.slug, e.variant, e.version), e] as const));
+      const assets = b.assets.map((x) => {
+        const e = byKey.get(versionKey(x.manifest.slug, x.manifest.variant, x.manifest.version));
+        return { manifest: x.manifest, analysis: x.analysis, features: x.features, base: mediaBase(e?.manifest ?? `${x.manifest.slug}/${x.manifest.variant ?? 'main'}/v${x.manifest.version}/manifest.json`), slim: true };
+      });
+      return { assets, index: b.index, error: null };
+    } else if (r.status === 401) {
+      return { assets: [], index: [], error: `401 /api/catalog` };
+    }
+  } catch {
+    /* faller tilbake til filene */
+  }
+  return loadCatalogFiles();
+}
+
+async function loadCatalogFiles(): Promise<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null }> {
   let idx: CatalogIndex;
   try {
     idx = await getJson<CatalogIndex>(`${MEDIA}/index.json`);
@@ -78,9 +116,49 @@ export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: Ind
   return { assets: await Promise.all([...latest.values()].map((e) => loadVersion(e, true))), index: idx.assets, error: null };
 }
 
+/** Full analyse (analysis.json) for en låt fra den samlede katalogen. Hentes én gang per versjon. */
+const fullCache = new Map<string, Promise<Analysis | null>>();
+const fullDone = new Map<string, Analysis | null>();
+export function loadFullAnalysis(a: LoadedAsset): Promise<Analysis | null> {
+  const key = a.base + (a.manifest.files.analysis ?? '');
+  let p = fullCache.get(key);
+  if (!p) {
+    p = a.manifest.files.analysis
+      ? getJson<Analysis>(`${a.base}${a.manifest.files.analysis}`).catch(() => {
+          fullCache.delete(key);
+          return a.analysis;
+        })
+      : Promise.resolve(a.analysis);
+    void p.then((x) => fullDone.set(key, x));
+    fullCache.set(key, p);
+  }
+  return p;
+}
+
+/**
+ * Samme låt med full analyse. Returnerer den lette versjonen til den fulle er hentet (komponenten tegnes
+ * først med lav oppløsning, så med full). Låter som ikke er «slim» returneres som de er.
+ */
+export function useFullAsset<T extends LoadedAsset | null | undefined>(a: T): T {
+  const key = a?.slim ? a.base + (a.manifest.files.analysis ?? '') : '';
+  const [, bump] = useState(0);
+  useEffect(() => {
+    if (!a?.slim || fullDone.has(key)) return;
+    let alive = true;
+    void loadFullAnalysis(a).then(() => alive && bump((n) => n + 1));
+    return () => {
+      alive = false;
+    };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  const full = key ? fullDone.get(key) : undefined;
+  return useMemo(() => (a && a.slim && full ? ({ ...a, analysis: full, slim: false } as T) : a), [a, full]);
+}
+
 const catalogListeners = new Set<() => void>();
 export function notifyCatalogChanged() {
   versionCache.clear();
+  fullCache.clear();
+  fullDone.clear();
   for (const fn of catalogListeners) fn();
 }
 

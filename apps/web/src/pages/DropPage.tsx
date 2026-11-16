@@ -180,7 +180,7 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
           })}
         </ul>
 
-        <p className="mt-auto flex items-center justify-center gap-1.5 pt-4 text-[10px] uppercase tracking-[1px] text-[#8E897D]">
+        <p className="mt-auto flex items-center justify-center gap-1.5 pt-4 text-[11px] uppercase tracking-[1px] text-[#8E897D]">
           <ShieldIcon width={11} height={11} />
           {t.footer}
         </p>

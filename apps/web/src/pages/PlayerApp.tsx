@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { formatTime, isDraft, keyShort, matchesStatus, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
+import { bpmLabel, formatTime, isDraft, keyShort, matchesStatus, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { AnalysisSidebarCard, CoverCard, NowPanel, SideTabs } from '../components/Deck';
 import { FullPlayer } from '../components/MobilePlayer';
@@ -13,7 +13,7 @@ import { CoverArt } from '../components/CoverArt';
 import { addWithUndo, AddToPlaylistSheet, PlaylistDetail, PlaylistsOverview, SidebarPlaylists, Toast } from '../components/Playlists';
 import { ChevronDownIcon, MoreIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SearchIcon, SectionNextIcon, SectionPrevIcon, VolumeIcon } from '../components/Icons';
 import { SpectralWaveform } from '../components/SpectralWaveform';
-import { assetUrl, groupTracks, loadVersion, useCatalog, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
+import { assetUrl, groupTracks, loadVersion, useCatalog, useFullAsset, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
 import { startPlaybackSync } from '../lib/playbackSync';
 import { savedPosition, storedQueue, usePlayer } from '../lib/player';
 import { SetBuilder } from '../components/SetBuilder';
@@ -36,7 +36,10 @@ import { useFx } from '../lib/fx';
 type Filter = 'all' | 'track' | 'set';
 
 /** Del 14: direkte lenke til en visning, f.eks. /?vis=bibliotek. */
-const VIEW_PARAM: Record<string, View> = { hjem: 'home', bibliotek: 'library', lister: 'playlists', sett: 'sets', dj: 'dj', analyse: 'stats' };
+// Menyen heter «Live-sett», så /?vis=live-sett (og varianter) må virke i tillegg til /?vis=sett
+const VIEW_PARAM: Record<string, View> = { hjem: 'home', bibliotek: 'library', lister: 'playlists', spillelister: 'playlists', sett: 'sets', 'live-sett': 'sets', livesett: 'sets', live: 'sets', dj: 'dj', analyse: 'stats', statistikk: 'stats' };
+/** Leser ?vis=… uten å bry seg om store bokstaver eller mellomrom («Live sett»). */
+export const viewFromParam = (v: string | null): View | undefined => (v ? VIEW_PARAM[v.trim().toLowerCase().replace(/[\s_]+/g, '-')] : undefined);
 
 /**
  * Din egen spiller. Mobil: én tommel – bunnmeny, flytende mini-spiller, fullskjerm ved trykk.
@@ -47,7 +50,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   const { assets, index: catalogIndex, loading, error: catalogError, reload } = useCatalog();
   const tracks = useMemo(() => groupTracks(assets), [assets]);
   // Startvisning fra lenken (/?vis=bibliotek), ellers Hjem
-  const [view, setView] = useState<View>(() => VIEW_PARAM[new URLSearchParams(location.search).get('vis') ?? ''] ?? 'home');
+  const [view, setView] = useState<View>(() => viewFromParam(new URLSearchParams(location.search).get('vis')) ?? 'home');
   const [sort, setSort] = useState<Sort>({ key: 'none', dir: 1 });
   const [filter, setFilter] = useState<Filter>('all');
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -193,8 +196,8 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   }, [toggle, nextSection, prevSection]);
 
   // Del 16: Release-klar · Utkast · Alle – bare release-klare som standard, valget huskes per visning
-  const [libStatus, setLibStatus] = useStatusFilter('library');
-  const [homeStatus, setHomeStatus] = useStatusFilter('home');
+  const [libStatus, setLibStatus] = useStatusFilter('library', 'all');
+  const [homeStatus, setHomeStatus] = useStatusFilter('home', 'all');
   const [djStatus, setDjStatus] = useStatusFilter('dj', 'all');
   const byStatus = (f: StatusFilter) => tracks.filter((t) => matchesStatus(t.main.manifest, f));
   const statusCounts = { release: tracks.filter((t) => !isDraft(t.main.manifest)).length, draft: tracks.filter((t) => isDraft(t.main.manifest)).length };
@@ -325,39 +328,51 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                       {visible.length} låter · klikk = velg · dobbeltklikk = spill
                     </span>
                   </div>
-                  <StudioTable {...tableProps} tracks={visible} sort={sort} onSort={setSort} />
-                  <TrackList
-                    tracks={visible}
-                    onPlay={play}
-                    onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
-                    onSwipeRight={(t) => {
-                      // Mobil: sveip til høyre = legg sist i køen (med angre).
-                      const a = shownAsset(t);
-                      const player = usePlayer.getState();
-                      player.enqueue([a]);
-                      const at = usePlayer.getState().queue.length - 1;
-                      useToast.getState().show(`Lagt i køen: ${a.manifest.title}`, {
-                        label: 'Angre',
-                        run: () => {
-                          const q = usePlayer.getState().queue;
-                          if (q[at]?.manifest.id === a.manifest.id && at !== usePlayer.getState().index) usePlayer.getState().removeFromQueue(at);
-                        }
-                      });
-                    }}
-                    onSwipeLeft={(t) => {
-                      // Mobil: sveip til venstre = legg til i sist brukte spilleliste (med angre). Ingen liste ennå → arket.
-                      const target = mostRecentTarget(usePlaylists.getState().playlists);
-                      if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
-                      else openSheet([shownAsset(t)]);
-                    }}
-                    selectMode={selectMode}
-                    selected={selected}
-                    onLongPress={(t) => {
-                      setSelectMode(true);
-                      setSelected([t.slug]);
-                    }}
-                    onToggle={(t) => toggleMobileSelect(t.slug)}
-                  />
+                  {/* Del 16: «Alle (gruppert)» – Release-klar øverst, Umastret under, i hver sin seksjon */}
+                  {(libStatus === 'all' ? ([['Release-klar', visible.filter((t) => !isDraft(t.main.manifest))], ['Umastret', visible.filter((t) => isDraft(t.main.manifest))]] as const) : ([[null, visible]] as const)).map(([heading, list]) =>
+                    list.length === 0 && heading ? null : (
+                      <section key={heading ?? 'alle'} aria-label={heading ?? undefined} className="flex flex-col gap-2">
+                        {heading && (
+                          <h2 className="gv-label m-0 mt-2 flex items-baseline gap-2 text-[11px] text-soft">
+                            {heading} <span className="font-mono text-[11px] text-muted">{list.length}</span>
+                          </h2>
+                        )}
+                      <StudioTable {...tableProps} tracks={list} sort={sort} onSort={setSort} />
+                      <TrackList
+                        tracks={list}
+                        onPlay={play}
+                        onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
+                        onSwipeRight={(t) => {
+                          // Mobil: sveip til høyre = legg sist i køen (med angre).
+                          const a = shownAsset(t);
+                          const player = usePlayer.getState();
+                          player.enqueue([a]);
+                          const at = usePlayer.getState().queue.length - 1;
+                          useToast.getState().show(`Lagt i køen: ${a.manifest.title}`, {
+                            label: 'Angre',
+                            run: () => {
+                              const q = usePlayer.getState().queue;
+                              if (q[at]?.manifest.id === a.manifest.id && at !== usePlayer.getState().index) usePlayer.getState().removeFromQueue(at);
+                            }
+                          });
+                        }}
+                        onSwipeLeft={(t) => {
+                          // Mobil: sveip til venstre = legg til i sist brukte spilleliste (med angre). Ingen liste ennå → arket.
+                          const target = mostRecentTarget(usePlaylists.getState().playlists);
+                          if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
+                          else openSheet([shownAsset(t)]);
+                        }}
+                        selectMode={selectMode}
+                        selected={selected}
+                        onLongPress={(t) => {
+                          setSelectMode(true);
+                          setSelected([t.slug]);
+                        }}
+                        onToggle={(t) => toggleMobileSelect(t.slug)}
+                      />
+                      </section>
+                    )
+                  )}
                 </>
               )}
               {view === 'playlists' &&
@@ -492,7 +507,7 @@ function Pills({ value, onChange }: { value: Filter; onChange: (f: Filter) => vo
           type="button"
           aria-pressed={value === id}
           onClick={() => onChange(id)}
-          className={`h-9 flex-none rounded-full px-4 text-xs font-semibold ${value === id ? 'bg-accent text-on-accent' : 'bg-white/[0.05] text-ink hover:bg-white/[0.09]'}`}
+          className={`h-11 flex-none rounded-full px-4 text-xs font-semibold lg:h-9 ${value === id ? 'bg-accent text-on-accent' : 'bg-white/[0.05] text-ink hover:bg-white/[0.09]'}`}
         >
           {label}
         </button>
@@ -549,7 +564,7 @@ function TrackList({
         const isCur = cur?.manifest.slug === t.slug;
         const a = isCur ? cur! : t.main;
         const m = a.manifest;
-        const meta = [isCur && m.variant ? variantName(a) : null, m.kind === 'set' ? 'Live-sett' : null, m.bpm ? `${Math.round(m.bpm)} BPM` : null, m.key ? `${keyShort(m.key.name)} ${m.key.camelot}` : null, t.variants.length > 1 ? `${t.variants.length} varianter` : null]
+        const meta = [isCur && m.variant ? variantName(a) : null, m.kind === 'set' ? 'Live-sett' : null, bpmLabel(m), m.key ? `${keyShort(m.key.name)} ${m.key.camelot}` : null, t.variants.length > 1 ? `${t.variants.length} varianter` : null]
           .filter(Boolean)
           .join(' · ');
         const isSel = selected.includes(t.slug);
@@ -724,7 +739,7 @@ function RecordedSets({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]
             </div>
             {isCur && now && (
               <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl bg-white/[0.04] px-3 py-2 text-[13px]">
-                <span className="text-[10px] font-semibold tracking-[1.5px] text-accent">SPILLES NÅ I SETTET</span>
+                <span className="text-[11px] font-semibold tracking-[1.5px] text-accent">SPILLES NÅ I SETTET</span>
                 <span className="font-semibold text-ink-strong">{now.label}</span>
                 {single && (
                   <button type="button" onClick={() => onPlay(single)} className="ml-auto h-8 rounded-full bg-white/[0.06] px-3 text-xs text-ink hover:bg-accent/[0.14]">
@@ -756,7 +771,7 @@ function RecordedSets({ sets, tracks, onPlay }: { sets: Track[]; tracks: Track[]
                     >
                       <span className="tabular text-muted">{formatTime(c.startMs)}</span>
                       {c.label}
-                      {c.bpm != null && <span className="font-mono text-[10px] text-muted">{Math.round(c.bpm)}</span>}
+                      {c.bpm != null && <span className="font-mono text-[11px] text-muted">{Math.round(c.bpm)}</span>}
                       {!c.confirmed && <span className="text-accent" title="Ubekreftet – fant ikke sync-klikket">·?</span>}
                     </button>
                   </li>
@@ -827,6 +842,7 @@ function NowLabel({ cur, hideVariant = false }: { cur: LoadedAsset; hideVariant?
 function Dock({ cur, track, onVariant, tracks, onPlay, onMore, hideOnDesktop = false }: { cur: LoadedAsset; track?: Track; onVariant: (v: LoadedAsset) => void; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: (anchor?: { x: number; y: number } | null) => void; /** Dekket viser transporten (Hjem, Bibliotek). */ hideOnDesktop?: boolean }) {
   const { positionMs, started, seek, volume, setVolume } = usePlayer();
   const m = cur.manifest;
+  const full = useFullAsset(cur);
   const setNow = m.kind === 'set' ? sectionAt(m.markers, positionMs) : null;
   const single = setNow?.refSlug ? tracks.find((x) => x.slug === setNow.refSlug && x.main.manifest.kind === 'track') : undefined;
   return (
@@ -873,7 +889,7 @@ function Dock({ cur, track, onVariant, tracks, onPlay, onMore, hideOnDesktop = f
           <div className="flex items-center gap-3">
             <span className="tabular w-14 text-right text-[11px] text-muted">{formatTime(positionMs)}</span>
             <div className="min-w-0 flex-1">
-              <SpectralWaveform analysis={cur.analysis} durationMs={m.durationMs} progress={positionMs / m.durationMs} active={started} height={34} markers={m.markers} showLabels onSeek={(r) => seek(r * m.durationMs)} />
+              <SpectralWaveform analysis={full.analysis} durationMs={m.durationMs} progress={positionMs / m.durationMs} active={started} height={34} markers={m.markers} showLabels onSeek={(r) => seek(r * m.durationMs)} />
             </div>
             <span className="tabular w-14 text-[11px] text-muted">{formatTime(m.durationMs)}</span>
           </div>
@@ -903,6 +919,7 @@ function SubBassEdge() {
 function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => void; onMore: () => void }) {
   const { playing, toggle, positionMs, next, prev, started } = usePlayer();
   const m = cur.manifest;
+  const full = useFullAsset(cur);
   const startX = useRef<number | null>(null);
   const hold = useRef<{ timer: number; fired: boolean; x: number; y: number } | null>(null);
   return (
@@ -971,7 +988,7 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
         </button>
       </div>
       <div className="px-2 pb-1.5">
-        <SpectralWaveform analysis={cur.analysis} durationMs={m.durationMs} progress={positionMs / m.durationMs} active={started} height={14} barPx={2} />
+        <SpectralWaveform analysis={full.analysis} durationMs={m.durationMs} progress={positionMs / m.durationMs} active={started} height={14} barPx={2} />
       </div>
     </div>
   );

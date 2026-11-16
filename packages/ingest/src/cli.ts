@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { findDuplicateGroups, writeDupeReport } from './dupes';
 import { existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -94,6 +95,15 @@ async function main() {
     for (const k of r.missing) console.log(`  ! ${k}: fant ingen fil med samme hash (endret eller flyttet etter ingest?)`);
     for (const s of r.skipped) console.log(`  ↷ ${s.fileName}: kunne ikke leses (${s.reason}) – hoppet over`);
     console.log(`\n${r.matched.length} koblet, ${r.missing.length} uten treff, ${r.scanned} filer lest. Lagret i data/sources.json (gitignored).`);
+    return;
+  }
+
+  if (args.includes('--dupes')) {
+    // Duplikater i katalogen (tittel etter rensing + lydlikhet). Bare lesing; skriver data/dupe-groups.json.
+    const dataDir = path.join(root, 'data');
+    const r = await findDuplicateGroups({ mediaDir, dataDir, onProgress: (d, t) => d % 20 === 0 && console.log(`  fingeravtrykk ${d}/${t}`) });
+    await writeDupeReport(dataDir, r);
+    console.log(`${r.groups.length} grupper, ${r.retitles.length} titler med forslag. Lagret i data/dupe-groups.json.`);
     return;
   }
 

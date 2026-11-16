@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
+import { bpmConfidenceText, bpmUncertain, camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
 import { assetUrl, uploadAssetCover, variantName, type LoadedAsset } from '../lib/catalog';
 import { needsCheck, useFavorites, useIsFavorite, useLyrics } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
@@ -152,7 +152,7 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
         <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={600} rounded={12} fluid draft={isDraft(m)} />
         {/* Del 23: generert Vault-cover – et ekte cover (dra-og-slipp) erstatter det */}
         {m.coverSource === 'generated' && !dragOver && (
-          <span title="Laget av Vault fra toneart, bølgeform og spektrum. Slipp et bilde her for ekte cover." className="absolute bottom-2.5 left-2.5 rounded-full bg-sunken/85 px-2.5 py-1 font-label text-[9px] font-bold uppercase tracking-[0.14em] text-soft">
+          <span title="Laget av Vault fra toneart, bølgeform og spektrum. Slipp et bilde her for ekte cover." className="absolute bottom-2.5 left-2.5 rounded-full bg-sunken/85 px-2.5 py-1 font-label text-[11px] font-bold uppercase tracking-[0.14em] text-soft">
             Vault-cover
           </span>
         )}
@@ -351,7 +351,7 @@ export function RateControl() {
             aria-label="Hastighet"
             className="gv-range w-full"
           />
-          <div className="flex justify-between font-mono text-[10px] text-muted">
+          <div className="flex justify-between font-mono text-[11px] text-muted">
             <span>0.90</span>
             <button type="button" onClick={() => setRate(1)} className="text-soft hover:text-ink-strong">
               1.00
@@ -439,7 +439,7 @@ export function TrackInfoRows({ cur, compact = false }: { cur: LoadedAsset; comp
   const harmony = rel == null || rel === 'unknown' ? undefined : rel === 'same' || rel === 'adjacent' || rel === 'relative' ? 'good' : rel === 'clash' ? 'clash' : 'boost';
   const minus = (n: number) => n.toFixed(1).replace('-', '\u2212');
   const pills: Array<{ k: string; v: string; title?: string; harmony?: string }> = [
-    { k: 'BPM', v: m.bpm != null ? m.bpm.toFixed(1) : '–' },
+    { k: 'BPM', v: m.bpm != null ? `${bpmUncertain(m) ? '≈' : ''}${m.bpm.toFixed(1)}` : '–', title: bpmUncertain(m) ? 'Usikker BPM – sjekk med øret' : undefined },
     {
       k: 'Toneart',
     v: m.key ? `${keyShort(m.key.name)} · ${m.key.camelot}` : '–',
@@ -478,7 +478,7 @@ export function Credits({ cur }: { cur: LoadedAsset }) {
     // Del 23: hvor coveret kommer fra (distributører spør om AI-generert innhold)
     ['Cover', m.coverSource === 'ai' ? `AI-generert${m.coverAi?.provider ? ` (${m.coverAi.provider}${m.coverAi.model ? ` · ${m.coverAi.model}` : ''})` : ''}` : m.coverSource === 'generated' ? 'Vault-cover (generert)' : m.files.cover ? 'Eget cover' : 'Mangler'],
     ['Ingestet', new Date(m.createdAt).toLocaleDateString('nb-NO', { dateStyle: 'medium' })],
-    ['BPM-sikkerhet', pct(m.bpmConfidence)],
+    ['BPM-sikkerhet', bpmConfidenceText(m.bpmConfidence)],
     ['Toneart-sikkerhet', pct(m.key?.confidence)],
     ['Kildefil', source === undefined ? '…' : (source ?? 'ukjent')]
   ];

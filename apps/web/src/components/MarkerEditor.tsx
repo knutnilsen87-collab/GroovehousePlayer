@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { barMs, formatTimeMs, markerKey, snapToBar, withEnds, type AssetMarker, type MarkerKind } from '@gv/shared/web';
-import type { LoadedAsset } from '../lib/catalog';
+import { useFullAsset, type LoadedAsset } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { SpectralWaveform } from './SpectralWaveform';
 import { PlayIcon, TrashIcon } from './Icons';
@@ -18,6 +18,7 @@ const KIND_NAME: Record<MarkerKind, string> = { chapter: 'Seksjon', drop: 'DROP'
 
 export function MarkerEditor({ a, onSaved, onPlayAt }: { a: LoadedAsset; onSaved: () => void; onPlayAt: (ms: number) => void }) {
   const m = a.manifest;
+  const full = useFullAsset(a);
   const nextId = useRef(1);
   const fromManifest = () => m.markers.map((k) => ({ ...k, _id: nextId.current++ }));
   const [items, setItems] = useState<Edit[]>(fromManifest);
@@ -122,7 +123,7 @@ export function MarkerEditor({ a, onSaved, onPlayAt }: { a: LoadedAsset; onSaved
         onPointerUp={() => (drag.current = null)}
         onPointerCancel={() => (drag.current = null)}
       >
-        <SpectralWaveform analysis={a.analysis} durationMs={m.durationMs} progress={isCur ? pos / m.durationMs : 0} active height={88} barPx={3} />
+        <SpectralWaveform analysis={full.analysis} durationMs={m.durationMs} progress={isCur ? pos / m.durationMs : 0} active height={88} barPx={3} />
         {sorted.map((x) => {
           const left = `${(x.startMs / m.durationMs) * 100}%`;
           const sel = selected === x._id;
@@ -145,7 +146,7 @@ export function MarkerEditor({ a, onSaved, onPlayAt }: { a: LoadedAsset; onSaved
               <span aria-hidden="true" className={`absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 ${x.kind === 'drop' ? 'bg-[#FF6B5A]' : x.confirmed ? 'bg-accent' : 'bg-white/60'} ${sel ? 'gv-neon' : ''}`} />
               <span
                 aria-hidden="true"
-                className={`absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[10px] ${sel ? 'bg-accent text-on-accent' : x.confirmed ? 'bg-accent/20 text-ink-strong' : 'border border-dashed border-white/40 bg-sunken text-soft'}`}
+                className={`absolute left-1/2 top-0 -translate-x-1/2 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[11px] ${sel ? 'bg-accent text-on-accent' : x.confirmed ? 'bg-accent/20 text-ink-strong' : 'border border-dashed border-white/40 bg-sunken text-soft'}`}
               >
                 {x.label || KIND_NAME[x.kind]}
               </span>

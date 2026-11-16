@@ -125,7 +125,7 @@ export function SpectralWaveform({ analysis, durationMs, progress, active, heigh
           {sections.map((s) => (
             <span
               key={`${s.label}-${s.startMs}`}
-              className="absolute top-0 truncate whitespace-nowrap pl-1 text-[9px] font-semibold uppercase tracking-[1.2px]"
+              className="absolute top-0 truncate whitespace-nowrap pl-1 text-[11px] font-semibold uppercase tracking-[1.2px]"
               style={{
                 left: `${(s.startMs / durationMs) * 100}%`,
                 maxWidth: `${(((s.endMs ?? durationMs) - s.startMs) / durationMs) * 100}%`,

@@ -25,6 +25,8 @@ import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-fi
 import { addLearn, m3u, readLearn, recordedPairs, rekordboxXml, resolveItems, type ExportItem } from './sets';
 import { readSources, sourceKey, sourcesFile } from './source-index';
 import { overridePath, readOverrides, type MetaFile } from './sources';
+import { createCatalogBundler } from './catalog-bundle';
+import { gzipSync } from 'node:zlib';
 
 /**
  * Lite HTTP-API for Studio. Brukes som Vite-middleware i dev og av apps/server senere.
@@ -84,6 +86,7 @@ export function createApiHandler(opts: ApiOptions) {
   const lyrics = lyricsQueue.store;
   const skippedStore = createSkippedStore(dataDir);
   const listens = createListenStore(path.join(dataDir, 'listens.json'));
+  const catalogBundle = createCatalogBundler(opts.mediaDir);
   let version = '0.0.0';
   try {
     version = (JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string }).version ?? version;
@@ -93,6 +96,22 @@ export function createApiHandler(opts: ApiOptions) {
   return async function handle(req: IncomingMessage, res: ServerResponse, next?: () => void): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (url.pathname === '/api/health') return send(res, 200, { app: APP_ID, version });
+    // Samlet katalog: ett kall i stedet for manifest + analyse per låt. Ikke fra /drop/ (der vises bare én låt).
+    if (url.pathname === '/api/catalog' && req.method === 'GET') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const b = await catalogBundle(dataDir);
+      if (!b) return send(res, 404, { error: 'tomt hvelv' });
+      const body = Buffer.from(JSON.stringify(b));
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Vary', 'Accept-Encoding');
+      if (/gzip/.test(String(req.headers['accept-encoding'] ?? ''))) {
+        res.setHeader('Content-Encoding', 'gzip');
+        return void res.end(gzipSync(body, { level: 6 }));
+      }
+      return void res.end(body);
+    }
     // Del 5: posisjon på tvers av enheter. Nyeste tidsstempel vinner. Aldri fra /drop/.
     if (url.pathname === '/api/playback') {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });

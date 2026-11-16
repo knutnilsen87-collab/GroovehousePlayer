@@ -175,3 +175,66 @@ describe('settbyggeren (del 17)', () => {
     expect(w.tempo).toBe(1);
   });
 });
+
+describe('duplikater under ulike titler (samme låt importert flere ganger)', () => {
+  // Fire eksporter av samme låt med hver sin slug, slik importen laget dem. Gruppen kommer fra
+  // data/dupe-groups.json (lydlikhet + tittel etter rensing). De passer perfekt sammen, så uten
+  // regelen ville settbyggeren gjerne lagt dem på rad.
+  const dupes: SbTrack[] = ["It's Summertime 2", "5. It's Summertime", 'Summertime', "LANDR-5. It's Summertime-Balanced-Medium"].map((title, i) => ({
+    ...catalog(1, 99)[0]!,
+    id: `sum-${i}`,
+    slug: `summertime-${i}`,
+    title,
+    durationMs: 300_000 + i * 500,
+    bpm: 124,
+    camelot: '8A',
+    energy: 6,
+    draft: i !== 3,
+    group: 'g-summertime'
+  }));
+  // Liten katalog: for få unike låter til 60 min, så duplikatene er fristende for å fylle tiden
+  const pool = [...catalog(9, 5), ...dupes];
+  const fromGroup = (ts: SbTrack[]) => ts.filter((t) => t.group === 'g-summertime').length;
+
+  it('settbyggeren bruker aldri mer enn én låt fra gruppa', () => {
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const r = buildSet(pool, opts({ seed, includeDrafts: true }));
+      expect(r).not.toBeNull();
+      expect(fromGroup(r!.tracks)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('heller ikke i de tre alternativene', () => {
+    const alts = buildAlternatives(pool, opts({ includeDrafts: true }));
+    expect(alts).toHaveLength(3);
+    for (const alt of alts) expect(fromGroup(alt.tracks)).toBeLessThanOrEqual(1);
+  });
+
+  it('«Bytt ut» foreslår aldri en annen versjon av en låt som er i settet (eller den som byttes ut)', () => {
+    const r = buildSet(pool, opts({ includeDrafts: true }))!;
+    for (let i = 0; i < r.tracks.length; i++) {
+      const alts = replacementsFor(r.tracks, i, pool, opts({ includeDrafts: true }), 20).map((x) => x.track);
+      if (fromGroup(r.tracks) === 1) expect(fromGroup(alts)).toBe(0);
+    }
+    expect(fromGroup(r.tracks)).toBe(1); // ellers tester vi ingenting
+  });
+
+  it('kandidatlista har én fra gruppa, og foretrekker den release-klare (LANDR-masteren)', () => {
+    const c = candidates(pool, opts({ includeDrafts: true })).filter((t) => t.group === 'g-summertime');
+    expect(c).toHaveLength(1);
+    expect(c[0]!.title).toMatch(/^LANDR-/);
+  });
+});
+
+describe('BPM-sikkerhet i UI-et', () => {
+  it('bare under 0,15 regnes som usikker (0,2–0,5 er normalt for ferdigmikset house)', async () => {
+    const { bpmLabel, bpmUncertain, bpmConfidenceText } = await import('../src/setinput');
+    expect(bpmUncertain({ bpm: 125, bpmConfidence: 0.35 })).toBe(false);
+    expect(bpmUncertain({ bpm: 125, bpmConfidence: 0.1 })).toBe(true);
+    expect(bpmLabel({ bpm: 124.9, bpmConfidence: 0.1 })).toBe('≈125 BPM');
+    expect(bpmLabel({ bpm: 124.9, bpmConfidence: 0.4 })).toBe('125 BPM');
+    expect(bpmLabel({ bpm: null, bpmConfidence: null })).toBeNull();
+    expect(bpmConfidenceText(0.35)).toMatch(/^Normal/);
+    expect(bpmConfidenceText(0.05)).toMatch(/^Lav/);
+  });
+});

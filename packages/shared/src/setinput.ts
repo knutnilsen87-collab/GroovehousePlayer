@@ -65,8 +65,12 @@ export function introOutro(m: AssetManifest): { introMs: number; outroMs: number
   };
 }
 
-export function toSbTracks(items: Array<{ manifest: AssetManifest; analysis: Analysis | null }>): SbTrack[] {
-  const scores = energyScores(items.map((i) => energyFeatures(i.manifest, i.analysis)));
+/**
+ * `features`: ferdig beregnet på serveren (den samlede katalogen har bare en lett analyse).
+ * `groups`: slug::variant → duplikatgruppe (samme låt under ulike titler).
+ */
+export function toSbTracks(items: Array<{ manifest: AssetManifest; analysis: Analysis | null; features?: EnergyFeatures | null }>, groups?: Record<string, string> | null): SbTrack[] {
+  const scores = energyScores(items.map((i) => i.features ?? energyFeatures(i.manifest, i.analysis)));
   return items.map(({ manifest: m }, i) => {
     const io = introOutro(m);
     return {
@@ -83,10 +87,24 @@ export function toSbTracks(items: Array<{ manifest: AssetManifest; analysis: Ana
       extended: /extended/i.test(`${m.variant ?? ''} ${m.variantLabel ?? ''}`),
       ...io,
       bpmConfidence: m.bpmConfidence,
-      keyConfidence: m.key?.confidence ?? null
+      keyConfidence: m.key?.confidence ?? null,
+      group: groups?.[`${m.slug}::${m.variant ?? ''}`] ?? null
     };
   });
 }
 
 /** Låter med lav analyse-sikkerhet: feil BPM eller toneart gir feil sett – foreslå å sjekke dem. */
-export const lowConfidence = (t: SbTrack) => (t.bpmConfidence != null && t.bpmConfidence < 0.25) || (t.keyConfidence != null && t.keyConfidence < 0.25) || !t.bpm || !t.camelot;
+export const lowConfidence = (t: SbTrack) => (t.bpmConfidence != null && t.bpmConfidence < BPM_UNCERTAIN_BELOW) || (t.keyConfidence != null && t.keyConfidence < 0.25) || !t.bpm || !t.camelot;
+
+/**
+ * BPM-sikkerhet (`bpmConfidence`) er ikke en sannsynlighet. Den er autokorrelasjonen av anslagskurven ved ett
+ * slag delt på autokorrelasjonen ved null forsinkelse (0–1). Ferdigmikset house med tette hi-hats, bass og
+ * effekter gir ofte 0,2–0,5 selv når BPM-en er riktig: målt 2026-11-16 lå 96–97 % av låtene med 0,15–0,5 i
+ * 118–132 BPM, som de andre. Under 0,15 er bare 59 % der, så først da er tempoet reelt usikkert.
+ */
+export const BPM_UNCERTAIN_BELOW = 0.15;
+export const bpmUncertain = (m: { bpm: number | null; bpmConfidence: number | null }) => m.bpm != null && m.bpmConfidence != null && m.bpmConfidence < BPM_UNCERTAIN_BELOW;
+/** «126 BPM», eller «≈126 BPM» når tempoet er usikkert. */
+export const bpmLabel = (m: { bpm: number | null; bpmConfidence: number | null }, decimals = 0) => (m.bpm ? `${bpmUncertain(m) ? '≈' : ''}${decimals ? m.bpm.toFixed(decimals) : Math.round(m.bpm)} BPM` : null);
+/** Sikkerheten i ord (Låtinfo): tallet alene ser lavt ut for nesten alle låter. */
+export const bpmConfidenceText = (v: number | null | undefined) => (v == null ? '–' : v < BPM_UNCERTAIN_BELOW ? `Lav (${v.toFixed(2)}) – sjekk med øret` : v < 0.5 ? `Normal (${v.toFixed(2)})` : `Høy (${v.toFixed(2)})`);

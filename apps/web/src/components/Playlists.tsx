@@ -311,7 +311,7 @@ export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose
   );
 }
 
-const SheetHeading = ({ children }: { children: ReactNode }) => <h3 className="m-0 px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[1.5px] text-muted">{children}</h3>;
+const SheetHeading = ({ children }: { children: ReactNode }) => <h3 className="m-0 px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[1.5px] text-muted">{children}</h3>;
 
 // ---------------------------------------------------------------- Ikonvelger (Groovehouse-ikonpakka)
 
@@ -672,7 +672,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
           </span>
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[2px]" style={{ color: c.primary }}>
+          <span className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[2px]" style={{ color: c.primary }}>
             <ColorDot color={c} size={8} pulse={isNow && playing} />
             {v.kind === 'manual' ? (v.playlist?.plan ? PLAN_NAMES[v.playlist.plan] : 'Spilleliste') : `Smart liste${v.playlist?.query ? ` · «${v.playlist.query}»` : ''}`}
           </span>
@@ -1063,7 +1063,7 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
   return (
     <>
       {lockLabel && (
-        <span className="flex-none rounded bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[1px] text-soft" title={all.find((o) => o.value === current)?.label}>
+        <span className="flex-none rounded bg-white/[0.04] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[1px] text-soft" title={all.find((o) => o.value === current)?.label}>
           {lockLabel}
         </span>
       )}
@@ -1161,7 +1161,7 @@ function PlanSummary({ v, missingOnly, onMissingOnly }: { v: ListView; missingOn
         <ol aria-label="Flyt mellom låtene" className="m-0 flex list-none flex-wrap items-center gap-1 p-0">
           {rows.map((r, i) => (
             <li key={i} className="flex items-center gap-1">
-              <span className="font-mono text-[10px] text-soft" title={r.title}>
+              <span className="font-mono text-[11px] text-soft" title={r.title}>
                 {r.camelot ?? '?'}
                 {r.bpm ? `·${Math.round(r.bpm)}` : ''}
               </span>

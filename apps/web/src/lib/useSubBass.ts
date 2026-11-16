@@ -1,5 +1,5 @@
 import { useEffect, type RefObject } from 'react';
-import { subEnvelope, type LoadedAsset } from './catalog';
+import { subEnvelope, useFullAsset, type LoadedAsset } from './catalog';
 import { getPositionMs } from './player';
 
 /**
@@ -7,7 +7,9 @@ import { getPositionMs } from './player';
  * Leser den forhåndsberegnede 50 ms-konvolutten mot avspillingsposisjonen – ingen Web Audio,
  * så det virker likt på iPhone, Android og desktop. Rask attack, langsom release.
  */
-export function useSubBass(ref: RefObject<HTMLElement>, asset: LoadedAsset | undefined, playing: boolean) {
+export function useSubBass(ref: RefObject<HTMLElement>, assetIn: LoadedAsset | undefined, playing: boolean) {
+  // Sub-bass-konvolutten finnes bare i full analyse (ikke i den lette katalogen)
+  const asset = useFullAsset(assetIn);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

@@ -50,6 +50,17 @@ describe('designregel: gull bare i logoen, cyan som standard (del 14)', () => {
     expect(bad).toEqual([]);
   });
 
+  it('ingen tekst under 11 px i web-appen (lesbarhet på mobil)', () => {
+    const small = /text-\[(?:[0-9]|10)(?:\.\d+)?px\]|font = '[^']*[^0-9](?:[0-9]|10)px/;
+    const hits = SOURCES.filter((f) => rel(f).startsWith('apps/web/src/')).flatMap((f) =>
+      readFileSync(f, 'utf8')
+        .split('\n')
+        .map((l, i) => (small.test(l) ? `${rel(f)}:${i + 1}` : null))
+        .filter((x): x is string => !!x)
+    );
+    expect(hits).toEqual([]);
+  });
+
   it('skriften er selvhostet (ingen CDN)', () => {
     const html = readFileSync(path.join(REPO, 'apps/web/index.html'), 'utf8');
     expect(html).not.toMatch(/fonts\.(googleapis|gstatic)|api\.fontshare/);

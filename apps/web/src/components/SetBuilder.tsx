@@ -20,7 +20,7 @@ import {
   type SbTrack,
   type SetResult
 } from '@gv/shared/web';
-import { assetUrl, type LoadedAsset } from '../lib/catalog';
+import { assetUrl, dupeGroups, type LoadedAsset } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { toastError, usePlaylists, useToast } from '../lib/playlists';
 import { CoverArt } from './CoverArt';
@@ -41,7 +41,7 @@ const QUALITY_COLOR = { good: '#3DDC84', ok: '#F5C84B', poor: '#FF6B5A' } as con
 const PART_NAMES: Record<string, string> = { harmonic: 'Harmonisk', tempo: 'Tempo', mix: 'Mikspunkter', lufs: 'Lydnivå', energy: 'Energikurve', variation: 'Variasjon' };
 
 export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
-  const pool = useMemo(() => toSbTracks(assets.filter((a) => a.manifest.kind !== 'set')), [assets]);
+  const pool = useMemo(() => toSbTracks(assets.filter((a) => a.manifest.kind !== 'set'), dupeGroups()), [assets]);
   const byId = useMemo(() => new Map(assets.map((a) => [a.manifest.id, a])), [assets]);
   const [durationMin, setDuration] = useState(60);
   const [curve, setCurve] = useState<CurveKind>('journey');
@@ -338,7 +338,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
                 <span className="font-mono text-[11px] text-muted">
                   {a.tracks.length} låter · {formatTime(a.totalMs)}
                 </span>
-                <span className="flex flex-wrap gap-x-2 font-mono text-[10px] text-soft">
+                <span className="flex flex-wrap gap-x-2 font-mono text-[11px] text-soft">
                   {Object.entries(scoresOf(a)).map(([k, v]) => (
                     <span key={k}>
                       {PART_NAMES[k]} {v}
