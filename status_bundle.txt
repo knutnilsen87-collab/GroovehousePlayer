@@ -28,7 +28,7 @@
 # failed | skipped | completed | partial | unknown (avhengig av felt).
 
 status_bundle_version: 2
-last_updated: "2026-11-16T05:00:00+01:00"
+last_updated: "2026-11-16T05:30:00+01:00"
 updated_by: "Claude Code (Claude Opus 5.5)"
 
 # ============================================================
@@ -63,12 +63,13 @@ current_state:
     UI/UX-oppgradering av spilleren (skjulbare «Nylig spilt»/«Spillelister», 16 rader på Hjem, mørke cover-placeholders uten grønne sirkler, søk øverst i sidemenyen, konsolidert analysekort til høyre, større transportknapper, forankrede faner, hover-handlinger på rader, dra-og-slipp av coverart direkte på cover-kortet øverst til venstre via PUT /api/assets/:slug/cover), Innstillinger (flytende «Ulagrede endringer»-linje, kompakte tall-steppere, mørke rullefelt, gv-range-slidere, puls på Watcher-indikator, p-6/p-8 kort) og Studio/Command Center (Drops: bakgrunns-bølgeform i lyttedekning, aktiv tilstand i mottakertabell koblet til lyttelogg, tydelig knappehierarki med solid «Kopier lenke», mørke status-tagger uten ramme, fargekodede PARTNER/INNER/SUPPORTER-badges; Arkiv: trekkspill-rader som åpner bølgeform ved klikk, dra-og-slipp coverart per rad, fjernet redundant plateselskaps- og fargekodetekst, Chameleon-farger fra coverkunst per låt, ikonknapper for Markører/Rediger, visuell outline/solid-koding av ubekreftede/bekreftede markører, høykontrast DROP-etiketter med vertikale cue-linjer; Live-sett: Macro/Micro-bølgeform med zoom/scroll, vertikale cue-punkter, synkronisert interaktiv tracklist med neon-utheving og drag-and-drop opplastingsboks).
     Automatisk ord-synkronisert teksttranskribering (Demucs vokal-isolasjon + WhisperX forced word-level alignment via packages/ingest/scripts/lyrics_sync.py, POST /api/lyrics/:slug/transcribe, gh-ingest --lyrics og «Auto-transkriber»-knapp i LyricsEditor) + «Neon Studio Noir» karaoke-UI på desktop og mobil (ord-for-ord glød med gv-neon-text, indeks-gated state uten 60fps re-renders, klikk/trykk-på-ord for direkte spoling, auto-sentrert smooth scroll med vertikal fade-maske og pb-[45%]/pb-[48vh], samt fullskjerms «Tommelsone»-scene i MobilePlayer når Tekst-fanen er åpen).
     Utkast-import fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV: 86 av 153 låter importert i media/index.json (113 assets totalt), midlertidig pauset etter brukerens instruks frem til øvrige oppgaver er ferdige. ARBEIDSMAPPE: det jobbes BARE i F:\prosjekter_MAIN\GroovehousePlayer. H:\GroovehousePlayer er kun backup (speil), aldri arbeidsmappe: ikke rediger, bygg, ingest eller kjør git der.
-    2026-11-16 (Claude Code): Antigravitys 31 ucommittede filer gjennomgått og committet i 8 commits (7108bb2..77b45af). pnpm typecheck (uten -s) feilet i MobilePlayer.tsx (død Tekst-gren) – fikset. En ustabil porttest i apps/server fikset. pnpm test 246/246 og pnpm typecheck grønne etterpå.
+    2026-11-16 (Claude Code): Antigravitys 31 ucommittede filer gjennomgått og committet i 8 commits (7108bb2..77b45af). pnpm typecheck (uten -s) feilet i MobilePlayer.tsx (død Tekst-gren) – fikset. En ustabil porttest i apps/server fikset. pnpm test 246/246 og pnpm typecheck grønne etterpå. Pushet til origin/setup/del-0 (3b54e66).
+    2026-11-16 senere (Claude Code, ikke pushet): Del 19 skins (4ee433c): Kameleon standard, Grønn Neon + 7 andre + Echo Groove Nights (farger målt i docs/design/reference/echo-groove-nights.jpg), per enhet, egne skins i data/skins/, Android SystemBarsPlugin (krever ny APK). Coverpalettene i 9 manifester var overskrevet med grønt av Antigravity – regnet ut på nytt med recolorAll. «Utkast» → «Umastret» i alt synlig (36b972b), «Ta med umastret» på som standard, DJ-verktøy/Ctrl+K tar med begge; 152 manifester migrert til versionLabel «Umastret vN». Del 18 overgangs-presets (b7de7a8). pnpm vault:backup speiler F: → H:\GroovehousePlayer (første fulle backup 12,66 GB OK). pnpm test 286/286 og pnpm typecheck grønne; skins, Innstillinger → Utseende og settbyggerens presets sjekket i hodeløs Edge mot den bygde appen (0 konsollfeil). Vault-serveren er startet på nytt med nytt bygg.
     Del 5 synker posisjon via /api/playback (nyeste tidsstempel), ikke Supabase. Del 13 (lytterlenker) er kodet og testet lokalt, ikke deployet til Cloudflare.
     APK med oppdatereren: dist/android/groovehouse-vault-0.1.0.apk (versionCode 51), også publisert i data/app/apk.
     Ikke verifisert i nettleser denne økta: banneret «Fortsett her» og «Del lenke». Ikke verifisert: telefon/bil, WhatsApp, rekordbox, autostart etter ekte omstart.
   recommended_next_action: >
-    Gjenoppta utkast-importen av de resterende ~67 WAV-filene fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV (pnpm gh-ingest --backlog --drafts --yes), kjør pnpm vault:install for å publisere siste UI-bygg til den lokale serveren, og fyll fasit i fixtures/truth.json (del 3). Si ja til wrangler login før lytter-Workeren legges ut.
+    Få Echo Groove-ordmerket (PNG/SVG, gjennomsiktig) fra Knut til assets/brand/echo-groove/. Avklar hva «seksjon A i DoD» er (finnes ikke i CLAUDE_CODE_SETUP.md eller repoet). Bygg ny APK (SystemBarsPlugin) når Knut vil. Fyll fasit i fixtures/truth.json (del 3). Spør før push av commitene etter 3b54e66.
   active_blockers:
     - "Del 3: fasit for 5–10 låter i fixtures/truth.json. WAV-ene i REASONDONE har ingen BPM- eller toneart-tagger (lest 2026-11-15). keyMethod er krumhansl."
     - "Del 13: wrangler login, D1, R2 og ruten listen.groovehouserecords.com er ikke kjørt. Spør før wrangler login."
@@ -626,7 +627,7 @@ handoff:
     86 av 153 utkast fra F:\EchoGroove\EchoAI_SamledeLydfiler\WAV er importert (113 assets i media/index.json); de resterende ~67 venter
     på klarsignal fra Knut for å gjenopptas. Del 3 venter på fasit (keyMethod krumhansl). Del 5 synker posisjon via Vault-serveren.
     Del 13 er kodet (Worker + Del lenke) og ikke deployet.
-  next_action: "Gjenoppta utkast-importen (pnpm gh-ingest --backlog --drafts --yes) når Knut gir klarsignal, og kjør pnpm vault:install for å oppdatere bygget i den lokale serveren."
+  next_action: "Se current_state.recommended_next_action: Echo Groove-ordmerket, avklaring av DoD seksjon A, ny APK, fasit for del 3."
   next_checks:
     - "Fullføre import av de resterende ~67 utkastene fra F:\\EchoGroove\\EchoAI_SamledeLydfiler\\WAV."
     - "Kjøre pnpm vault:install for å publisere siste web-bygg (karaoke-UI, dra-og-slipp coverart og Studio-oppgraderinger) til %LOCALAPPDATA%\\GroovehouseVault."
