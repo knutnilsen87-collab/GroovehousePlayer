@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -347,6 +347,15 @@ Mål: Groovehouse Vault som en ekte Android-app på Knuts Samsung S22. Musikken 
 
 Mål: Knut har mange umastrede låter han vil ha i spilleren for å planlegge sett og album. De skal **aldri blandes** med det som er ferdig eksportert fra Reason og klart for release, verken i biblioteket, i blanding, i smarte lister, i forslag eller i deling.
 
+**Oppdatert 2026-11-15 (Knut):** filene i utkastmappa er **ferdige låter som bare ikke er mastret**. De skal være fullt tilgjengelige i spillerne, ikke gjemt.
+- I UI-et heter statusen **Umastret**, ikke «Utkast».
+- **Bibliotek og Hjem:** viser begge, i to tydelige seksjoner, med **Release-klar** øverst og **Umastret** under, og samme merking som under (brikke, stiplet kant). Segmentet Release-klar · Umastret · Alle står med standard **Alle (gruppert)**.
+- **Ctrl+K og DJ-verktøy:** finner begge, med brikke.
+- **Bland og autospill:** blander aldri automatisk på tvers. De holder seg innenfor gruppen avspillingen startet i, med mindre en liste eller plan eksplisitt inneholder begge.
+- **Settbyggeren (del 17):** «Ta med umastret» er **på** som standard og huskes. Planen viser «x av y mastret».
+- **Import:** importer alt i mappa uten å spørre per fil. Hopp bare over eksakte duplikater (samme lyd-hash) og filer som tydelig er stems ifølge navnet. Vis lista over det som ble hoppet over etterpå, så Knut kan hente inn noe likevel.
+- Punktene 7–9, 11 og 13–14 under gjelder med denne justeringen.
+
 **Status bestemmes av mappa, ikke av filnavnet**
 1. To kilder:
    - `GH_EXPORT_DIR` (REASONDONE) = **Release-klar**, som i dag.
@@ -454,6 +463,120 @@ Mål: Knut velger varighet og stil. Vault setter sammen de beste settene av låt
 **Tester:** Camelot-relasjoner (alle 24 nøkler), tempo med halv/dobbel, at energikurven treffer målet innen toleranse, at låste plasser respekteres, ingen duplikater eller varianter av samme låt, determinisme med frø, ytelse med 200 låter, at utkast utelates som standard, og gyldig rekordbox-XML (validér mot et kjent eksempel).
 
 **Ferdig når:** Knut ber om et 60-minutters «Reise»-sett. Han får tre forslag på under 3 sekunder, ser hvorfor hver overgang er valgt, bytter ut én låt, lagrer settet under Live-sett → Planlagte sett, og åpner eksporten i rekordbox med mikspunktene på plass.
+
+## Del 18 – Overgangs-presets (FX-planer for overganger)
+
+Mål: Knut får en idé til en overgang og lagrer den med **ett trykk**, så han ikke glemmer den. Presetene legger seg automatisk på riktige steder (mikspunkt og frasegrenser), og følger med til rekordbox. Det skal ta sekunder, ikke minutter.
+
+**Viktig:** dette er en **plan og en huskelapp**, ikke lydbehandling. Vault spiller ikke effektene (ingen Web Audio på mobil). Effektene gjøres på kontrolleren eller mikseren i live-settet.
+
+**Ferdige presets** (standard, i kode; kan kopieres og endres)
+1. Hver preset har navn, ikon, farge, lengde i takter, hvilken deck den gjelder (ut/inn/begge) og 2–4 korte steg festet til takter relativt til mikspunktet. Eksempel for **Bass swap 16**:
+   - takt −16: B inn, bass av
+   - takt 0: bytt bass A→B
+   - takt +8: A ut med HPF
+
+   Standardsett:
+   - **Lang blend 32**: EQ-blend over 32 takter, bass swap på takt 16
+   - **Bass swap 16**
+   - **Filter fade**: HPF opp på A over 16, B inn rent
+   - **Echo out**: echo/delay på A siste 4 takter, B starter på frase
+   - **Reverb wash**: reverb-hale på A, B inn etter break
+   - **Cut på drop**: hard cut fra A til B sitt drop på frasegrense
+   - **Loop & build**: loop 4→2→1 takt på A og B inn på drop
+   - **Loop roll / stutter**: kort roll siste takt, så B
+   - **Backspin / brake**: stopp A, B rett inn
+   - **Acapella-lag**: B sin intro under A sitt break
+   - **Energiløft (+2/+7)**: kort overgang med toneløft, fra Camelot-forslaget
+   - **Rolig fade**: lang volumfade ned, for avslutning og nedtrapping
+2. Brukeren kan **duplisere og endre** en preset (navn, steg, takter, farge) på under et halvt minutt. Lagres i `data/fx-presets.json`.
+
+**Automatisk plassering**
+3. Settbyggeren (del 17) velger en **standard-preset per overgang** ut fra overgangen:
+   - God harmoni, lite tempoavvik og lange intro/outro: **Lang blend 32** eller **Bass swap 16**
+   - Toneartskollisjon: **Echo out** eller **Cut på drop**
+   - Tempoavvik over 3 %: **Echo out** eller **Loop & build**
+   - Stort hopp opp i energi: **Loop & build** eller **Cut på drop**
+   - Ned i energi: **Filter fade** eller **Reverb wash**
+   - Siste låt: **Rolig fade**
+
+   Vis forslaget som en brikke på overgangen. Bytte er **ett trykk** (horisontal rad med de 6 mest brukte, «Flere…» for resten).
+4. Stegene festes til takter ut fra mikspunktet og settes på **frasegrenser** (8/16/32). De vises som små markører i bølgeformen (zoom) for begge låtene.
+5. **Læring:** velger Knut samme preset ut av eller inn i en låt to ganger, foreslås den automatisk neste gang («Echo out passer alltid etter *Blue Fire*»).
+
+**Rask idéfangst (mens han lytter, også i bilen)**
+6. Mens et planlagt sett eller to låter spilles etter hverandre, vises en knapp **Idé for overgang** i fullskjermspilleren og i «⋯»-menyen. Ett trykk åpner presetraden. Ett trykk til lagrer presetet på overgangen ut av låta som spilles. Valgfri kort tekst kan legges til, men kreves ikke.
+7. Spilles en låt utenfor et sett: lagre idéen på låta («ut av denne: Echo out»). Den foreslås når låta havner i et sett senere.
+8. Store treffflater og fungerer med én hånd. Ingen bekreftelsesdialog, bare en melding med **Angre**.
+
+**Påminnelse når du øver**
+9. Når et planlagt sett spilles, viser spilleren de siste 30 sekundene før mikspunktet: «Neste: **Echo out** – 8 takter igjen» med presetets farge, og stegene ett om gangen. Det vises også i varselet på Android (tekst under tittelen).
+
+**Eksport**
+10. **rekordbox XML:** hvert steg blir en navngitt memory cue på riktig takt («Echo out · A ut»), og mikspunktet blir en hot cue i presetets farge. Navn maks 32 tegn. **M3U:** presetnavn som kommentarlinje før hver låt.
+11. **Utskrift/«jukselapp»:** én side per sett med låt, toneart, BPM og overgang (preset + steg), som PDF eller stor visning på mobil.
+
+**Senere (ikke i denne delen):** talenotat for overgangsidéer (krever mikrofon-tillatelse i appen), og navn på effektene til Knuts egen kontroller.
+
+**Tester:** regler for automatisk forslag, festing til frasegrenser, læring etter to like valg, rask lagring uten dialog og med angre, at påminnelsen kommer 30 s før mikspunktet, rekordbox-XML med navngitte cues og farger (validér mot kjent eksempel), og at egendefinerte presets overlever omstart.
+
+**Ferdig når:** Knut spiller et planlagt sett i bilen, får en idé og lagrer «Echo out» på overgangen med to trykk. Hjemme ser han presetet i settet, med stegene plassert på takter, og etter eksport står cuene med navn i rekordbox.
+
+## Del 19 – Skins (flere utseender)
+
+Mål: Knut kan bytte hele utseendet med ett valg. Det skal være flere ferdige skins, ikke én fast farge. Grønn `#06B211`, som Antigravity satte som standard, blir ett av dem, ikke den eneste.
+
+**Hva et skin er**
+1. Et skin er en fil i `apps/web/src/skins/<id>.json` med:
+   - Fargemodus: **Kameleon** (aksent fra coveret, som del 14) eller **Fast** (egen aksent og aksent-2).
+   - Bakgrunn og panel-toning, styrke på glød (0–100 %), kantstyrke og hjørneradius.
+   - Bølgeformstil: aksent/grå som i referansen, eller 3-bånd.
+   - Om gull brukes i logoen (alltid ja) eller også i rammer (bare for skinnet «Gull klassisk»).
+
+   Alt går via CSS-variablene som før. Ingen hardkodede farger i komponentene, og testen som stopper det, skal fortsatt gjelde.
+2. **Ferdige skins:**
+   - **Kameleon** (standard): coveret styrer, gull bare i logoen
+   - **Cyan Studio:** fast cyan `#01E6FC`, som referansebildet
+   - **Grønn Neon:** fast `#06B211` / `#14E177`, Antigravitys versjon
+   - **Gull klassisk:** gull som ramme og coveret som aksent, det opprinnelige uttrykket
+   - **Magenta Club:** fast magenta/rosa neon
+   - **Ultraviolett:** fast lilla/blå
+   - **Mono Studio:** nesten fargeløs: hvit/grå med svak glød, for lange økter
+   - **OLED Svart:** ren svart bakgrunn og minimal glød, sparer batteri på S22
+
+   - **Echo Groove Nights** (merkevareskin, se under)
+
+   Alle aksenter må holde kontrastlåsen (≥ 4,5:1 mot bakgrunnen).
+
+   **Echo Groove Nights:** bygd på Echo Groove-merkevareguiden i `docs/design/reference/echo-groove-nights.jpg`.
+   - **Farger:**
+     - Fast aksent hot pink/magenta (ca. `#FF2E9A`) og aksent-2 elektrisk fiolett (ca. `#8B3DFF`), med blålilla sekundærtone (ca. `#5B6CFF`).
+     - Bakgrunn dyp natt-lilla (ca. `#0A0614`) med en svak rosa «måne»-glød (radial gradient) øverst til høyre bak hovedpanelet. Paneler med lilla toning.
+     - Ta de eksakte verdiene fra bildet med pipette, og sjekk kontrasten.
+   - **Glød:** sterk og myk neonrør-glød (som de skrevne tekstene i guiden), litt kraftigere enn i Kameleon. Bølgeformen spilt i rosa→fiolett-gradient.
+   - **Logo:**
+     - Skinnet kan vise **Echo Groove**-ordmerket (krom/holografisk skriftlogo) i stedet for Groovehouse-logoen øverst i sidemenyen og på oppstartsskjermen.
+     - Krever ordmerket som PNG eller SVG med gjennomsiktig bakgrunn i `assets/brand/echo-groove/`. Spør Knut om fila, og bruk Groovehouse-logoen til den finnes.
+     - Ikke prøv å gjenskape skriftlogoen med en font.
+   - **Motiv:** hjerteslag-linja med hjerte fra guiden brukes som ikon for favoritter, som lasteanimasjon og som liten detalj under «Spilles nå».
+   - **Skrift:**
+     - UI beholder Satoshi og JetBrains Mono, for lesbarhet.
+     - Små sitater og tomme tilstander kan bruke en neon-script (lisens som tillater selvhosting, f.eks. OFL) med glød, sparsomt.
+     - Paneletiketter i sperret versal, som «MUSIC · PEOPLE · NIGHTS · NO LIMITS».
+   - **Tomme tilstander og oppstart:** korte tekster i guidens tone, f.eks. «Let the music find you», «Music lives here», «Deeper · Louder · Hotter».
+   - **Bilder:** ingen av fotografiene fra guiden brukes i appen. Coverne til låtene er innholdet.
+3. Låter med manuell farge fra Studio beholder den bare i Kameleon-skinnet. Faste skins overstyrer.
+
+**Valg og lagring**
+4. **Innstillinger → Utseende:** rutenett med forhåndsvisning (et lite kort med cover, bølgeform og play-knapp i skinnets stil). Byttet skjer umiddelbart, uten omstart.
+5. Skinnet lagres **per enhet**, så PC-en og telefonen kan ha ulike skins. Valgfritt: «Bruk samme på alle enheter».
+6. **Eget skin:** «Dupliser og tilpass» med fargevelger for aksent, styrke på glød og bakgrunn. Lagres i `data/skins/`. Viser kontrastvarsel.
+7. Listefargene fra del 9 og lyttersiden i del 13 påvirkes ikke. Lyttersiden følger alltid coveret.
+8. I Android-appen settes også statuslinje, navigasjonslinje og oppstartsskjerm etter skinnet. OLED Svart bruker ren `#000000`.
+
+**Tester:** alle ferdige skins består kontrastkravet, bytte uten omstart, lagring per enhet, at manuell låtfarge bare gjelder i Kameleon, og skjermbilder av hvert skin i `docs/design/compare/skins/`.
+
+**Ferdig når:** Knut bytter mellom Kameleon, Cyan Studio og Grønn Neon i Innstillinger på PC-en og ser hele spilleren skifte med en gang. Han velger OLED Svart på telefonen uten at PC-en endres.
 
 ## Del 15 – Oppdatering av Android-appen
 
