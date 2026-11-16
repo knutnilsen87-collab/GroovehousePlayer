@@ -162,7 +162,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 20 (jevnere autosett)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -577,6 +577,89 @@ Mål: Knut kan bytte hele utseendet med ett valg. Det skal være flere ferdige s
 **Tester:** alle ferdige skins består kontrastkravet, bytte uten omstart, lagring per enhet, at manuell låtfarge bare gjelder i Kameleon, og skjermbilder av hvert skin i `docs/design/compare/skins/`.
 
 **Ferdig når:** Knut bytter mellom Kameleon, Cyan Studio og Grønn Neon i Innstillinger på PC-en og ser hele spilleren skifte med en gang. Han velger OLED Svart på telefonen uten at PC-en endres.
+
+## Del 20 – Jevnere autosett: groove-analyse, energitidslinje og renderte overganger
+
+Mål: settene settbyggeren lager skal ha overganger som er **så jevne som mulig**, og Knut skal kunne **høre** overgangen før han spiller den. Delen bygger videre på del 17 (settbygger), del 18 (presets) og del 3 (presis analyse).
+
+**Forutsetning:** analyse-feil gir dårlige overganger uansett hvor smart algoritmen er. Del 3 med fasit må være gjort først. BPM må være presis til 0,1, og takt-fasen (første downbeat) må ligge innen ±10 ms.
+
+### A. Ny analyse per låt (bruk Demucs, som allerede er installert for tekst)
+1. **Stem-separasjon én gang per låt** (trommer, bass, vokal, resten). Lagre bare utledede data i `analysis.json`, ikke stems, som standard (plass). Kjøres i bakgrunnen etter ingest, med fremdrift i Studio.
+2. **Takt-rutenett:** downbeat-fase og takt-for-takt BPM (for live-sett med tempoendringer). Gjør det synlig i markør-editoren, så Knut kan justere første downbeat med ett dra.
+3. **Groove (fra trommestammen):**
+   - **Swing %:** forsinkelse av off-beat 16-deler målt på hi-hat-båndet.
+   - **Perkusjonstetthet:** anslag per takt.
+   - **Mønster:** 4/4-kick eller brutt.
+   - **Hat-lysstyrke.**
+4. **Bass-karakter (fra bass-stammen):** sub-tung eller mellombass, sustain («gummibass») eller korte toner, og om bassen er aktiv i intro og outro.
+5. **Vokalkart:** tidsintervaller med vokal (fra vokal-stammen). Brukes til å unngå vokal oppå vokal.
+6. **DJ-vennlighet per låt:** lengde på ren intro og outro (bare trommer, uten vokal og helst uten bass) i takter. Vises som et merke («Intro 32 · Outro 16», eller «Kort intro» i gult).
+7. **Ikke** forsøk å gjenkjenne elementer som «gospel-stabs» eller sjanger fra lyden. Det blir upålitelig. Stil håndteres i D.
+
+### B. Hvordan settbyggeren lager jevne overganger
+8. Ny **overgangsscore** = vektet sum av:
+   - Camelot-relasjon × toneartsikkerhet
+   - Tempoavvik (med pitch-lås)
+   - Fraselikhet (A sin outro-start og B sin intro-start på samme frasegrense, og B sitt første drop der A slutter)
+   - Vokalkollisjon i overlappen (hard straff)
+   - Bass-kollisjon (begge med aktiv bass i overlappen gir straff, med mindre presetet er bass swap)
+   - Groove-likhet (swing-avvik over ca. 4 % straffes ved lange blends)
+   - Energisprang (maks +1 eller −2 per overgang, med mindre kurven ber om løft)
+   - Nivåforskjell (LUFS)
+9. **Lengden på overgangen velges etter scoren, som en DJ ville gjort:**
+   - Alt passer: lang blend (32 takter).
+   - Delvis: 16 eller 8.
+   - Dårlig toneart eller groove: kort overgang (cut på frase, echo out, loop & build).
+   - Presetet fra del 18 velges ut fra dette.
+10. Mikspunktene settes slik at overlappen ligger **inni** de rene intro- og outro-områdene. Ellers kortes overgangen ned eller bytter type.
+11. Settbyggeren foretrekker låter med lang ren intro og outro. Det gir mest jevnhet.
+
+### C. Rendering av overganger
+12. **Hør før du spiller:** for hver overgang i et planlagt sett lager Vault en forhåndsvisning (30–60 s) med ffmpeg:
+    - Tempo-justering med bevart tonehøyde (rubberband om tilgjengelig, ellers atempo).
+    - Takt-justering ut fra rutenettet.
+    - Volum- og EQ-automasjon etter presetet: bass swap, høypassfilter, echo og reverb-hale.
+
+    Filen spilles som vanlig lyd og virker derfor også på mobil og i appen, uten Web Audio.
+13. **Automatisk kvalitetssjekk** av hver rendret overgang:
+    - Takt-justering: krysskorrelasjon av anslag. Mål < 15 ms avvik.
+    - Bass-kollisjon: lavfrekvens-energi i overlappen.
+    - Vokal oppå vokal.
+    - Nivåhopp.
+
+    Overganger som stryker, merkes rødt og får automatisk et alternativ (annen preset eller lengde, eller en annen låt).
+14. **Tommel opp eller ned** på hver overgang mates inn i læringen fra del 17 og 18.
+15. **Auto DJ-edit (eksperimentelt, slått av som standard):** for låter med kort intro eller outro kan Vault lage en DJ-versjon. Den forlenger med 16 takter trommer, laget fra trommestammen og festet til frasegrensen, og lagres som varianten «DJ Edit». Den blir aldri release-materiale og vises med egen brikke.
+
+### D. Knuts fire forslag, tilpasset
+16. **Energitidslinje** (utvider settbyggeren):
+    - Settet vises som en tidslinje der x er tid og y er energi 1–10.
+    - Målkurven kan tegnes og dras.
+    - Låtene ligger som blokker i coverfarge, med overgangene som flater mellom dem, farget etter score.
+    - Dra en låt for å flytte den, eller dra i kurven for å be om ny bølge. Settbyggeren foreslår så låter som treffer den nye toppen.
+    - Viser BPM-linje og toneart under.
+17. **Groove-matching:** filterknappen **«Match groove»** i DJ-verktøy og Settbygger. Den vekter swing, perkusjonstetthet, kick-mønster og bass-karakter i tillegg til Camelot og BPM. «Passer etter …» viser groove-likhet i % per forslag.
+18. **Forhåndsvisning av cue og loop** i «Passer etter …»:
+    - Hvert forslag får en miniatyr-bølgeform med fargekodede markører: drop, breakdown, vokalstart, intro/outro-slutt og foreslått mikspunkt.
+    - Trykk på en markør spiller derfra. Hold inne gir en 4- eller 8-takts løkke.
+    - Knappen **«Hør overgangen»** spiller renderingen fra C, fra låta som spilles nå til forslaget.
+    - **Fargene kommer fra aktivt skin (del 19)**, ikke en fast palett.
+19. **Vibe Shifter:**
+    - Raske brytere ved BPM-spennet: **Strammere / Bredere** (Camelot ±0 / ±1 / ±2 og BPM ±2 / ±3 / ±6 %), **Energi ↑ / → / ↓**, og **Stil**.
+    - Stil bygger på **Knuts egne tagger**: ett trykk per låt («Deep», «Tech», «Cyber-Soul», egne navn) pluss en automatisk likhetsvektor fra analysen (BPM, swing, bass, lysstyrke, vokalandel). Vault foreslår tagger for nye låter ut fra likhet med de Knut har tagget. Ingen sjangergjenkjenning fra lyd utover det.
+    - «Skift mot Tech» gjør at de neste forslagene og resten av settet glir mot låter tagget Tech, gradvis over 2–3 låter.
+
+### Tester og ferdig når
+**Tester:**
+- Groove-mål på syntetiske filer med kjent swing (0/10/20 %) innen ±2 %.
+- Vokalkart mot hånd-merkede tidsintervaller på 3 låter.
+- Takt-justering i rendret overgang < 15 ms på fixtures.
+- At overganger med vokalkollisjon aldri får lang blend.
+- Determinisme.
+- Rendering av et 60-min sett under 60 s på Knuts PC.
+
+**Ferdig når:** Knut lager et 60-min sett. Alle overgangene har en rendret forhåndsvisning som han kan høre på telefonen. Ingen er rødmerket uten at et alternativ er foreslått. Han gir tommel opp på minst 80 % av overgangene ved første gjennomlytting.
 
 ## Del 15 – Oppdatering av Android-appen
 
