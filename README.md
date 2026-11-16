@@ -14,6 +14,15 @@ media/              utdata fra ingest (gitignored)
 fixtures/           testmapper (WAV gitignored – lag dem med make-fixtures)
 ```
 
+## Arbeidsmappe og backup
+
+- **Det jobbes bare i `F:\prosjekter_MAIN\GroovehousePlayer`.** All koding, ingest, bygging og git skjer her.
+- **`H:\GroovehousePlayer` er kun backup** (et speil). Ikke rediger, bygg, ingest eller kjør git der.
+- `pnpm vault:backup` speiler prosjektet (kode, `.git`, `data/` og `media/`) til H: med robocopy `/MIR`, uten `node_modules`, `.gradle` og `build`-mapper. Filer som er slettet på F:, slettes også på backupen.
+- `pnpm vault:backup --dry` viser hva som ville blitt kopiert og slettet, uten å endre noe. `--to <mappe>` velger et annet mål.
+- Skriptet nekter å kjøre fra H: (kilden må være arbeidsmappa på F:) og stopper hvis backup-disken ikke er koblet til.
+- Det kjører ikke automatisk. En planlagt oppgave settes bare opp etter avtale.
+
 ## Oppsett på Windows
 
 1. **Node 20+** og **pnpm**: `corepack enable` (eller `npm i -g pnpm`).
@@ -51,7 +60,10 @@ pnpm vault:server      # serveren i forgrunnen (feilsøking)
 - **Kategorisering:** grense for live-sett (standard 20 min) og filnavnregler med `*` (f.eks. `* (Live *)` → sett, `*Club*` → variant `club`), med forhåndsvisning på filene i eksportmappa.
 - **Lyd:** målnivå −16 til −11 LUFS (standard −14). Spilleren demper bare, løfter aldri. Gjelder med en gang, også for låter som alt er ingestet.
 - **Metadata:** standard artist, label, copyright-mal (`℗ {år} {label}`) og ord som fjernes fra titler, med forhåndsvisning.
-- **Farger:** minste kontrast (3–7, standard 4.5:1) og om fargeløse cover skal få standardfargen grønn (`#06B211`). «Bruk på alle låter nå» regner ut fargene på nytt fra lagret cover (låter med egen farge røres ikke).
+- **Utseende (del 19):** velg skin. Kameleon (standard: coveret styrer), Cyan Studio, Grønn Neon (`#06B211`), Gull klassisk, Magenta Club, Ultraviolett, Mono Studio, OLED Svart og Echo Groove Nights. Byttet skjer med en gang og lagres **per enhet**, så PC og telefon kan ha ulike skins; «Bruk samme skin på alle enheter» lagres i `data/skins/_shared.json`. «Dupliser og tilpass» lager et eget skin (fargevelger, glød, bakgrunn, kontrastvarsel) i `data/skins/<id>.json`. Manuell låtfarge gjelder bare i Kameleon-skinnene. Lyttersiden følger alltid coveret. Skinnene ligger i `apps/web/src/skins/*.json`, og alle holder kontrastlåsen (≥ 4,5:1). Skjermbilder: `docs/design/compare/skins/`.
+  - **Echo Groove Nights** bruker Echo Groove-ordmerket fra `assets/brand/echo-groove/` (PNG eller SVG med gjennomsiktig bakgrunn). Til fila ligger der, vises Groovehouse-logoen.
+  - **Android:** statuslinje, navigasjonslinje og oppstartsskjerm følger skinnet (krever APK med `SystemBarsPlugin`).
+- **Farger:** minste kontrast (3–7, standard 4.5:1) og om fargeløse cover skal få standardfargen grønn (`#06B211`) i Kameleon-skinnene. «Bruk på alle låter nå» regner ut fargene på nytt fra lagret cover (låter med egen farge røres ikke).
 - **Tilgang:** Wi-Fi-modus av/på og ny PIN (bare fra PC-en), Tailscale-status med QR. PIN og hasher vises aldri.
 - **Drops:** standarder lagres. «⋯ → Del…» kan lage en lyttelenke når `LISTEN_ADMIN_URL` og `LISTEN_ADMIN_TOKEN` er satt (se under). Uten det svarer serveren at tjenesten ikke er koblet til.
 - **Per låt (Arkiv → Rediger):** egen primær-/sekundærfarge med kontrastmåling og forhåndsvisning, og for live-sett en forskyvning (±10 s, steg 50 ms) med «spill fra markør». Lagres i `media/<slug>/meta.json` og overlever ny ingest.
