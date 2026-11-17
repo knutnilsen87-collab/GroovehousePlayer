@@ -39,6 +39,8 @@ const errors = [];
 ws.addEventListener('message', (e) => {
   const m = JSON.parse(e.data);
   if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
+  // Lytteloggen og posisjonen blokkeres (se Fetch.enable under)
+  if (m.method === 'Fetch.requestPaused') ws.send(JSON.stringify({ id: ++id, method: 'Fetch.failRequest', params: { requestId: m.params.requestId, errorReason: 'BlockedByClient' } }));
   if (m.method === 'Runtime.exceptionThrown') errors.push(m.params.exceptionDetails.text);
   if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push(m.params.args.map((a) => a.value ?? a.description).join(' '));
 });
@@ -50,8 +52,7 @@ const evalJs = async (expr) => (await withTimeout(send('Runtime.evaluate', { exp
 await send('Page.enable');
 await send('Runtime.enable');
 // Avspillingen i skjermbildene skal ikke havne i lytteloggen eller «Fortsett her»
-await send('Network.enable');
-await send('Network.setBlockedURLs', { urls: ['*/api/listens*', '*/api/playback*'] });
+await send('Fetch.enable', { patterns: [{ urlPattern: '*/api/listens*' }, { urlPattern: '*/api/playback*' }] });
 await send('Page.navigate', { url: BASE });
 await sleep(1500);
 
