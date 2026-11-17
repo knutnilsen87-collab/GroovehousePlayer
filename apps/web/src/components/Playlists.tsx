@@ -471,7 +471,7 @@ export function PlaylistsOverview({ tracks, onOpen, vctx }: { tracks: Track[]; o
         <h1 id="gv-lists-h" className="m-0 font-display text-[30px] font-semibold uppercase tracking-[1.5px] text-ink-strong">
           Spillelister
         </h1>
-        <button type="button" onClick={() => setCreating(true)} className="flex h-10 items-center gap-1.5 rounded-full border border-accent/40 px-3.5 text-sm font-semibold text-accent hover:bg-accent/[0.08]">
+        <button type="button" onClick={() => setCreating(true)} className="flex h-11 items-center gap-1.5 rounded-full border border-accent/40 px-3.5 text-sm font-semibold text-accent hover:bg-accent/[0.08]">
           <PlusIcon width={16} height={16} />
           Ny liste
         </button>
@@ -967,7 +967,7 @@ function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: st
 
   return (
     <>
-      <p className="m-0 mb-2 text-[11px] text-muted lg:hidden">Hold inne og dra for å flytte · sveip til venstre for å fjerne</p>
+      <p className="m-0 mb-2 text-[11px] text-muted lg:hidden">⋯ på en låt: flytt og fjern · eller hold inne og dra, sveip til venstre for å fjerne</p>
       <p className="m-0 mb-2 hidden text-[11px] text-muted lg:block">Dra for å flytte · Ctrl/Shift-klikk for å velge flere · Delete fjerner · dobbeltklikk spiller</p>
       <ol ref={listRef} className="m-0 list-none p-0" onDragOver={(e) => dragId && e.preventDefault()} onDrop={() => dragId && dropBefore === null && void usePlaylists.getState().move(p.id, dragId, null).catch(toastError)}>
         {rows.map((r, i) => {
@@ -1076,8 +1076,15 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
     if (o) void usePlaylists.getState().setLock(p.id, r.entry.id, o.variant, o.version).catch(toastError);
   };
   /** Valg som bare gjelder denne lista, lagt til i låtmenyen (del 11). */
+  // Del 27 pkt. 13: synlig alternativ til «hold inne og dra»
+  const ids = p.entries.map((e) => e.id);
+  const at = ids.indexOf(r.entry.id);
+  const move = (before: string | null) => void usePlaylists.getState().move(p.id, r.entry.id, before).catch(toastError);
   const listExtras = (): ExtraAction[] => [
     ...(all.length > 1 ? [{ label: 'Låsing i lista', options: all.map((o) => ({ label: o.label, checked: o.value === current, run: () => choose(o.value) })) }] : []),
+    ...(at > 0 ? [{ label: 'Flytt opp', run: () => move(ids[at - 1]!) }] : []),
+    ...(at >= 0 && at < ids.length - 1 ? [{ label: 'Flytt ned', run: () => move(ids[at + 2] ?? null) }] : []),
+    ...(at > 1 ? [{ label: 'Flytt øverst', run: () => move(ids[0]!) }] : []),
     { label: 'Fjern fra lista', danger: true, run: onRemove }
   ];
   const moreRef = useRef<HTMLButtonElement>(null);

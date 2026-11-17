@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { isDraft, isReleased, type AssetManifest, type StatusFilter } from '@gv/shared/web';
 import { skinTrackVars } from '../lib/skin';
 import { useDialog } from '../lib/dialog';
+import { Hint } from './Hint';
 
 /**
  * Del 16: utkast holdes atskilt og er tydelig merket overalt:
@@ -76,6 +77,7 @@ export function StatusSegment({ value, onChange, counts }: { value: StatusFilter
     ['draft', 'Umastret']
   ];
   return (
+    <div className="relative inline-flex">
     <div role="radiogroup" aria-label="Status" className="inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
       {opts.map(([id, name]) => (
         <button
@@ -90,6 +92,13 @@ export function StatusSegment({ value, onChange, counts }: { value: StatusFilter
           {counts && id !== 'all' && counts[id] != null && <span className="ml-1 font-mono text-[11px] text-muted">{counts[id]}</span>}
         </button>
       ))}
+    </div>
+      {/* Del 27 pkt. 16: første gang Umastret vises */}
+      {(counts?.draft ?? 0) > 0 && (
+        <Hint id="unmastered" className="absolute right-0 top-full z-20 mt-2 w-[min(340px,calc(100vw-32px))]">
+          <b>Umastret</b> = ikke mastret ennå. Velg «Release-klar» for bare ferdige låter.
+        </Hint>
+      )}
     </div>
   );
 }

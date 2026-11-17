@@ -226,14 +226,14 @@ export function StudioTable({
                 style={isCur ? undefined : trackVars(m)}
               >
                 <td className="py-2.5 pl-2.5 font-mono text-[13px] text-soft">{isCur ? <EqIcon playing={playing} width={18} height={18} className="text-accent" /> : i + 1}</td>
-                <td className="py-2.5">
-                  <button type="button" onClick={() => onPlay(t)} aria-label={`Spill ${m.title}`} className="block">
+                <td className="w-12 min-w-12 py-2.5">
+                  <button type="button" onClick={() => onPlay(t)} aria-label={`Spill ${m.title}`} className="block h-[38px] w-[38px] flex-none">
                     <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={38} rounded={7} draft={isDraft(m)} released={isReleased(m)} />
                   </button>
                 </td>
                 <td className="py-2.5 pr-4">
                   <div className="flex min-w-0 flex-col">
-                    <button type="button" onClick={() => onPlay(t)} className={`truncate text-left text-[14.5px] ${isCur ? 'font-bold text-accent' : 'font-semibold text-ink-strong'} hover:underline`}>
+                    <button type="button" onClick={() => onPlay(t)} className={`min-h-6 truncate text-left text-[14.5px] ${isCur ? 'font-bold text-accent' : 'font-semibold text-ink-strong'} hover:underline`}>
                       {m.title}
                       {m.kind === 'set' && <span className="ml-2 rounded bg-white/[0.08] px-1 align-middle font-label text-[11px] font-bold tracking-[0.14em] text-soft">LIVE</span>}
                       <DraftBadge m={m} className="ml-2" />

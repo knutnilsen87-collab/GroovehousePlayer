@@ -63,7 +63,7 @@ export function FullPlayer({ cur: curIn, track, tracks, onClose, onPlay, onMore 
             </span>
           </div>
           <HeartButton slug={m.slug} title={m.title} size={20} className="h-11 w-11" />
-          <button type="button" onClick={onMore} aria-label="Valg for låta som spilles" className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-soft">
+          <button type="button" onClick={onMore} aria-label="Valg for låta som spilles" className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-soft">
             <MoreIcon width={20} height={20} />
           </button>
         </div>

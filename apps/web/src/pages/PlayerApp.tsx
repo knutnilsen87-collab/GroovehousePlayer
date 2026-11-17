@@ -25,6 +25,7 @@ import { QueuePanel, TrackActionsHost } from '../components/TrackActions';
 import { ResumeBanner } from '../components/ResumeBanner';
 import { ShareSheetHost } from '../components/ShareSheet';
 import { useUi } from '../lib/ui';
+import { Hint } from '../components/Hint';
 import { fromStored } from '@gv/shared/web';
 import { App as CapApp } from '@capacitor/app';
 import { isApp } from '../lib/platform';
@@ -136,7 +137,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   /** Desktop: valgte låter i tabellen (Ctrl/Shift-klikk). Mobil: velgemodus (hold inne på en låt). */
   const [selected, setSelected] = useState<string[]>([]);
   const [selectMode, setSelectMode] = useState(false);
-  const { queue, index, playing, playFrom, switchVariant, toggle, nextSection, prevSection } = usePlayer();
+  const { queue, index, playing, playFrom, switchVariant, toggle, nextSection, prevSection, started } = usePlayer();
   const cur = queue[index];
   const root = useRef<HTMLDivElement>(null);
   useSubBass(root, cur, playing);
@@ -507,6 +508,12 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
 
       {cur && <Dock cur={cur} track={trackOf(cur)} onVariant={(v) => switchVariant(v)} tracks={tracks} onPlay={play} onMore={openNowActions} hideOnDesktop={showDeck} />}
       {cur && !selectMode && <MiniPlayer cur={cur} onOpen={() => setFull(true)} onMore={() => openNowActions()} />}
+      {/* Del 27 pkt. 16: stille hint etter første avspilling */}
+      {cur && started && !full && !selectMode && (
+        <Hint id="save-to-list" action={{ label: 'Legg til i spilleliste', run: () => useUi.getState().openAddSheet({ assets: [cur] }) }} className="fixed inset-x-3 bottom-[calc(144px+env(safe-area-inset-bottom))] z-30 lg:inset-x-auto lg:bottom-[132px] lg:right-6 lg:w-[400px]">
+          Lagre låten i en liste
+        </Hint>
+      )}
       {selectMode && (
         <div className="fixed inset-x-3 bottom-[calc(72px+env(safe-area-inset-bottom))] z-30 flex items-center gap-2 lg:hidden">
           <button
@@ -791,7 +798,7 @@ function SetsView({ sets, tracks, onPlay, onOpenList, tab: urlTab, onTab }: { se
       <h1 className="m-0 font-display text-[30px] font-semibold uppercase tracking-[1.5px] text-ink-strong">Live-sett</h1>
       <div role="tablist" aria-label="Live-sett" className="flex flex-wrap gap-2">
         {SETS_TABS.map(([k, label]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pick(k)} className={`h-9 rounded-full px-4 text-sm ${tab === k ? 'bg-accent/[0.14] font-semibold text-accent shadow-[0_0_18px_-4px_var(--glow)]' : 'bg-white/[0.05] text-soft hover:text-ink'}`}>
+          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => pick(k)} className={`h-11 rounded-full px-4 text-sm lg:h-9 ${tab === k ? 'bg-accent/[0.14] font-semibold text-accent shadow-[0_0_18px_-4px_var(--glow)]' : 'bg-white/[0.05] text-soft hover:text-ink'}`}>
             {label}
             {k === 'planned' && plans.length > 0 ? ` (${plans.length})` : ''}
           </button>

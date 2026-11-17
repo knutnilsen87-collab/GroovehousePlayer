@@ -8,7 +8,8 @@ import { usePlaylists } from '../lib/playlists';
 import { CoverArt } from '../components/CoverArt';
 import { DraftBadge, trackVars } from '../components/Draft';
 import { HeartButton, Panel } from '../components/Deck';
-import { ChevronDownIcon, PlayIcon } from '../components/Icons';
+import { ChevronDownIcon, MoreIcon, PlayIcon } from '../components/Icons';
+import { useUi } from '../lib/ui';
 import { buildListView, ColorDot, ListCover } from '../components/Playlists';
 import { useFavorites } from '../lib/library';
 import { skinTrackVars } from '../lib/skin';
@@ -74,6 +75,9 @@ function Row({ t, onPlay, sub }: { t: Track; onPlay: PlayFn; sub?: string }) {
         </span>
       </button>
       <HeartButton slug={m.slug} title={m.title} size={18} className="h-11 w-11" />
+      <button type="button" onClick={(e) => useUi.getState().openActions({ assets: [t.main], context: 'row', anchor: { x: e.currentTarget.getBoundingClientRect().left - 220, y: e.currentTarget.getBoundingClientRect().bottom } })} aria-label={`Flere valg for ${m.title}`} className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-muted hover:bg-white/[0.06] hover:text-ink">
+        <MoreIcon width={18} height={18} />
+      </button>
     </li>
   );
 }
@@ -157,7 +161,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
             type="button"
             aria-expanded={playedOpen}
             onClick={() => setPlayedOpen((o) => !o)}
-            className="flex w-full items-center justify-between gap-2 text-left text-soft hover:text-ink-strong"
+            className="flex min-h-11 w-full items-center justify-between gap-2 text-left text-soft hover:text-ink-strong lg:min-h-8"
           >
             <h2 id="gv-home-played" className="gv-label m-0 flex items-center gap-2">
               Nylig spilt
@@ -209,7 +213,7 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
             type="button"
             aria-expanded={listsOpen}
             onClick={() => setListsOpen((o) => !o)}
-            className="flex w-full items-center justify-between gap-2 text-left text-soft hover:text-ink-strong"
+            className="flex min-h-11 w-full items-center justify-between gap-2 text-left text-soft hover:text-ink-strong lg:min-h-8"
           >
             <h2 id="gv-home-lists" className="gv-label m-0 flex items-center gap-2">
               Spillelister

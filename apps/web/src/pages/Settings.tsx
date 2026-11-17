@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { SkinPicker } from '../components/SkinPicker';
 import { settingsApi, type Editable, type IngestRule, type PreviewRow, type SettingsState, type Tier } from '../lib/settings';
+import { useHints } from '../lib/hints';
 
 /**
  * Del 8: /studio/innstillinger. Alt valideres på serveren før lagring; config skrives atomisk med backup.
@@ -82,6 +83,13 @@ export function SettingsView() {
       </header>
       <Section title="Utseende" hint="Velg skin. Byttet skjer med en gang og lagres på denne enheten, så PC og telefon kan ha ulike skins.">
         <SkinPicker />
+      </Section>
+      <Section title="Hjelp" hint="Små hint dukker opp én gang når de trengs (lagre i liste, Umastret, DJ-lås). De huskes på denne enheten.">
+        <div>
+          <button type="button" onClick={() => (useHints.getState().reset(), setNotice('Hintene vises igjen på denne enheten.'))} className={primaryBtn}>
+            Vis hint igjen
+          </button>
+        </div>
       </Section>
       <div aria-live="polite" className="sticky top-2 z-20 empty:hidden">
         {error && (

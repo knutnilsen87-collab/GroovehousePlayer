@@ -339,8 +339,8 @@ export function QueuePanel() {
           </button>
         </header>
         <p className="m-0 px-4 pb-2 text-[11px] text-muted">
-          <span className="lg:hidden">Hold inne og dra for å flytte · sveip til venstre for å fjerne</span>
-          <span className="hidden lg:inline">Dra for å flytte · søppelbøtta fjerner · klikk spiller</span>
+          <span className="lg:hidden">↑ flytter opp, søppelbøtta fjerner · eller hold inne og dra, sveip til venstre</span>
+          <span className="hidden lg:inline">Dra eller ↑ for å flytte · søppelbøtta fjerner · klikk spiller</span>
         </p>
         <ol ref={listRef} className="m-0 min-h-0 flex-1 list-none overflow-y-auto px-2 py-0">
           {queue.length === 0 && <li className="px-2 py-6 text-center text-sm text-muted">Køen er tom.</li>}
@@ -385,8 +385,14 @@ export function QueuePanel() {
                       <span className="truncate text-[11px] text-muted">{[m.variant ? variantName(a) : null, `v${m.version}`, formatTime(m.durationMs)].filter(Boolean).join(' · ')}</span>
                     </span>
                   </button>
+                  {/* Del 27 pkt. 13: synlige knapper i tillegg til dra og sveip */}
+                  {!cur && i > 0 && i - 1 !== index && (
+                    <button type="button" onClick={() => moveTo(i, i - 1)} aria-label={`Flytt ${m.title} opp`} className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-muted hover:bg-white/[0.06] hover:text-ink lg:h-9 lg:w-9">
+                      <span aria-hidden="true" className="text-base leading-none">↑</span>
+                    </button>
+                  )}
                   {!cur && (
-                    <button type="button" onClick={() => remove(i)} aria-label={`Fjern ${m.title} fra køen`} className="hidden h-9 w-9 items-center justify-center rounded-full text-muted hover:bg-white/[0.06] hover:text-[#FF8A7A] lg:flex">
+                    <button type="button" onClick={() => remove(i)} aria-label={`Fjern ${m.title} fra køen`} className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-muted hover:bg-white/[0.06] hover:text-[#FF8A7A] lg:h-9 lg:w-9">
                       <TrashIcon width={15} height={15} />
                     </button>
                   )}

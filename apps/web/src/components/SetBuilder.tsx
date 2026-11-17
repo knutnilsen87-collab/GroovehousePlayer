@@ -36,6 +36,7 @@ import { TransitionPreview } from './TransitionPreview';
 import { makeRender, type RenderInfo } from '../lib/renders';
 import { useTags } from '../lib/tags';
 import { fxCuesFor, transitionPreset, useFx } from '../lib/fx';
+import { ChevronDownIcon } from './Icons';
 
 /**
  * Del 17: settbygger. Velg varighet og kurve; Vault setter sammen tre forslag etter etablerte DJ-prinsipper
@@ -80,6 +81,9 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
   };
   const [must, setMust] = useState<Array<{ id: string; position: number | null }>>([]);
   const [exclude, setExclude] = useState<string[]>([]);
+  /** Del 27 pkt. 15: antall avanserte valg som er i bruk (vises på «Flere valg» når den er lukket). */
+  const advanced = (bpmMin || bpmMax ? 1 : 0) + (startKey ? 1 : 0) + (styleEnd ? 1 : 0) + (includeDrafts ? 0 : 1) + (must.length ? 1 : 0) + (exclude.length ? 1 : 0);
+  const [more, setMore] = useState(false);
   const [seed, setSeed] = useState(1);
   const [alts, setAlts] = useState<Alt[] | null>(null);
   const [active, setActive] = useState(0);
@@ -341,19 +345,19 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-24 text-xs text-muted">Varighet</span>
             {DURATIONS.map((d) => (
-              <button key={d} type="button" aria-pressed={durationMin === d} onClick={() => setDuration(d)} className={`h-9 rounded-lg px-3 font-mono text-sm ${durationMin === d ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] text-accent' : ' text-soft'}`}>
+              <button key={d} type="button" aria-pressed={durationMin === d} onClick={() => setDuration(d)} className={`h-11 rounded-lg px-3 font-mono text-sm lg:h-9 ${durationMin === d ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] text-accent' : ' text-soft'}`}>
                 {d} min
               </button>
             ))}
             <label className="flex items-center gap-1.5 text-xs text-muted">
               fritt
-              <input type="number" min={10} max={300} value={durationMin} onChange={(e) => setDuration(Math.max(10, Math.min(300, Number(e.target.value) || 60)))} className="h-9 w-20 rounded-lg border border-white/10 bg-sunken px-2 font-mono text-sm text-ink" aria-label="Varighet i minutter" />
+              <input type="number" min={10} max={300} value={durationMin} onChange={(e) => setDuration(Math.max(10, Math.min(300, Number(e.target.value) || 60)))} className="h-11 w-20 rounded-lg border border-white/10 bg-sunken px-2 font-mono text-sm text-ink lg:h-9" aria-label="Varighet i minutter" />
             </label>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-24 text-xs text-muted">Kurve</span>
             {(Object.keys(CURVE_NAMES) as CurveKind[]).map((c) => (
-              <button key={c} type="button" aria-pressed={curve === c} onClick={() => setCurve(c)} className={`h-9 rounded-lg px-3 text-sm ${curve === c ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : ' text-soft'}`}>
+              <button key={c} type="button" aria-pressed={curve === c} onClick={() => setCurve(c)} className={`h-11 rounded-lg px-3 text-sm lg:h-9 ${curve === c ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : ' text-soft'}`}>
                 {CURVE_NAMES[c]}
               </button>
             ))}
@@ -375,6 +379,13 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
               ))}
             </div>
           )}
+          {/* Del 27 pkt. 15: enkel start – avanserte valg bak «Flere valg» */}
+          <button type="button" aria-expanded={more} aria-controls="gv-sb-more" onClick={() => setMore(!more)} className="flex h-11 w-fit items-center gap-1.5 rounded-full px-1 text-sm font-semibold text-soft hover:text-ink lg:h-9">
+            <ChevronDownIcon width={16} height={16} className={`transition-transform ${more ? 'rotate-180' : ''}`} />
+            Flere valg{!more && advanced > 0 ? ` (${advanced} i bruk)` : ''}
+          </button>
+          {more && (
+          <div id="gv-sb-more" className="flex flex-col gap-3">
           <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
             <span className="w-24">BPM-spenn</span>
             <input value={bpmMin} onChange={(e) => setBpmMin(e.target.value)} placeholder="fra" inputMode="decimal" className="h-9 w-16 rounded-lg border border-white/10 bg-sunken px-2 font-mono text-sm text-ink" aria-label="Laveste BPM" />
@@ -407,6 +418,8 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
           </div>
           <TrackPicker label="Må være med" pool={pool} chosen={must.map((m) => m.id)} onAdd={(id) => setMust([...must, { id, position: null }])} onRemove={(id) => setMust(must.filter((m) => m.id !== id))} positions={must} setPosition={(id, p) => setMust(must.map((m) => (m.id === id ? { ...m, position: p } : m)))} />
           <TrackPicker label="Utelat" pool={pool} chosen={pool.filter((t) => exclude.includes(t.slug)).map((t) => t.id)} onAdd={(id) => setExclude([...exclude, pool.find((t) => t.id === id)!.slug])} onRemove={(id) => setExclude(exclude.filter((s) => s !== pool.find((t) => t.id === id)?.slug))} />
+          </div>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <button type="button" onClick={() => build()} disabled={!pool.length} className="h-11 rounded-full bg-accent px-6 text-sm font-semibold text-on-accent disabled:opacity-40">
               Lag tre forslag
@@ -418,7 +431,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
                 <button
                   type="button"
                   onClick={() => void fetch('/api/sets/learn', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(() => setLearn((l) => ({ ...l, events: [] })))}
-                  className="ml-2 text-accent underline"
+                  className="ml-2 inline-flex min-h-11 items-center px-1 text-accent underline lg:min-h-6"
                 >
                   Tilbakestill
                 </button>
