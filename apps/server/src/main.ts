@@ -132,6 +132,19 @@ async function main() {
     });
   };
 
+  // Del 25: mappene for utgitte låter (leses bare). Finnes låta, kobles fila som «Utgitt master»; usikre treff → Studio.
+  let releasedWatchers: Array<ReturnType<typeof startWatcher>> = [];
+  const startReleasedWatch = () =>
+    loadConfig(root).releasedDirs.flatMap((d) => {
+      const dir = path.resolve(root, d);
+      if (!existsSync(dir)) {
+        log(`! Mappa for utgitte låter finnes ikke: ${dir}`);
+        return [];
+      }
+      log(`Watcher for utgitte låter: ${dir} (leser bare)`);
+      return [startWatcher({ exportDir: dir, mediaDir, config: loadConfig(root), log, status: 'released', onIngested: queueLyrics, incoming: { ...incoming, onListed: (it) => notify('Utgitt låt – bekreft i Studio', ` ligner «${it.matchTitle}». Bekreft eller avvis i Studio.`, log) } })];
+    });
+
   let restarting = false;
   const settings: SettingsHooks = {
     root,
@@ -139,13 +152,16 @@ async function main() {
     port: () => port,
     watcherStatus: () => watcher?.status() ?? null,
     draftWatcherStatus: () => draftWatchers.map((w) => w.status()),
+    releasedWatcherStatus: () => releasedWatchers.map((w) => w.status()),
     restartWatcher: async (o) => {
       await watcher?.close().catch(() => {});
       for (const w of draftWatchers) await w.close().catch(() => {});
+      for (const w of releasedWatchers) await w.close().catch(() => {});
       watcher = startWatch();
       draftWatchers = startDraftWatch();
+      releasedWatchers = startReleasedWatch();
       // Del 27: «Prøv igjen» etter at disken er koblet til – ta med det som kom mens mappa var borte
-      if (o?.catchUp) for (const w of [watcher, ...draftWatchers]) if (w) void w.catchUp().catch(() => 0);
+      if (o?.catchUp) for (const w of [watcher, ...draftWatchers, ...releasedWatchers]) if (w) void w.catchUp().catch(() => 0);
       return watcher?.status() ?? null;
     },
     firewallRule: firewallRuleExists,
@@ -158,6 +174,7 @@ async function main() {
         server.closeAllConnections();
         await watcher?.close().catch(() => {});
         for (const w of draftWatchers) await w.close().catch(() => {});
+        for (const w of releasedWatchers) await w.close().catch(() => {});
         rmSync(portFile(), { force: true });
         spawn(process.execPath, [...process.execArgv, ...process.argv.slice(1)], { cwd: process.cwd(), detached: true, stdio: 'ignore', windowsHide: true }).unref();
         process.exit(0);
@@ -197,10 +214,11 @@ async function main() {
 
   watcher = startWatch();
   draftWatchers = startDraftWatch();
+  releasedWatchers = startReleasedWatch();
   // Ved oppstart: ta med filer i REASONDONE og mappene for umastrede låter som ikke er importert ennå
   // (etter en pause eller når PC-en har vært av). Duplikatsjekken hopper over alt som finnes fra før.
   setTimeout(async () => {
-    for (const w of [watcher, ...draftWatchers]) {
+    for (const w of [watcher, ...releasedWatchers, ...draftWatchers]) {
       if (!w) continue;
       const n = await w.catchUp().catch((err) => (log(`! Innhenting feilet: ${err instanceof Error ? err.message : err}`), 0));
       if (n) log(`Innhenting: ${n} lydfiler i ${w.status().exportDir} sjekkes mot det som finnes`);

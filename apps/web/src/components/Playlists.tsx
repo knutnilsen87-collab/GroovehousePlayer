@@ -2,7 +2,7 @@ import { useAlbumUi } from './AlbumBuilder';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  isDraft,
+  isDraft, isReleased,
   planStats,
   PLAN_NAMES,
   type Flow,
@@ -880,7 +880,7 @@ function EntryButton({ a, i, current, onPlay, children }: { a: LoadedAsset; i: n
     <div className={`flex min-h-[60px] items-center gap-3 rounded-xl px-1.5 ${current ? 'bg-white/[0.04]' : ''}`}>
       <button type="button" data-play onClick={onPlay} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`Spill ${m.title}`}>
         <span className="tabular w-5 flex-none text-right text-xs text-muted">{current ? <span className="text-accent">▶</span> : i + 1}</span>
-        <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={6} draft={isDraft(m)} />
+        <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={44} rounded={6} draft={isDraft(m)} released={isReleased(m)} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className={`truncate text-[15px] font-semibold lg:text-sm ${current ? 'text-accent' : 'text-ink-strong'}`}>
             {m.title}<DraftBadge m={m} className="ml-1.5" />

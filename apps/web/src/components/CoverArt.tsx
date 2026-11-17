@@ -1,7 +1,23 @@
 import type { Palette } from '@gv/shared/web';
 
 /** Viser coveret, eller et subtilt, mørkt studio-ikon når asset mangler cover (slik at aksentfargen forbeholdes aktive elementer). */
-export function CoverArt({ src, title, size, rounded = 14, fluid = false, draft = false, eager = false }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; /** Fyll bredden (kvadratisk), del 14-kortet. */ fluid?: boolean; /** Del 16: utkast får stiplet kant. */ draft?: boolean; /** Eager kun på hovedcoveret i fullskjerm/dekket; lister bruker lazy loading. */ eager?: boolean }) {
+export function CoverArt(props: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; /** Fyll bredden (kvadratisk), del 14-kortet. */ fluid?: boolean; /** Del 16: utkast får stiplet kant. */ draft?: boolean; /** Eager kun på hovedcoveret i fullskjerm/dekket; lister bruker lazy loading. */ eager?: boolean; /** Del 25: utgitt – liten markering i hjørnet. */ released?: boolean }) {
+  if (!props.released) return <Cover {...props} />;
+  const { size, fluid = false } = props;
+  const mark = Math.max(14, Math.min(26, Math.round(size * 0.22)));
+  return (
+    <span className="relative block flex-none" style={fluid ? { width: '100%' } : { width: size, height: size }}>
+      <Cover {...props} />
+      <span aria-hidden="true" title="Utgitt" className="absolute bottom-1 right-1 flex items-center justify-center rounded-full bg-black/75 text-accent ring-1 ring-accent/60" style={{ width: mark, height: mark }}>
+        <svg width={mark * 0.62} height={mark * 0.62} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+      </span>
+    </span>
+  );
+}
+
+function Cover({ src, title, size, rounded = 14, fluid = false, draft = false, eager = false }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; fluid?: boolean; draft?: boolean; eager?: boolean }) {
   const dims = { ...(fluid ? { width: '100%', height: 'auto', aspectRatio: '1 / 1' } : { width: size, height: size }), ...(draft ? { outline: '1.5px dashed rgba(255,255,255,0.55)', outlineOffset: size > 80 ? 3 : 1 } : {}) };
   if (src) {
     return (

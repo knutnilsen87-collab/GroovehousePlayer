@@ -24,6 +24,8 @@ export interface Editable {
   draftDir: string | null;
   /** Alle mappene for umastrede låter (overvåkes, leses bare). */
   draftDirs: string[];
+  /** Del 25: mappene for utgitte låter (overvåkes, leses bare). */
+  releasedDirs: string[];
 }
 export interface WatcherStatus {
   exportDir: string;

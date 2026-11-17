@@ -18,7 +18,7 @@ import { createSkippedStore } from './incoming';
 import { importSkipped } from './import-actions';
 import { findBrandLogo, handleSkins } from './skins-store';
 import { handleFx } from './fx-store';
-import { BUILT_IN_SKIN_IDS } from '@gv/shared';
+import { BUILT_IN_SKIN_IDS, cleanRelease, type ReleaseInfo } from '@gv/shared';
 import { handleDrops, linkServiceStatus, type DropPublisher } from './drops-api';
 import { loadPlayback, savePoint } from './playback-store';
 import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
@@ -146,6 +146,36 @@ export function createApiHandler(opts: ApiOptions) {
         return send(res, 200, { exclude: next.exclude, singles: next.singles });
       }
       return send(res, 405, { error: 'GET eller PUT' });
+    }
+    // Del 25: utgivelsesinfo per låt (dato, distributør, UPC/ISRC, lenker). Bare egne enheter, aldri /drop/.
+    if (url.pathname === '/api/releases' || url.pathname.startsWith('/api/releases/')) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const file = path.join(dataDir, 'releases.json');
+      const readAll = async (): Promise<Record<string, ReleaseInfo>> => {
+        try {
+          return ((JSON.parse(await readFile(file, 'utf8')) as { releases?: Record<string, ReleaseInfo> }).releases ?? {}) as Record<string, ReleaseInfo>;
+        } catch {
+          return {};
+        }
+      };
+      if (url.pathname === '/api/releases' && req.method === 'GET') return send(res, 200, { releases: await readAll() });
+      const m = url.pathname.match(/^\/api\/releases\/([a-z0-9][a-z0-9-]{0,120})$/);
+      if (m && req.method === 'PUT') {
+        if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+        let info: ReleaseInfo;
+        try {
+          info = cleanRelease(await readJson(req, 16_000));
+        } catch (err) {
+          return send(res, 400, { error: err instanceof Error ? err.message : String(err) });
+        }
+        const all = await readAll();
+        const empty = !info.date && !info.distributor && !info.upc && !info.isrc && !info.releaseTitle && !info.releaseType && !Object.keys(info.links).length;
+        if (empty) delete all[m[1]!];
+        else all[m[1]!] = { ...info, updatedAt: new Date().toISOString() };
+        await writeJsonAtomic(file, { schema: 1, releases: all });
+        return send(res, 200, { release: all[m[1]!] ?? null });
+      }
+      return send(res, 405, { error: 'GET /api/releases eller PUT /api/releases/<slug>' });
     }
     // Del 5: posisjon på tvers av enheter. Nyeste tidsstempel vinner. Aldri fra /drop/.
     if (url.pathname === '/api/playback') {

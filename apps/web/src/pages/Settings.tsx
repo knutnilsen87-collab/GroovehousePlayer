@@ -38,7 +38,7 @@ export function SettingsView() {
   if (error && !state) return <p role="alert" className="text-[#F2A08F]">Kunne ikke hente innstillingene: {error}</p>;
   if (!state || !draft) return <p className="text-muted">Henter innstillinger…</p>;
 
-  const ALL_KEYS: Array<keyof Editable> = ['exportDir', 'draftDirs', 'ingest', 'lyrics', 'covers', 'audio', 'defaults', 'titleCleanup', 'colors', 'drops'];
+  const ALL_KEYS: Array<keyof Editable> = ['exportDir', 'draftDirs', 'releasedDirs', 'ingest', 'lyrics', 'covers', 'audio', 'defaults', 'titleCleanup', 'colors', 'drops'];
   const dirty = (k: keyof Editable) => JSON.stringify(draft[k]) !== JSON.stringify(state.settings[k]);
   const dirtyKeys = ALL_KEYS.filter(dirty);
   const hasUnsaved = dirtyKeys.length > 0;
@@ -99,7 +99,7 @@ export function SettingsView() {
         )}
       </div>
 
-      <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir') || dirty('draftDirs')} onSave={() => save(['exportDir', 'draftDirs'], 'Mappene er lagret.')} onReload={load} />
+      <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir') || dirty('draftDirs') || dirty('releasedDirs')} onSave={() => save(['exportDir', 'draftDirs', 'releasedDirs'], 'Mappene er lagret.')} onReload={load} />
       <RulesSection draft={draft} set={set} />
       <Section
         title="Lyd"
@@ -360,6 +360,20 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
         />
         <span className="text-xs leading-relaxed text-soft">
           Alle mappene overvåkes, og ved oppstart tas filer som ikke er importert ennå, med. Låter som finnes fra før, importeres ikke på nytt (se «Hoppet over» i Studio). MP3 og M4A godtas her. Låter herfra blir <b className="font-mono text-ink-strong">UMASTRET</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Du kan også dra filer inn på ingest-kortet («Importer som umastret»).
+        </span>
+      </label>
+      <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
+        Mapper for utgitte låter (undermapper tillatt, én per linje)
+        <textarea
+          value={draft.releasedDirs.join('\n')}
+          onChange={(e) => set('releasedDirs', e.target.value.split(/\r?\n/))}
+          placeholder={'F:\\prosjekter_MAIN\\GroovehousePlayer\\utgitt-sync'}
+          rows={Math.max(2, draft.releasedDirs.length + 1)}
+          className="w-full rounded-xl border border-white/10 bg-sunken px-3 py-2 font-mono text-[13px] text-ink focus:border-accent/60 focus:outline-none"
+          spellCheck={false}
+        />
+        <span className="text-xs leading-relaxed text-soft">
+          Låter herfra får status <b className="font-mono text-ink-strong">UTGITT</b>. Finnes låta allerede i Vault (samme lyd, eller samme tittel og lik lyd), kobles fila til den som versjonen «Utgitt master». Usikre treff vises i Studio til du bekrefter – ingenting slås sammen uten OK. Mappa leses bare.
         </span>
       </label>
       {check && !check.ok && (

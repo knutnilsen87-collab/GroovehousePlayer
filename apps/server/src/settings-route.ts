@@ -26,6 +26,8 @@ export interface SettingsHooks {
   watcherStatus: () => WatcherStatus | null;
   /** Del 27: watcherne for umastrede låter (mappe + status). */
   draftWatcherStatus?: () => WatcherStatus[];
+  /** Del 25: watcherne for utgitte låter. */
+  releasedWatcherStatus?: () => WatcherStatus[];
   /** catchUp: ta også med filer som ikke er importert ennå (som ved oppstart). */
   restartWatcher: (o?: { catchUp?: boolean }) => Promise<WatcherStatus | null>;
   /** Stopper og starter serverprosessen på nytt (samme port hvis ledig). */
@@ -96,6 +98,11 @@ export function createSettingsRoute(h: SettingsHooks) {
           const abs = path.resolve(h.root, d);
           return { ...checkFolder(abs), watcher: drafts.find((w) => path.resolve(w.exportDir) === abs) ?? null };
         }),
+        // Del 25: mappene for utgitte låter
+        released: cfg.releasedDirs.map((d) => {
+          const abs = path.resolve(h.root, d);
+          return { ...checkFolder(abs), watcher: (h.releasedWatcherStatus?.() ?? []).find((w) => path.resolve(w.exportDir) === abs) ?? null };
+        }),
         inbox: drafts.find((w) => path.resolve(w.exportDir) === inbox) ?? null
       });
     }
@@ -116,7 +123,7 @@ export function createSettingsRoute(h: SettingsHooks) {
       try {
         const cfg = saveSettings(h.root, patch);
         let watcher = h.watcherStatus();
-        const exportChanged = (patch.exportDir !== undefined && (before.exportDir ?? null) !== (cfg.exportDir ?? null)) || (patch.draftDir !== undefined && (before.draftDir ?? null) !== (cfg.draftDir ?? null));
+        const exportChanged = (patch.exportDir !== undefined && (before.exportDir ?? null) !== (cfg.exportDir ?? null)) || (patch.draftDir !== undefined && (before.draftDir ?? null) !== (cfg.draftDir ?? null)) || patch.draftDirs !== undefined || patch.releasedDirs !== undefined;
         // Eksportmappe/regler/sett-grense: watcheren må lese config på nytt
         if (exportChanged || patch.ingest || patch.titleCleanup || patch.defaults || patch.audio || patch.colors) watcher = await h.restartWatcher();
         return json(res, 200, { settings: editableOf(cfg), watcher, restarted: exportChanged ? ['watcher'] : [] });
@@ -195,6 +202,7 @@ function pickPatch(body: Record<string, unknown>): SettingsPatch {
   if (body.exportDir === null || typeof body.exportDir === 'string') patch.exportDir = body.exportDir as string | null;
   if (body.draftDir === null || typeof body.draftDir === 'string') patch.draftDir = body.draftDir as string | null;
   if (Array.isArray(body.draftDirs) && body.draftDirs.length <= 20 && body.draftDirs.every((d) => typeof d === 'string')) patch.draftDirs = body.draftDirs as string[];
+  if (Array.isArray(body.releasedDirs) && body.releasedDirs.length <= 20 && body.releasedDirs.every((d) => typeof d === 'string')) patch.releasedDirs = body.releasedDirs as string[];
   return patch;
 }
 

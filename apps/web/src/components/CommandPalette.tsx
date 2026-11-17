@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { formatTime, isDraft, matchesQuery, matchesStatus } from '@gv/shared/web';
+import { formatTime, isDraft, isReleased, matchesQuery, matchesStatus } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset } from '../lib/catalog';
 import { useDialog } from '../lib/dialog';
 import { PAGE, searchCatalog } from '../lib/search';
@@ -129,7 +129,7 @@ function Palette({ onClose, assets, onPick, onSaveSmart }: { onClose: () => void
                 onClick={() => pick(i)}
                 className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 ${i === sel ? 'bg-white/[0.07]' : ''}`}
               >
-                <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} draft={isDraft(m)} />
+                <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={36} rounded={6} draft={isDraft(m)} released={isReleased(m)} />
                 <span className="flex min-w-0 flex-1 flex-col">
                   <span className="truncate text-sm font-semibold text-ink-strong">
                     {m.title}

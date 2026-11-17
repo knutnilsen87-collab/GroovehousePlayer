@@ -1,6 +1,6 @@
 import { AlbumBuilderSheet } from '../components/AlbumBuilder';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { bpmLabel, formatTime, isDraft, keyShort, matchesStatus, moreLikeThis, NEUTRAL_PALETTE, toSbTracks, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
+import { bpmLabel, formatTime, isDraft, isReleased, keyShort, matchesStatus, moreLikeThis, NEUTRAL_PALETTE, toSbTracks, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { AnalysisSidebarCard, CoverCard, NowPanel, SideTabs } from '../components/Deck';
 import { FullPlayer } from '../components/MobilePlayer';
@@ -288,7 +288,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   const [homeStatus, setHomeStatus] = useStatusFilter('home', 'all');
   const [djStatus, setDjStatus] = useStatusFilter('dj', 'all');
   const byStatus = (f: StatusFilter) => tracks.filter((t) => matchesStatus(t.main.manifest, f));
-  const statusCounts = { release: tracks.filter((t) => !isDraft(t.main.manifest)).length, draft: tracks.filter((t) => isDraft(t.main.manifest)).length };
+  const statusCounts = { released: tracks.filter((t) => isReleased(t.main.manifest)).length, release: tracks.filter((t) => !isDraft(t.main.manifest) && !isReleased(t.main.manifest)).length, draft: tracks.filter((t) => isDraft(t.main.manifest)).length };
   const homeTracks = useMemo(() => byStatus(homeStatus), [tracks, homeStatus]); // eslint-disable-line react-hooks/exhaustive-deps
   const visible = sortTracks(
     (view === 'sets' ? tracks : view === 'home' ? homeTracks : byStatus(libStatus)).filter((t) => (view === 'sets' ? t.main.manifest.kind === 'set' : view === 'home' || filter === 'all' || t.main.manifest.kind === filter)),
@@ -422,9 +422,9 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                       {visible.length} låter · klikk = velg · dobbeltklikk = spill
                     </span>
                   </div>
-                  {/* Del 16: «Alle (gruppert)» – Release-klar øverst, Umastret under, i hver sin seksjon */}
+                  {/* Del 16/25: «Alle (gruppert)» – Utgitt, Release-klar og Umastret, i hver sin seksjon */}
                   {libStatus === 'draft' && visible.length === 0 && filter !== 'set' && <EmptyLibrary kind="draft" />}
-                  {(libStatus === 'all' ? ([['Release-klar', visible.filter((t) => !isDraft(t.main.manifest))], ['Umastret', visible.filter((t) => isDraft(t.main.manifest))]] as const) : ([[null, visible]] as const)).map(([heading, list]) =>
+                  {(libStatus === 'all' ? ([['Utgitt', visible.filter((t) => isReleased(t.main.manifest))], ['Release-klar', visible.filter((t) => !isDraft(t.main.manifest) && !isReleased(t.main.manifest))], ['Umastret', visible.filter((t) => isDraft(t.main.manifest))]] as const) : ([[null, visible]] as const)).map(([heading, list]) =>
                     list.length === 0 && heading === 'Umastret' && filter !== 'set' ? (
                       <section key="umastret-tom" aria-label="Umastret" className="mt-2 flex flex-col gap-2">
                         <EmptyLibrary kind="draft" />
@@ -731,7 +731,7 @@ function TrackList({
                   {isSel ? '✓' : ''}
                 </span>
               )}
-              <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={48} rounded={8} draft={isDraft(m)} />
+              <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={48} rounded={8} draft={isDraft(m)} released={isReleased(m)} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className={`truncate text-[15px] ${isCur ? 'font-bold text-accent' : 'font-semibold text-ink-strong'}`}>
                   {isCur && playing ? '▶ ' : ''}

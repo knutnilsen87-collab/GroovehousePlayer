@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { bpmUncertain, formatTime, isDraft, keyShort } from '@gv/shared/web';
+import { bpmUncertain, formatTime, isDraft, isReleased, keyShort } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { DRAG_ITEMS } from './Playlists';
@@ -228,7 +228,7 @@ export function StudioTable({
                 <td className="py-2.5 pl-2.5 font-mono text-[13px] text-soft">{isCur ? <EqIcon playing={playing} width={18} height={18} className="text-accent" /> : i + 1}</td>
                 <td className="py-2.5">
                   <button type="button" onClick={() => onPlay(t)} aria-label={`Spill ${m.title}`} className="block">
-                    <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={38} rounded={7} draft={isDraft(m)} />
+                    <CoverArt src={assetUrl(a, m.files.coverThumb)} palette={m.palette} title={m.title} size={38} rounded={7} draft={isDraft(m)} released={isReleased(m)} />
                   </button>
                 </td>
                 <td className="py-2.5 pr-4">

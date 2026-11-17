@@ -8,7 +8,8 @@ import type { AssetManifest } from './types';
  * «Utkast vN»), så de aldri kolliderer med release-versjoner av samme låt og alle nøkler
  * (slug + variant + versjon) virker som før. En låt bytter aldri status av seg selv.
  */
-export type AssetStatus = 'release' | 'draft';
+/** Del 25: «released» = utgitt (fra mappa for utgitte låter). Regnes som mastret overalt der utkast holdes utenfor. */
+export type AssetStatus = 'release' | 'draft' | 'released';
 export const DRAFT_BASE = 1000;
 
 /** Utkast-versjonsnummer. Idempotent: et nummer som allerede er et utkastnummer, beholdes. */
@@ -17,22 +18,29 @@ export const isDraftVersion = (v: number) => v > DRAFT_BASE;
 /** Status for et manifest (eldre manifester uten felt: ut fra versjonsnummeret). */
 export const statusOf = (m: Pick<AssetManifest, 'version'> & { status?: AssetStatus }): AssetStatus => m.status ?? (isDraftVersion(m.version) ? 'draft' : 'release');
 export const isDraft = (m: Pick<AssetManifest, 'version'> & { status?: AssetStatus }) => statusOf(m) === 'draft';
+/** Del 25: utgitt (status Utgitt). */
+export const isReleased = (m: { status?: AssetStatus }) => m.status === 'released';
+/** Release-klar eller utgitt (mastret). */
+export const isMastered = (m: Pick<AssetManifest, 'version'> & { status?: AssetStatus }) => statusOf(m) !== 'draft';
 /** «v3» eller «Utkast v3». */
 export function versionName(m: Pick<AssetManifest, 'version'> & { status?: AssetStatus }): string {
+  if (m.status === 'released') return 'Utgitt master';
   return isDraftVersion(m.version) ? `Umastret v${m.version - DRAFT_BASE}` : `v${m.version}`;
 }
 
 /**
- * Hvilken versjon som vises og spilles («følg nyeste»): release hvis den finnes, ellers nyeste utkast.
- * Når en låt blir mastret, går altså lister og planer automatisk over til masteren.
+ * Hvilken versjon som vises og spilles («følg nyeste»): utgitt master hvis den finnes (del 25), ellers release,
+ * ellers nyeste utkast. Når en låt blir mastret eller gitt ut, går lister og planer automatisk over til den.
  */
 export function preferredVersion<T extends { version: number; status?: AssetStatus }>(versions: T[]): T | undefined {
+  const out = versions.filter((v) => statusOf(v) === 'released').sort((a, b) => b.version - a.version);
+  if (out.length) return out[0];
   const rel = versions.filter((v) => statusOf(v) === 'release').sort((a, b) => b.version - a.version);
   if (rel.length) return rel[0];
   return [...versions].sort((a, b) => b.version - a.version)[0];
 }
 
-export type StatusFilter = 'release' | 'draft' | 'all';
+export type StatusFilter = 'released' | 'release' | 'draft' | 'all';
 export const matchesStatus = (m: Pick<AssetManifest, 'version'> & { status?: AssetStatus }, f: StatusFilter) => f === 'all' || statusOf(m) === f;
 
 // ---------------------------------------------------------------- Album- og settplaner
@@ -67,7 +75,7 @@ export interface PlanStats {
 export function planStats(rows: Array<{ status: AssetStatus; durationMs: number; bpm: number | null; camelot: string | null }>): PlanStats {
   return {
     total: rows.length,
-    mastered: rows.filter((r) => r.status === 'release').length,
+    mastered: rows.filter((r) => r.status !== 'draft').length,
     durationMs: rows.reduce((s, r) => s + r.durationMs, 0),
     flows: rows.slice(1).map((r, i) => flowBetween(rows[i]!, r))
   };

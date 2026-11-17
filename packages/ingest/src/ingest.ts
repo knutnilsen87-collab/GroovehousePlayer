@@ -79,6 +79,7 @@ export async function ingestRelease(release: ReleaseSource, opts: IngestOptions)
   // Del 16: utkast får egne versjonsnumre (1000 + N), så de aldri kolliderer med release-versjoner
   const masters = opts.status === 'draft' ? release.masters.map((m) => ({ ...m, version: toDraftVersion(m.version) })) : release.masters;
   if (opts.status === 'draft') report('status', 'ok', 'umastret (fra mappa for umastrede låter) – holdes atskilt fra release-klare');
+  if (opts.status === 'released') report('status', 'ok', 'utgitt (fra mappa for utgitte låter) – versjonen heter «Utgitt master»');
   for (const master of masters) {
     if (masters.length > 1) report('variant', 'ok', master.variant ?? 'hovedversjon');
     const warnings: string[] = [];
@@ -413,9 +414,9 @@ async function ingestOne(
       variant: master.variant,
       variantLabel: resolved.variantLabel,
       version: master.version,
-      versionLabel: meta.versionLabel ?? (draft ? `Umastret v${master.version - DRAFT_BASE}` : master.version > 1 ? `v${master.version}` : null),
+      versionLabel: opts.status === 'released' ? 'Utgitt master' : (meta.versionLabel ?? (draft ? `Umastret v${master.version - DRAFT_BASE}` : master.version > 1 ? `v${master.version}` : null)),
       kind,
-      status: draft ? 'draft' : 'release',
+      status: draft ? 'draft' : opts.status === 'released' ? 'released' : 'release',
       title: resolved.title,
       artist: resolved.artist,
       album: resolved.album,
@@ -644,7 +645,7 @@ export async function updateCatalog(mediaDir: string, m: AssetManifest): Promise
     manifest: `${m.slug}/${m.variant ?? 'main'}/v${m.version}/manifest.json`,
     title: m.title,
     kind: m.kind,
-    ...(m.status === 'draft' ? { status: 'draft' as const } : {})
+    ...(m.status === 'draft' || m.status === 'released' ? { status: m.status } : {})
   });
   idx.assets.sort((a, b) => a.slug.localeCompare(b.slug) || (a.variant ?? '').localeCompare(b.variant ?? '') || b.version - a.version);
   idx.updatedAt = new Date().toISOString();

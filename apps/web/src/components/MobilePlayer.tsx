@@ -1,6 +1,6 @@
 import { useDialog } from '../lib/dialog';
 import { useEffect, useRef, useState } from 'react';
-import { formatTimeMs, isDraft, sectionAt } from '@gv/shared/web';
+import { formatTimeMs, isDraft, isReleased, sectionAt } from '@gv/shared/web';
 import { assetUrl, useFullAsset, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { CoverArt } from './CoverArt';
@@ -51,7 +51,7 @@ export function FullPlayer({ cur: curIn, track, tracks, onClose, onPlay, onMore 
           <button type="button" onClick={onClose} aria-label="Lukk spilleren" className="flex h-11 w-11 flex-none items-center justify-center rounded-full text-soft">
             <ChevronDownIcon width={26} height={26} />
           </button>
-          <CoverArt src={assetUrl(cur, m.files.coverThumb)} palette={m.palette} title={m.title} size={38} rounded={8} draft={isDraft(m)} />
+          <CoverArt src={assetUrl(cur, m.files.coverThumb)} palette={m.palette} title={m.title} size={38} rounded={8} draft={isDraft(m)} released={isReleased(m)} />
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate text-[15px] font-bold leading-tight text-ink-strong">
               {m.title}
@@ -105,7 +105,7 @@ export function FullPlayer({ cur: curIn, track, tracks, onClose, onPlay, onMore 
 
       <div className="relative mt-3 flex justify-center">
         <div className="gv-panel overflow-hidden !rounded-2xl p-0" style={{ width: coverSize }}>
-          <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={coverSize} rounded={16} draft={isDraft(m)} />
+          <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={coverSize} rounded={16} draft={isDraft(m)} released={isReleased(m)} />
         </div>
       </div>
 

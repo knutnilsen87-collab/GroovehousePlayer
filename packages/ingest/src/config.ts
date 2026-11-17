@@ -38,6 +38,12 @@ export interface VaultConfig {
    */
   draftDirs: string[];
   /**
+   * Del 25: mappene for utgitte låter (overvåkes, leses bare). Låter herfra får status Utgitt, og finnes de allerede
+   * i Vault, kobles fila til samme låt som versjonen «Utgitt master». Lokal: eleasedDirs i groovehouse.local.json;
+   * ellers GH_RELEASED_DIR.
+   */
+  releasedDirs: string[];
+  /**
    * Del 23 nivå 2: AI-cover via bulkIMG / AURORA Asset Studio (løs kobling, ingen nøkler i Vault).
    * Vault skriver CSV-er til `bulkimgInbox` og leser eksporter (med manifest.json) fra `bulkimgExports`.
    * Maskinspesifikt: lagres bare i groovehouse.local.json.
@@ -80,6 +86,7 @@ const FALLBACK: VaultConfig = {
   exportDir: null,
   draftDir: null,
   draftDirs: [],
+  releasedDirs: [],
   covers: { bulkimgInbox: 'F:\\prosjekter_MAIN\\bulkIMG\\imports\\groovehouse', bulkimgExports: 'F:\\prosjekter_MAIN\\bulkIMG\\repo\\exports' }
 };
 export const DEFAULTS: Readonly<VaultConfig> = FALLBACK;
@@ -143,6 +150,7 @@ export function loadConfig(root = findRoot()): VaultConfig {
     exportDir: typeof l.exportDir === 'string' && l.exportDir ? l.exportDir : process.env.GH_EXPORT_DIR ?? null,
     draftDir: draftDirsOf(l)[0] ?? null,
     draftDirs: draftDirsOf(l),
+    releasedDirs: dirList((l as { releasedDirs?: unknown }).releasedDirs, process.env.GH_RELEASED_DIR),
     covers: {
       bulkimgInbox: typeof l.covers?.bulkimgInbox === 'string' && l.covers.bulkimgInbox ? l.covers.bulkimgInbox : FALLBACK.covers.bulkimgInbox,
       bulkimgExports: typeof l.covers?.bulkimgExports === 'string' && l.covers.bulkimgExports ? l.covers.bulkimgExports : FALLBACK.covers.bulkimgExports
@@ -155,6 +163,13 @@ function draftDirsOf(l: { draftDirs?: unknown; draftDir?: unknown }): string[] {
   const list = Array.isArray(l.draftDirs) ? l.draftDirs.filter((d): d is string => typeof d === 'string' && !!d.trim()) : [];
   if (!list.length && typeof l.draftDir === 'string' && l.draftDir) list.push(l.draftDir);
   if (!list.length && process.env.GH_DRAFT_DIR) list.push(process.env.GH_DRAFT_DIR);
+  return [...new Map(list.map((d) => [path.resolve(d).toLowerCase(), d.trim()])).values()];
+}
+
+/** Liste med mapper fra den lokale fila, ellers fra miljøvariabelen. Tomme og like (uten hensyn til store bokstaver) fjernes. */
+function dirList(value: unknown, env: string | undefined): string[] {
+  const list = Array.isArray(value) ? value.filter((d): d is string => typeof d === 'string' && !!d.trim()) : [];
+  if (!list.length && env) list.push(env);
   return [...new Map(list.map((d) => [path.resolve(d).toLowerCase(), d.trim()])).values()];
 }
 

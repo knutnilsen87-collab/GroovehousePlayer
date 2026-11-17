@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { BUILTIN_SMART, bpmLabel, isDraft, versionName, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
+import { BUILTIN_SMART, bpmLabel, isDraft, isReleased, versionName, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
 import { SetBuilder } from '../components/SetBuilder';
 import { assetUrl, type LoadedAsset, type Track } from '../lib/catalog';
 import { fetchListens, type ListenLog } from '../lib/library';
@@ -64,7 +64,7 @@ function Row({ t, onPlay, sub }: { t: Track; onPlay: PlayFn; sub?: string }) {
   return (
     <li className="flex items-center gap-1" style={trackVars(m)}>
       <button type="button" onClick={() => onPlay(t)} className={`flex min-h-[60px] min-w-0 flex-1 items-center gap-3 rounded-xl px-1.5 text-left hover:bg-white/[0.03] ${cur ? 'bg-accent/[0.1]' : ''}`}>
-        <CoverArt src={assetUrl(t.main, m.files.coverThumb)} palette={m.palette} title={m.title} size={46} rounded={8} draft={isDraft(m)} />
+        <CoverArt src={assetUrl(t.main, m.files.coverThumb)} palette={m.palette} title={m.title} size={46} rounded={8} draft={isDraft(m)} released={isReleased(m)} />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className={`truncate text-[15px] font-semibold ${cur ? 'text-accent' : 'text-ink-strong'}`}>
             {m.title}<DraftBadge m={m} className="ml-1.5" />

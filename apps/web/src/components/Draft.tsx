@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react';
 import { create } from 'zustand';
-import { isDraft, type AssetManifest, type StatusFilter } from '@gv/shared/web';
+import { isDraft, isReleased, type AssetManifest, type StatusFilter } from '@gv/shared/web';
 import { skinTrackVars } from '../lib/skin';
 import { useDialog } from '../lib/dialog';
 
@@ -11,6 +11,13 @@ import { useDialog } from '../lib/dialog';
  *  - dempet glød (aksenten på 50 %)
  */
 export function DraftBadge({ m, className = '' }: { m: Pick<AssetManifest, 'version' | 'status'>; className?: string }) {
+  // Del 25: utgitte låter får brikken UTGITT (i aksentfargen, uten stiplet kant)
+  if (isReleased(m))
+    return (
+      <span title="Utgitt" className={`inline-flex flex-none items-center rounded border border-accent/60 bg-accent/[0.1] px-1 py-px align-middle font-mono text-[11px] font-semibold tracking-[0.14em] text-ink-strong ${className}`}>
+        UTGITT
+      </span>
+    );
   if (!isDraft(m)) return null;
   return (
     <span title="Umastret – holdes atskilt fra release-klare" className={`inline-flex flex-none items-center rounded border border-dashed border-white/40 px-1 py-px align-middle font-mono text-[11px] font-semibold tracking-[0.14em] text-soft ${className}`}>
@@ -34,7 +41,7 @@ const KEY = (view: string) => (view === 'library' || view === 'home' ? `gv:statu
 const read = (view: string, dflt: StatusFilter): StatusFilter => {
   try {
     const v = localStorage.getItem(KEY(view));
-    return v === 'draft' || v === 'all' || v === 'release' ? v : dflt;
+    return v === 'draft' || v === 'all' || v === 'release' || v === 'released' ? v : dflt;
   } catch {
     return dflt;
   }
@@ -60,11 +67,13 @@ export function useStatusFilter(view: string, dflt: StatusFilter = 'release'): [
   ];
 }
 
-export function StatusSegment({ value, onChange, counts }: { value: StatusFilter; onChange: (f: StatusFilter) => void; counts?: { release: number; draft: number } }) {
+export function StatusSegment({ value, onChange, counts }: { value: StatusFilter; onChange: (f: StatusFilter) => void; counts?: { released?: number; release: number; draft: number } }) {
+  // Del 25: «Alle · Utgitt · Release-klar · Umastret». Utgitt vises bare når det finnes utgitte låter (eller er valgt).
   const opts: Array<[StatusFilter, string]> = [
+    ['all', 'Alle'],
+    ...((counts?.released ?? 1) > 0 || value === 'released' ? ([['released', 'Utgitt']] as Array<[StatusFilter, string]>) : []),
     ['release', 'Release-klar'],
-    ['draft', 'Umastret'],
-    ['all', 'Alle']
+    ['draft', 'Umastret']
   ];
   return (
     <div role="radiogroup" aria-label="Status" className="inline-flex rounded-xl border border-white/10 bg-white/[0.03] p-0.5">
@@ -78,7 +87,7 @@ export function StatusSegment({ value, onChange, counts }: { value: StatusFilter
           className={`h-11 rounded-lg px-3 text-xs lg:h-8 ${value === id ? 'gv-neon-soft border border-accent/70 bg-accent/[0.12] font-semibold text-accent' : 'border border-transparent text-soft hover:text-ink-strong'}`}
         >
           {name}
-          {counts && id !== 'all' && <span className="ml-1 font-mono text-[11px] text-muted">{counts[id]}</span>}
+          {counts && id !== 'all' && counts[id] != null && <span className="ml-1 font-mono text-[11px] text-muted">{counts[id]}</span>}
         </button>
       ))}
     </div>

@@ -12,6 +12,7 @@ export * from './studio';
 export * from './appupdate';
 export * from './markers';
 export * from './drafts';
+export * from './releases';
 export * from './setbuilder';
 export * from './setinput';
 export * from './similarity';

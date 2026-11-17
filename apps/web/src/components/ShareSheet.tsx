@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { estimateShareBytes, formatBytes, shareFileName, type ShareKind, DRAFT_ALBUM, draftTitle, isDraft, versionName } from '@gv/shared/web';
+import { estimateShareBytes, formatBytes, shareFileName, type ShareKind, DRAFT_ALBUM, draftTitle, isDraft, isReleased, versionName } from '@gv/shared/web';
 import { assetUrl, variantName } from '../lib/catalog';
 import { toastError, useToast } from '../lib/playlists';
 import { canReveal, canShareFiles, fetchShareFile, logShare, revealInExplorer, shareFetched, type Fetched } from '../lib/share';
 import { isApp } from '../lib/platform';
 import { isDesktop, useUi } from '../lib/ui';
 import { useDialog } from '../lib/dialog';
+import { useReleases } from './ReleaseInfo';
 import { CoverArt } from './CoverArt';
 
 const KINDS: Array<{ kind: ShareKind; label: string; hint: string }> = [
@@ -65,6 +66,10 @@ function ShareSheet() {
     };
   }, []);
   const linkOk = svc !== 'checking' && svc.available;
+  // Del 25 pkt. 8: utgitte låter kan få «Ute nå på Spotify» med lenken i delingsteksten
+  useEffect(() => void useReleases.getState().load(), []);
+  const spotify = useReleases((s) => (isReleased(m) ? s.releases?.[m.slug]?.links.spotify : undefined));
+  const [outNow, setOutNow] = useState(true);
   const [recipient, setRecipient] = useState('');
   const [link, setLink] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
@@ -99,7 +104,7 @@ function ShareSheet() {
   const shareNow = async () => {
     if (!fetched) return;
     try {
-      const outcome = await shareFetched(fetched);
+      const outcome = await shareFetched(spotify && outNow ? { ...fetched, text: `\nUte nå på Spotify: ${spotify}` } : fetched);
       if (outcome === 'cancelled') return;
       logShare(a, kind);
       useToast.getState().show(outcome === 'shared' ? `Delt: ${fetched.file.name}` : `Lastet ned: ${fetched.file.name}`);
@@ -200,6 +205,12 @@ function ShareSheet() {
         </div>
         )}
 
+        {mode === 'file' && spotify && (
+          <label className="mt-3 flex min-h-11 items-center gap-2 text-xs text-ink">
+            <input type="checkbox" checked={outNow} onChange={(e) => setOutNow(e.target.checked)} className="h-4 w-4 accent-[var(--accent)]" />
+            Ta med «Ute nå på Spotify» og lenken i teksten
+          </label>
+        )}
         {mode === 'file' && (
         <p className="m-0 mt-3 break-words text-xs text-muted">
           Fila heter: <span className="text-ink">{fileName}</span>

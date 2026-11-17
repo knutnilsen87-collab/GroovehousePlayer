@@ -88,7 +88,7 @@ export interface AssetManifest {
   versionLabel: string | null;
   kind: AssetKind;
   /** Del 16: «draft» = umastret utkast (fra utkastmappa), «release» = fra REASONDONE. Mangler = release. */
-  status?: 'release' | 'draft';
+  status?: 'release' | 'draft' | 'released';
   title: string;
   artist: string | null;
   /** Album. Uten meta.json: låttittelen (singel). Aldri labelnavnet. */
@@ -175,7 +175,7 @@ export interface Analysis {
 export interface CatalogIndex {
   schema: 1;
   updatedAt: string;
-  assets: Array<{ slug: string; variant: string | null; version: number; manifest: string; title: string; kind: AssetKind; status?: 'release' | 'draft' }>;
+  assets: Array<{ slug: string; variant: string | null; version: number; manifest: string; title: string; kind: AssetKind; status?: 'release' | 'draft' | 'released' }>;
 }
 
 export interface ListenEvent {

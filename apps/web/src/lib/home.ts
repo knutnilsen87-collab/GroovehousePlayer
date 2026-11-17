@@ -6,7 +6,7 @@ import { isDraft } from '@gv/shared/web';
  */
 interface TrackLike {
   slug: string;
-  main: { manifest: { createdAt: string; version: number; status?: 'release' | 'draft' } };
+  main: { manifest: { createdAt: string; version: number; status?: 'release' | 'draft' | 'released' } };
 }
 export interface HomeNews<T> {
   /** Nyeste release-klare eksport (null når ingen finnes). */
@@ -19,8 +19,8 @@ export function homeNews<T extends TrackLike>(tracks: T[], lastPlayed: (slug: st
   const now = opts.now ?? Date.now();
   const since = now - (opts.days ?? 30) * 86_400_000;
   const byNew = [...tracks].sort((a, b) => b.main.manifest.createdAt.localeCompare(a.main.manifest.createdAt));
-  // Siste eksport fra Reason = release-klar (umastrede kommer fra egne mapper)
-  const latest = byNew.find((t) => !isDraft(t.main.manifest)) ?? null;
+  // Siste eksport fra Reason = release-klar (umastrede og utgitte kommer fra egne mapper)
+  const latest = byNew.find((t) => !isDraft(t.main.manifest) && t.main.manifest.status !== 'released') ?? null;
   const unheard = byNew
     .filter((t) => t !== latest && Date.parse(t.main.manifest.createdAt) >= since)
     .filter((t) => {

@@ -16,7 +16,7 @@ import {
   type AlbumOptions,
   type AlbumResult,
   type AlbumTrack
-} from '@gv/shared/web';
+, isReleased } from '@gv/shared/web';
 import { assetUrl, dupeGroups, type LoadedAsset } from '../lib/catalog';
 import { fetchListens, useFavorites } from '../lib/library';
 import { usePlayer } from '../lib/player';
@@ -92,6 +92,9 @@ export function AlbumBuilder({ assets, planId = null }: { assets: LoadedAsset[];
   const [pool, setPool] = useState<string>(planId ? `plan:${planId}` : 'all');
   const [seedId, setSeedId] = useState('');
   const [includeDrafts, setIncludeDrafts] = useState(true);
+  // Del 25: utgitte låter er allerede ute – holdes utenfor nye album som standard
+  const [includeReleased, setIncludeReleased] = useState(false);
+  const releasedSlugs = useMemo(() => [...new Set(songs.filter((a) => isReleased(a.manifest)).map((a) => a.manifest.slug))], [songs]);
   const [showExclude, setShowExclude] = useState(false);
   const [alts, setAlts] = useState<AlbumResult[] | null>(null);
   const [active, setActive] = useState(0);
@@ -109,7 +112,7 @@ export function AlbumBuilder({ assets, planId = null }: { assets: LoadedAsset[];
     return all.filter((t) => slugs.has(t.slug)).map((t) => t.id);
   }, [pool, playlists, all]);
 
-  const options = (extra: Partial<AlbumOptions> = {}): AlbumOptions => ({ format, count, vinyl, pool: poolIds, exclude: flags.exclude, includeDrafts, seedId: seedId || null, seed, ...extra });
+  const options = (extra: Partial<AlbumOptions> = {}): AlbumOptions => ({ format, count, vinyl, pool: poolIds, exclude: includeReleased ? flags.exclude : [...new Set([...flags.exclude, ...releasedSlugs])], includeDrafts, seedId: seedId || null, seed, ...extra });
   const cur = alts?.[active];
 
   const build = () => {
@@ -248,6 +251,11 @@ export function AlbumBuilder({ assets, planId = null }: { assets: LoadedAsset[];
             <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
               <input type="checkbox" checked={includeDrafts} onChange={(e) => setIncludeDrafts(e.target.checked)} className="h-5 w-5" /> Ta med umastrede
             </label>
+            {releasedSlugs.length > 0 && (
+              <label className="flex min-h-11 items-center gap-2 text-sm text-ink">
+                <input type="checkbox" checked={includeReleased} onChange={(e) => setIncludeReleased(e.target.checked)} className="h-5 w-5" /> Ta med utgitte ({releasedSlugs.length})
+              </label>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" onClick={() => setShowExclude((x) => !x)} aria-expanded={showExclude} className={`${seg} bg-white/[0.05] text-ink`}>

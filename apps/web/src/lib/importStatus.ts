@@ -21,13 +21,15 @@ export interface FolderStatus {
 export interface ImportStatus {
   export: FolderStatus;
   drafts: FolderStatus[];
+  /** Del 25: mappene for utgitte låter (mangler hos eldre server). */
+  released?: FolderStatus[];
   inbox: WatchState | null;
 }
 
 /** Alle watcherne samlet: jobber noen, og hvor langt har innhentingen kommet? */
 export function progressOf(s: ImportStatus | null): { working: boolean; total: number; done: number; queued: number } {
   if (!s) return { working: false, total: 0, done: 0, queued: 0 };
-  const ws = [s.export.watcher, ...s.drafts.map((d) => d.watcher), s.inbox].filter((w): w is WatchState => !!w);
+  const ws = [s.export.watcher, ...s.drafts.map((d) => d.watcher), ...(s.released ?? []).map((d) => d.watcher), s.inbox].filter((w): w is WatchState => !!w);
   const total = ws.reduce((n, w) => n + (w.scan?.total ?? 0), 0);
   const done = ws.reduce((n, w) => n + (w.scan?.done ?? 0), 0);
   const queued = ws.reduce((n, w) => n + w.queued, 0);
@@ -37,7 +39,7 @@ export function progressOf(s: ImportStatus | null): { working: boolean; total: n
 /** Siste import på tvers av mappene (nyeste først). */
 export function recentImports(s: ImportStatus | null): WatchState['recent'] {
   if (!s) return [];
-  return [s.export.watcher, ...s.drafts.map((d) => d.watcher), s.inbox]
+  return [s.export.watcher, ...s.drafts.map((d) => d.watcher), ...(s.released ?? []).map((d) => d.watcher), s.inbox]
     .flatMap((w) => w?.recent ?? [])
     .sort((a, b) => b.at.localeCompare(a.at));
 }
@@ -45,7 +47,7 @@ export function recentImports(s: ImportStatus | null): WatchState['recent'] {
 /** Mapper med problem (valgt, men ikke lesbar). Ingen valgt eksportmappe telles også. */
 export function folderProblems(s: ImportStatus | null): FolderStatus[] {
   if (!s) return [];
-  return [s.export, ...s.drafts].filter((f) => f.state !== 'ok');
+  return [s.export, ...s.drafts, ...(s.released ?? [])].filter((f) => f.state !== 'ok');
 }
 
 interface Store {

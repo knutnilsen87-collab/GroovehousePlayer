@@ -4,7 +4,8 @@ import { watch, type FSWatcher } from 'chokidar';
 import type { VaultConfig } from './config';
 import { probe } from './ffmpeg';
 import { ingestFolder, ingestRelease, type IngestResult, type StepStatus } from './ingest';
-import { classifyIncoming, type IncomingCtx, type SkippedItem, type SkippedStore } from './incoming';
+import { classifyIncoming, classifyReleased, type IncomingCtx, type SkippedItem, type SkippedStore } from './incoming';
+import { ingestAsVersionOf } from './import-actions';
 import { AUDIO_RE, DRAFT_AUDIO_RE, IMAGE_RE, scanFlat } from './sources';
 
 /**
@@ -32,7 +33,7 @@ export interface WatcherOptions {
    * Del 16: «draft» = utkastmappa (eller data/drafts-inbox). Alle lydfiler, også i undermapper (prosjekter),
    * behandles som flate filer i sin egen mappe og ingestes som utkast.
    */
-  status?: 'release' | 'draft';
+  status?: 'release' | 'draft' | 'released';
   /**
    * Duplikatsjekk før import (sanger som finnes fra før importeres ikke på nytt). Uten denne importeres
    * alt som før (tester og CLI med --force).
@@ -58,7 +59,9 @@ export interface WatcherStatus {
 
 export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void>; status: () => WatcherStatus; catchUp: () => Promise<number> } {
   const exportDir = path.resolve(opts.exportDir);
-  const drafts = opts.status === 'draft';
+  // Umastrede og utgitte: alle lydfiler, også i undermapper, som flate filer i sin egen mappe (MP3/M4A godtas)
+  const drafts = opts.status === 'draft' || opts.status === 'released';
+  const released = opts.status === 'released';
   const log = opts.log ?? ((l: string) => console.log(l));
   const queue: Job[] = [];
   let busy: Promise<void> | null = null;
@@ -101,11 +104,40 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
     }
     const durations = new Map<string, number>();
     for (const m of release.masters) durations.set(m.path, (await probe(m.path)).durationMs); // kaster hvis fila er halvskrevet
+    if (!isImage && released && opts.incoming) {
+      // Del 25: finnes låta allerede, kobles fila til den som «Utgitt master»; usikre treff venter på Knut i Studio
+      const out: Done[] = [];
+      for (const m of release.masters) {
+        const v = await classifyReleased(opts.incoming.ctx, { file: m.path, fileName: m.fileName, slug: m.slug, variant: m.variant, title: m.titleFromFile, durationMs: durations.get(m.path) ?? 0 });
+        await opts.incoming.ctx.hashes.save();
+        if (v.action === 'known') continue;
+        if (v.action === 'stem') {
+          log(`  ↷ ${m.fileName}: ${v.reason} – hoppet over`);
+          continue;
+        }
+        if (v.action === 'listed') {
+          if (await opts.incoming.skipped.add(v.item)) {
+            log(`  ? ${m.fileName}: ligner «${v.item.matchTitle}» (${v.item.reason}${v.item.similarity != null ? `, likhet ${v.item.similarity}` : ''}) – venter på bekreftelse i Studio`);
+            event(`bekreft i Studio: ${m.fileName} (ligner ${v.item.matchTitle})`);
+            opts.incoming.onListed?.(v.item);
+          }
+          continue;
+        }
+        const single = { ...release, masters: [m] };
+        if (v.action === 'link') {
+          log(`  ⇄ ${m.fileName}: samme låt som «${v.title}» (${v.why === 'samme-lyd' ? 'samme lyd' : `tittel og lyd, likhet ${v.similarity}`}) – kobles som Utgitt master`);
+          out.push(...withSources(await ingestAsVersionOf(single, m, { slug: v.slug, variant: v.variant, title: v.title }, 'released', { mediaDir: opts.mediaDir, cfg: opts.config, report: say }), [m]));
+        } else {
+          out.push(...withSources(await ingestRelease(single, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: 'released' }), [m]));
+        }
+      }
+      return out;
+    }
     if (!isImage && opts.incoming) {
       // Sanger som finnes fra før: samme lyd → stille; samme låt → lista i Studio; stems hoppes over
       const keep = [];
       for (const m of release.masters) {
-        const v = await classifyIncoming(opts.incoming.ctx, { file: m.path, fileName: m.fileName, slug: m.slug, variant: m.variant, title: m.titleFromFile, durationMs: durations.get(m.path) ?? 0, status: drafts ? 'draft' : 'release' });
+        const v = await classifyIncoming(opts.incoming.ctx, { file: m.path, fileName: m.fileName, slug: m.slug, variant: m.variant, title: m.titleFromFile, durationMs: durations.get(m.path) ?? 0, status: opts.status === 'draft' ? 'draft' : 'release' });
         await opts.incoming.ctx.hashes.save();
         if (v.action === 'import') keep.push(m);
         else if (v.action === 'known') continue;

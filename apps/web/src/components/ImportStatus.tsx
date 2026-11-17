@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { isDraft } from '@gv/shared/web';
+import { isDraft, isReleased } from '@gv/shared/web';
 import { useDialog } from '../lib/dialog';
 import { folderProblems, progressOf, recentImports, useImportStatus, type FolderStatus, type ImportStatus } from '../lib/importStatus';
 import { go } from '../lib/nav';
@@ -106,6 +106,9 @@ function ImportStatusSheet({ assets, onPlay }: { assets: LoadedAsset[]; onPlay: 
             <ProgressLine s={s} />
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               <FolderRow f={s.export} label="Eksportmappe (Reason)" />
+              {(s.released ?? []).map((d, i) => (
+                <FolderRow key={`u-${d.dir ?? i}`} f={d} label="Mappe for utgitte låter" />
+              ))}
               {s.drafts.map((d, i) => (
                 <FolderRow key={d.dir ?? i} f={d} label="Mappe for umastrede låter" />
               ))}
@@ -123,7 +126,7 @@ function ImportStatusSheet({ assets, onPlay }: { assets: LoadedAsset[]; onPlay: 
                         <span className="flex min-w-0 flex-1 flex-col">
                           <span className="truncate text-sm font-semibold text-ink-strong">{r.title}</span>
                           <span className="text-[12px] text-muted">
-                            {a && isDraft(a.manifest) ? 'Ny umastret' : 'Ny eksport'} · {lockVersionLabel(r.version).replace('umastret ', '')} · {new Date(r.at).toLocaleTimeString('nb-NO', { timeStyle: 'short' })}
+                            {a && isReleased(a.manifest) ? 'Utgitt' : a && isDraft(a.manifest) ? 'Ny umastret' : 'Ny eksport'} · {lockVersionLabel(r.version).replace('umastret ', '')} · {new Date(r.at).toLocaleTimeString('nb-NO', { timeStyle: 'short' })}
                           </span>
                         </span>
                         {a && (
@@ -222,7 +225,7 @@ export function ImportBanner({ assets, onPlay, emptyLibrary }: { assets: LoadedA
       {fresh && asset && (
         <div className="gv-panel flex items-center gap-3 px-4 py-3">
           <span className="flex min-w-0 flex-1 flex-col">
-            <span className="gv-label text-[11px] text-accent">{isDraft(asset.manifest) ? 'Ny umastret' : 'Ny eksport'} · {lockVersionLabel(fresh.version).replace('umastret ', '')}</span>
+            <span className="gv-label text-[11px] text-accent">{isReleased(asset.manifest) ? 'Utgitt' : isDraft(asset.manifest) ? 'Ny umastret' : 'Ny eksport'} · {lockVersionLabel(fresh.version).replace('umastret ', '')}</span>
             <span className="truncate text-[15px] font-semibold text-ink-strong">{fresh.title}</span>
           </span>
           <button

@@ -31,7 +31,7 @@ export interface SkippedItem {
   id: string;
   file: string;
   fileName: string;
-  status: 'release' | 'draft';
+  status: 'release' | 'draft' | 'released';
   /** Hva den ligner på. */
   matchSlug: string;
   matchVariant: string | null;
@@ -60,7 +60,7 @@ export function normTitle(t: string): string {
     .replace(/[̀-ͯ]/g, '')
     .replace(/^\s*\d{1,3}\s*[.\-_)]\s*/, '')
     .replace(/\((?:\d+|v\d+|final|master(?:ed)?|mix|bounce|copy|kopi)\)/g, '')
-    .replace(/\b(v\d+|final|master(?:ed)?|bounce|copy|kopi)\b/g, '')
+    .replace(/\b(v\d+|final|master(?:ed)?|bounce|copy|kopi|landr)\b/g, '')
     .replace(/[^a-z0-9æøå]+/g, ' ')
     .trim();
 }
@@ -109,6 +109,8 @@ interface LibEntry {
 export interface Library {
   shas: Set<string>;
   entries: LibEntry[];
+  /** Del 25: hvilken låt (slug + variant) en hash hører til, og om den versjonen allerede er utgitt. */
+  bySha: Map<string, { slug: string; variant: string | null; title: string; released: boolean }>;
 }
 
 /** Alle versjoner i media/ (alle statuser) + kildefilenes hash fra data/sources.json. */
@@ -116,6 +118,7 @@ export async function loadLibrary(mediaDir: string, dataDir: string): Promise<Li
   const media = path.resolve(mediaDir);
   const shas = new Set<string>();
   const entries: LibEntry[] = [];
+  const bySha: Library['bySha'] = new Map();
   const idxFile = path.join(media, 'index.json');
   if (existsSync(idxFile)) {
     const idx = JSON.parse(await readFile(idxFile, 'utf8')) as CatalogIndex;
@@ -125,14 +128,24 @@ export async function loadLibrary(mediaDir: string, dataDir: string): Promise<Li
       if (!existsSync(mp)) continue;
       const m = JSON.parse(await readFile(mp, 'utf8')) as AssetManifest;
       shas.add(m.masterSha256);
+      const prev = bySha.get(m.masterSha256);
+      if (!prev || m.status === 'released') bySha.set(m.masterSha256, { slug: m.slug, variant: m.variant ?? null, title: m.title, released: m.status === 'released' || !!prev?.released });
       const k = `${m.slug}::${m.variant ?? ''}`;
       if (seen.has(k)) continue;
       seen.add(k);
       entries.push({ slug: m.slug, variant: m.variant, title: m.title, norm: normTitle(m.title), durationMs: m.durationMs, dir: path.dirname(mp) });
     }
   }
-  for (const r of Object.values((await readSources(sourcesFile(mediaDir, dataDir))).entries)) shas.add(r.sha256);
-  return { shas, entries };
+  for (const [key, r] of Object.entries((await readSources(sourcesFile(mediaDir, dataDir))).entries)) {
+    shas.add(r.sha256);
+    // Kildefila til en versjon (sourceKey = slug::variant::vN): samme låt som versjonen
+    const [slug, variant] = key.split('::');
+    if (slug && !bySha.has(r.sha256)) {
+      const e = entries.find((x) => x.slug === slug && (x.variant ?? 'main') === variant);
+      bySha.set(r.sha256, { slug, variant: variant === 'main' ? null : (variant ?? null), title: e?.title ?? slug, released: false });
+    }
+  }
+  return { shas, entries, bySha };
 }
 
 /** Biblioteket leses på nytt bare når media/index.json eller data/sources.json er endret. */
@@ -192,7 +205,7 @@ export interface IncomingCtx {
  */
 export async function classifyIncoming(
   ctx: IncomingCtx,
-  f: { file: string; fileName: string; slug: string; variant: string | null; title: string; durationMs: number; status: 'release' | 'draft' }
+  f: { file: string; fileName: string; slug: string; variant: string | null; title: string; durationMs: number; status: 'release' | 'draft' | 'released' }
 ): Promise<IncomingVerdict> {
   const lib = ctx.library ?? (await cachedLibrary(ctx.mediaDir, ctx.dataDir));
   const sha = await ctx.hashes.sha(f.file);
@@ -225,6 +238,66 @@ export async function classifyIncoming(
   return { action: 'import' };
 }
 
+// ---------------------------------------------------------------- Del 25: utgitte låter
+
+export type ReleasedVerdict =
+  | { action: 'known' }
+  | { action: 'stem'; reason: string }
+  /** Sikkert treff: kobles til låta som versjonen «Utgitt master» uten å spørre. */
+  | { action: 'link'; slug: string; variant: string | null; title: string; why: 'samme-lyd' | 'tittel-og-lyd'; similarity: number | null }
+  /** Usikkert treff: vises i Studio, Knut bekrefter eller avviser. */
+  | { action: 'listed'; item: SkippedItem }
+  /** Ingen treff: ny låt med status Utgitt. */
+  | { action: 'import' };
+
+/** Lydlikhet som regnes som «samme innspilling» når tittelen også stemmer (LANDR-master mot mixen i Vault). */
+export const RELEASED_LINK_SIMILARITY = SIMILARITY_THRESHOLD;
+
+/**
+ * En fil i mappa for utgitte låter. Rekkefølge (del 25 pkt. 3):
+ *  1. Samme lyd som en versjon som allerede er utgitt → hoppes over stille.
+ *  2. Samme lyd (hash) som en versjon eller kildefil i Vault → sikkert treff, kobles.
+ *  3. Samme tittel (eller slug) OG lydlikhet over terskelen → sikkert treff, kobles.
+ *  4. Bare tittel, eller bare lydlikhet → usikkert, vises i Studio til Knut bekrefter. Ingenting slås sammen uten OK.
+ *  5. Ellers en ny låt med status Utgitt.
+ */
+export async function classifyReleased(ctx: IncomingCtx, f: { file: string; fileName: string; slug: string; variant: string | null; title: string; durationMs: number }): Promise<ReleasedVerdict> {
+  const lib = ctx.library ?? (await cachedLibrary(ctx.mediaDir, ctx.dataDir));
+  const sha = await ctx.hashes.sha(f.file);
+  const hit = lib.bySha.get(sha);
+  if (hit?.released) return { action: 'known' };
+  if (hit) return { action: 'link', slug: hit.slug, variant: hit.variant, title: hit.title, why: 'samme-lyd', similarity: null };
+  const stem = stemReason(f.fileName);
+  if (stem) return { action: 'stem', reason: stem };
+  const listed = (e: LibEntry, reason: SkippedItem['reason'], sim: number | null): ReleasedVerdict => ({
+    action: 'listed',
+    item: { id: randomUUID(), file: f.file, fileName: f.fileName, status: 'released', matchSlug: e.slug, matchVariant: e.variant, matchTitle: e.title, reason, similarity: sim, sha256: sha, at: new Date().toISOString() }
+  });
+  const n = normTitle(f.title);
+  const byTitle = lib.entries.find((e) => e.slug === f.slug && (e.variant ?? null) === (f.variant ?? null)) ?? (n ? lib.entries.find((e) => e.norm === n && (e.variant ?? null) === (f.variant ?? null)) : undefined);
+  let fp: Fingerprint | null = null;
+  const simTo = async (e: LibEntry): Promise<number | null> => {
+    const efp = await ctx.fingerprints.forEntry(e).catch(() => null);
+    if (!efp) return null;
+    fp ??= await fingerprintFile(f.file);
+    return Math.round(similarity(fp, efp, f.durationMs, e.durationMs) * 1000) / 1000;
+  };
+  if (byTitle) {
+    const s = await simTo(byTitle);
+    await ctx.fingerprints.save();
+    if (s != null && s >= RELEASED_LINK_SIMILARITY) return { action: 'link', slug: byTitle.slug, variant: byTitle.variant, title: byTitle.title, why: 'tittel-og-lyd', similarity: s };
+    return listed(byTitle, byTitle.slug === f.slug ? 'samme-slug' : 'samme-tittel', s);
+  }
+  // Ingen tittel som stemmer: lik lyd (samme varighet ±2 s) er et usikkert treff
+  let best: { e: LibEntry; s: number } | null = null;
+  for (const e of lib.entries.filter((x) => Math.abs(x.durationMs - f.durationMs) <= 2000)) {
+    const s = await simTo(e);
+    if (s != null && (!best || s > best.s)) best = { e, s };
+  }
+  await ctx.fingerprints.save();
+  if (best && best.s >= SIMILARITY_THRESHOLD) return listed(best.e, 'lik-lyd', best.s);
+  return { action: 'import' };
+}
 // ---------------------------------------------------------------- lista «Hoppet over – finnes allerede»
 
 export function createSkippedStore(dataDir: string) {

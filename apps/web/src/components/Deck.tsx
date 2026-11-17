@@ -1,7 +1,7 @@
 import { haptic, useSeedSet } from '../lib/seedset';
 import { linkClick } from '../lib/nav';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { bpmConfidenceText, bpmUncertain, camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
+import { bpmConfidenceText, bpmUncertain, camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, isReleased, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
 import { assetUrl, uploadAssetCover, useFullAsset, variantName, type LoadedAsset } from '../lib/catalog';
 import { needsCheck, useFavorites, useIsFavorite, useLyrics } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
@@ -14,6 +14,7 @@ import { BigWaveform, SpectrumView, ZoomWaveform } from './Visuals';
 import { Heartbeat, useHeartbeatMotif } from './Brand';
 import { useSkin } from '../lib/skin';
 import { FxReminder } from './FxReminder';
+import { ReleaseCredits } from './ReleaseInfo';
 
 /**
  * Del 14 «High-End Studio»: dekket øverst på Hjem og Bibliotek (desktop), og bitene fullskjermspilleren
@@ -176,7 +177,7 @@ export function CoverCard({ cur, onMore }: { cur: LoadedAsset; onMore: (anchor: 
           dragOver ? 'ring-2 ring-accent shadow-[0_0_24px_var(--glow)]' : ''
         }`}
       >
-        <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={600} rounded={12} fluid draft={isDraft(m)} />
+        <CoverArt src={assetUrl(cur, m.files.cover)} palette={m.palette} title={m.title} size={600} rounded={12} fluid draft={isDraft(m)} released={isReleased(m)} />
         {/* Del 23: generert Vault-cover – et ekte cover (dra-og-slipp) erstatter det */}
         {m.coverSource === 'generated' && !dragOver && (
           <span title="Laget av Vault fra toneart, bølgeform og spektrum. Slipp et bilde her for ekte cover." className="absolute bottom-2.5 left-2.5 rounded-full bg-sunken/85 px-2.5 py-1 font-label text-[11px] font-bold uppercase tracking-[0.14em] text-soft">
@@ -503,7 +504,7 @@ export function Credits({ cur: curIn }: { cur: LoadedAsset }) {
     ['Album', m.album ?? '–'],
     ['Variant', m.variant ? variantName(cur) : 'Original'],
     ['Versjon', `${versionName(m)}${m.versionLabel && displayLabel(m.versionLabel) !== versionName(m) ? ` · ${displayLabel(m.versionLabel)}` : ''}`],
-    ['Status', isDraft(m) ? 'Umastret' : 'Release-klar'],
+    ['Status', isReleased(m) ? 'Utgitt' : isDraft(m) ? 'Umastret' : 'Release-klar'],
     // Del 23: hvor coveret kommer fra (distributører spør om AI-generert innhold)
     ['Cover', m.coverSource === 'ai' ? `AI-generert${m.coverAi?.provider ? ` (${m.coverAi.provider}${m.coverAi.model ? ` · ${m.coverAi.model}` : ''})` : ''}` : m.coverSource === 'generated' ? 'Vault-cover (generert)' : m.files.cover ? 'Eget cover' : 'Mangler'],
     ['Ingestet', new Date(m.createdAt).toLocaleDateString('nb-NO', { dateStyle: 'medium' })],
@@ -512,14 +513,18 @@ export function Credits({ cur: curIn }: { cur: LoadedAsset }) {
     ['Kildefil', source === undefined ? '…' : (source ?? 'ukjent')]
   ];
   return (
-    <dl className="m-0 grid grid-cols-[minmax(110px,auto)_1fr] gap-x-4 gap-y-1.5 text-[13px]">
-      {rows.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="text-muted">{k}</dt>
-          <dd className={`m-0 break-words text-ink-strong ${['BPM-sikkerhet', 'Toneart-sikkerhet', 'Versjon'].includes(k) ? 'font-mono' : ''}`}>{v}</dd>
-        </div>
-      ))}
-    </dl>
+    <>
+      <dl className="m-0 grid grid-cols-[minmax(110px,auto)_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-muted">{k}</dt>
+            <dd className={`m-0 break-words text-ink-strong ${['BPM-sikkerhet', 'Toneart-sikkerhet', 'Versjon'].includes(k) ? 'font-mono' : ''}`}>{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {/* Del 25: utgivelsesinfo og lenker (Spotify, Apple Music …) */}
+      <ReleaseCredits slug={m.slug} released={isReleased(m)} />
+    </>
   );
 }
 
