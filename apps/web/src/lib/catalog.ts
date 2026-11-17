@@ -26,9 +26,12 @@ export async function loadCatalog(): Promise<LoadedAsset[]> {
   let idx: CatalogIndex;
   try {
     idx = await getJson<CatalogIndex>('/index.json');
-  } catch {
-    return [];
+  } catch (error) {
+    // Ingen katalog ennå er normalt ved første oppstart; andre feil må vises til brukeren.
+    if (error instanceof Error && error.message === '404 /index.json') return [];
+    throw error;
   }
+  if (!idx || !Array.isArray(idx.assets)) throw new Error('index.json har ugyldig format');
   // Kun nyeste versjon per slug + variant
   const latest = new Map<string, CatalogIndex['assets'][number]>();
   for (const a of idx.assets) {
@@ -47,15 +50,33 @@ export async function loadCatalog(): Promise<LoadedAsset[]> {
 }
 
 export function useCatalog() {
-  const [state, setState] = useState<{ assets: LoadedAsset[]; loading: boolean }>({ assets: [], loading: true });
+  const [attempt, setAttempt] = useState(0);
+  const [state, setState] = useState<{ assets: LoadedAsset[]; loading: boolean; error: string | null }>({
+    assets: [],
+    loading: true,
+    error: null
+  });
   useEffect(() => {
     let alive = true;
-    loadCatalog().then((assets) => alive && setState({ assets, loading: false }));
+    setState((previous) => ({ ...previous, loading: true, error: null }));
+    loadCatalog()
+      .then((assets) => {
+        if (alive) setState({ assets, loading: false, error: null });
+      })
+      .catch((error: unknown) => {
+        if (alive) {
+          setState({
+            assets: [],
+            loading: false,
+            error: error instanceof Error ? error.message : 'Ukjent feil ved kataloglasting'
+          });
+        }
+      });
     return () => {
       alive = false;
     };
-  }, []);
-  return state;
+  }, [attempt]);
+  return { ...state, retry: () => setAttempt((n) => n + 1) };
 }
 
 /** Nedskalerer peaks til n søyler (maks per bøtte) for bølgeform-visning. */
