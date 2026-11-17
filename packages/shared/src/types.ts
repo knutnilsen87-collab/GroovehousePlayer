@@ -141,6 +141,8 @@ export interface AssetManifest {
   liveOffsetMs?: number;
   /** Del 17: Knuts overstyring av energiscoren (1–10) for settbyggeren. Mangler = fra analysen. */
   energy?: number;
+  /** Del 20 A: groove, bass, vokal og ren intro/outro fra stemmene (detaljene i stems.json ved siden av). */
+  groove?: GrooveSummary;
   performedAt: string | null;
   venue: string | null;
   files: {
@@ -151,6 +153,35 @@ export interface AssetManifest {
     coverThumb: string | null;
   };
   createdAt: string;
+}
+
+/** Del 20 A: sammendrag av stem-analysen i manifestet (lite nok til katalogen). */
+export interface GrooveSummary {
+  v: number;
+  /** Swing i prosent av en 16-del (0 = rett). */
+  swing: number | null;
+  /** Perkusjonstetthet 0–1 (anslag per takt / 32). */
+  density: number | null;
+  fourOnFloor: boolean | null;
+  /** Hat-lysstyrke 0–1. */
+  hats: number | null;
+  /** Bass: sub-andel 0–1, sustain 0–1 («gummibass» høy), aktiv i intro/outro. */
+  bassSub: number | null;
+  bassSustain: number | null;
+  bassIntro: boolean;
+  bassOutro: boolean;
+  /** Ren intro/outro i takter: uten vokal, og uten bass. */
+  introBars: number | null;
+  outroBars: number | null;
+  introNoBass: number | null;
+  outroNoBass: number | null;
+  /** Andel av låta med vokal, og intervallene (ms). */
+  vocalShare: number;
+  vocals: Array<[number, number]>;
+  /** Takt-rutenett: første downbeat (ms) og tempo fra analysen. */
+  firstDownbeatMs: number | null;
+  gridBpm: number | null;
+  analyzedAt: string;
 }
 
 export interface Analysis {

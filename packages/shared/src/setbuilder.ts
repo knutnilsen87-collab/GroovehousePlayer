@@ -44,6 +44,15 @@ export interface SbTrack {
   transients?: number | null;
   groove?: SimFeatures['groove'];
   tags?: string[] | null;
+  /** Del 20 A: vokalintervaller (ms), bass i intro/outro, ren intro/outro i takter, første downbeat. */
+  vocals?: Array<[number, number]> | null;
+  bassIntro?: boolean | null;
+  bassOutro?: boolean | null;
+  introBars?: number | null;
+  outroBars?: number | null;
+  introNoBass?: number | null;
+  outroNoBass?: number | null;
+  firstDownbeatMs?: number | null;
 }
 
 /** Likhetsgrunnlaget for et spor (deles med albumbyggeren). */
@@ -173,24 +182,111 @@ export interface MixPoint {
   /** Cue i låt B (ms i B). */
   inAtMs: number;
   bars: 0 | 8 | 16 | 32;
-}
-/** Mikspunkt på frasegrenser: overlapp = minste av rene outro/intro, rundet ned til 8/16/32 takter. */
-export function mixPoint(a: SbTrack, b: SbTrack): MixPoint {
-  const bar = barMsOf(a.bpm);
-  const bars = phraseBars(Math.floor(Math.min(a.outroMs / bar, b.introMs / barMsOf(b.bpm))));
-  const overlap = (bars || 8) * bar;
-  // Ut: fra en frasegrense (16 takter fra start) så overlappen slutter ved låtens slutt
-  const rawOut = Math.max(0, a.durationMs - overlap);
-  const outAtMs = Math.max(0, Math.floor(rawOut / (16 * bar)) * 16 * bar);
-  // Inn: B starter slik at introen er ferdig når A er ute
-  const inAtMs = Math.max(0, b.introMs - (bars || 8) * barMsOf(b.bpm));
-  return { outAtMs: Math.round(outAtMs), inAtMs: Math.round(inAtMs), bars };
-}
-function mixCost(a: SbTrack, b: SbTrack): number {
-  const bars = mixPoint(a, b).bars;
-  return bars >= 16 ? 0 : bars === 8 ? 0.4 : 1;
+  /** Del 20 B: lang/delvis blend, eller kort overgang (cut på frase, echo out, loop & build). */
+  kind?: 'blend' | 'short';
 }
 
+/**
+ * Del 20 B: overgangsscoren. Prøver 32, 16 og 8 takter og velger den lengste som
+ *  - ligger inni den rene outroen til A og den rene introen til B (ingen vokal der, fra stem-analysen),
+ *  - ikke gir vokal oppå vokal i overlappen (hard regel: da blir det kort overgang),
+ *  - ikke er en lang blend over toneartskollisjon eller tydelig ulik swing (> 4 %).
+ * Basskollisjon (begge med bass i overlappen) straffes litt (bass swap løser den), og et energisprang større enn
+ * +1/−2 straffes. Uten stem-analyse brukes markørene (Intro/Outro) som før.
+ */
+export interface TransitionScore {
+  bars: 0 | 8 | 16 | 32;
+  kind: 'blend' | 'short';
+  outAtMs: number;
+  inAtMs: number;
+  vocalClash: boolean;
+  bassClash: boolean;
+  /** Swing-forskjell i prosentpoeng (null = ukjent). */
+  swingDiff: number | null;
+  energyJump: number;
+  /** 0 = perfekt, 1 = dårlig (brukes som «mix» i settbyggeren). */
+  cost: number;
+  reasons: string[];
+}
+
+const overlapMs = (xs: Array<[number, number]>, a: number, b: number) => xs.reduce((s, [x, y]) => s + Math.max(0, Math.min(b, y) - Math.max(a, x)), 0);
+/** Vokal i A sitt vindu og B sitt vindu samtidig (felles tidslinje 0…lengde), i ms. */
+function vocalCollisionMs(a: SbTrack, b: SbTrack, outAt: number, inAt: number, lenA: number, lenB: number): number {
+  if (!a.vocals?.length || !b.vocals?.length) return 0;
+  const scale = lenB / Math.max(1, lenA);
+  let clash = 0;
+  for (const [x, y] of a.vocals) {
+    const s = Math.max(outAt, x);
+    const e = Math.min(outAt + lenA, y);
+    if (e <= s) continue;
+    // Samme øyeblikk i B: inAt + (t - outAt) * skala
+    clash += overlapMs(b.vocals, inAt + (s - outAt) * scale, inAt + (e - outAt) * scale);
+  }
+  return clash;
+}
+
+export function transitionScore(a: SbTrack, b: SbTrack): TransitionScore {
+  const barA = barMsOf(a.bpm);
+  const barB = barMsOf(b.bpm);
+  const downA = a.firstDownbeatMs ?? 0;
+  const downB = b.firstDownbeatMs ?? 0;
+  // Rene områder i takter (fra stem-analysen, ellers markørene)
+  const outroBars = a.outroBars ?? Math.floor(a.outroMs / barA);
+  const introBars = b.introBars ?? Math.floor((b.introMs - downB) / barB);
+  const rel = camelotRelation(a.camelot, b.camelot);
+  const swingDiff = a.groove?.swing != null && b.groove?.swing != null ? Math.round(Math.abs(a.groove.swing - b.groove.swing) * 1000) / 10 : null;
+  const energyJump = b.energy - a.energy;
+  const reasons: string[] = [];
+  const place = (bars: number) => {
+    const lenA = bars * barA;
+    const outAt = Math.max(0, downA + Math.floor(Math.max(0, a.durationMs - lenA - downA) / (16 * barA)) * 16 * barA);
+    const inAt = Math.max(0, downB + Math.max(0, introBars - bars) * barB);
+    return { outAt, inAt, lenA, lenB: bars * barB };
+  };
+  let chosen: 0 | 8 | 16 | 32 = 0;
+  let clashSeen = false;
+  for (const bars of [32, 16, 8] as const) {
+    if (bars > outroBars || bars > introBars) continue;
+    if (bars === 32 && (rel === 'clash' || (swingDiff != null && swingDiff > 4))) continue;
+    if (rel === 'clash' && bars > 8) continue;
+    const p = place(bars);
+    if (vocalCollisionMs(a, b, p.outAt, p.inAt, p.lenA, p.lenB) > Math.min(barA, 1500)) {
+      clashSeen = true;
+      continue;
+    }
+    chosen = bars;
+    break;
+  }
+  // Dårlig toneart: alltid kort overgang (cut på frase eller echo out)
+  if (rel === 'clash') {
+    chosen = 0;
+    reasons.push('Toneartskollisjon');
+  }
+  const kind: 'blend' | 'short' = chosen ? 'blend' : 'short';
+  const p = place(chosen || 8);
+  const vocalClash = clashSeen && !chosen;
+  if (vocalClash) reasons.push('Vokal oppå vokal i overlappen');
+  if (!chosen && !vocalClash && rel !== 'clash') reasons.push('Kort ren intro/outro');
+  const bassClash = !!chosen && !!a.bassOutro && !!b.bassIntro && chosen > (a.outroNoBass ?? 0) && chosen > (b.introNoBass ?? 0);
+  if (bassClash) reasons.push('Bass i begge – bass swap');
+  if (swingDiff != null && swingDiff > 4) reasons.push(`Ulik swing (${swingDiff} %)`);
+  if (energyJump > 1 || energyJump < -2) reasons.push(`Energisprang ${energyJump > 0 ? '+' : ''}${Math.round(energyJump * 10) / 10}`);
+  let cost = chosen === 32 ? 0 : chosen === 16 ? 0.15 : chosen === 8 ? 0.4 : 1;
+  if (bassClash) cost += 0.2;
+  if (swingDiff != null && swingDiff > 4) cost += 0.3 * Math.min(1, (swingDiff - 4) / 8);
+  if (energyJump > 1) cost += 0.15 * Math.min(2, energyJump - 1);
+  if (energyJump < -2) cost += 0.15 * Math.min(2, -2 - energyJump);
+  return { bars: chosen, kind, outAtMs: Math.round(p.outAt), inAtMs: Math.round(p.inAt), vocalClash, bassClash, swingDiff, energyJump, cost: Math.min(1.5, cost), reasons };
+}
+
+/** Mikspunkt på frasegrenser, inni de rene intro/outro-områdene (del 20 B). */
+export function mixPoint(a: SbTrack, b: SbTrack): MixPoint {
+  const s = transitionScore(a, b);
+  return { outAtMs: s.outAtMs, inAtMs: s.inAtMs, bars: s.bars, kind: s.kind };
+}
+function mixCost(a: SbTrack, b: SbTrack): number {
+  return transitionScore(a, b).cost;
+}
 // ---------------------------------------------------------------- Kriterie 3: energikurve
 
 /** Målkurven (1–10) ved t ∈ [0, 1]. */
@@ -608,6 +704,8 @@ export interface TransitionInfo {
   tempoPct: number | null;
   mix: MixPoint;
   quality: 'good' | 'ok' | 'poor';
+  /** Del 20 B: hele scoren (vokal/bass-kollisjon, swing, energisprang og grunnene). */
+  score: TransitionScore;
 }
 /** Forklaringen på en overgang: «8A → 9A», tempo i %, mikspunkt og farge. */
 export function explainTransition(a: SbTrack, b: SbTrack): TransitionInfo {
@@ -615,11 +713,13 @@ export function explainTransition(a: SbTrack, b: SbTrack): TransitionInfo {
   const p = transitionParts(a, b);
   const c = p.harmonic + p.tempo + p.mix * 0.6;
   const d = tempoDiff(a.bpm, b.bpm);
+  const score = transitionScore(a, b);
   return {
     relation,
+    score,
     label: `${a.camelot ?? '?'} → ${b.camelot ?? '?'}`,
     tempoPct: d === null ? null : Math.round(d * 1000) / 10,
-    mix: mixPoint(a, b),
+    mix: { outAtMs: score.outAtMs, inAtMs: score.inAtMs, bars: score.bars, kind: score.kind },
     quality: c <= 0.45 ? 'good' : c <= 1.1 ? 'ok' : 'poor'
   };
 }

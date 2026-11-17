@@ -15,9 +15,14 @@ const SCRIPT = path.resolve(here, '..', 'scripts', 'lyrics_sync.py');
 export const IDLE_MS = 10 * 60 * 1000;
 
 export interface WorkerJob {
+  /** «analyze» = del 20 A (stemmer → groove m.m.), ellers tekst. */
+  kind?: 'lyrics' | 'analyze';
   audio: string;
-  out_json: string;
-  out_lrc: string;
+  /** Del 20 A: hvor resultatet skrives, og BPM fra analysen som hint. */
+  out?: string;
+  bpm?: number | null;
+  out_json?: string;
+  out_lrc?: string;
   text?: string | null;
   model?: string;
   language?: string | null;

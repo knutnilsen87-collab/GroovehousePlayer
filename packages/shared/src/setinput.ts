@@ -54,7 +54,30 @@ export function energyScores(feats: EnergyFeatures[]): number[] {
 }
 
 /** Ren intro/outro fra strukturmarkørene (del 2). Mangler de: 16 takter antas ikke – kort (8 s). */
+/** Del 20 A → settbyggeren: groove (swing som andel av en 16-del), vokal, bass og rene ender i takter. */
+export function grooveFields(m: AssetManifest) {
+  const g = m.groove;
+  if (!g) return {};
+  return {
+    groove: { swing: g.swing != null ? g.swing / 100 : null, density: g.density, fourOnFloor: g.fourOnFloor, hats: g.hats },
+    vocals: g.vocals,
+    bassIntro: g.bassIntro,
+    bassOutro: g.bassOutro,
+    introBars: g.introBars,
+    outroBars: g.outroBars,
+    introNoBass: g.introNoBass,
+    outroNoBass: g.outroNoBass,
+    firstDownbeatMs: g.firstDownbeatMs
+  };
+}
+
 export function introOutro(m: AssetManifest): { introMs: number; outroMs: number } {
+  // Del 20 A: ren intro/outro fra stemmene (uten vokal), målt i takter fra første downbeat
+  const g = m.groove;
+  if (g && g.introBars != null && g.outroBars != null && m.bpm) {
+    const bar = 240_000 / m.bpm;
+    return { introMs: Math.round((g.firstDownbeatMs ?? 0) + g.introBars * bar), outroMs: Math.round(g.outroBars * bar) };
+  }
   const secs = sectionsOf(m.markers);
   const intro = secs.find((s) => /^intro/i.test(s.label ?? ''));
   const outro = [...secs].reverse().find((s) => /^outro/i.test(s.label ?? ''));
@@ -92,7 +115,9 @@ export function toSbTracks(items: Array<{ manifest: AssetManifest; analysis: Ana
       group: groups?.[`${m.slug}::${m.variant ?? ''}`] ?? null,
       // Likhetsmålet (del 20 E / 26). Uten analyse er verdiene 0,5 (ukjent) – da teller de ikke.
       bass: items[i]!.features || items[i]!.analysis ? feats[i]!.bass : null,
-      transients: items[i]!.features || items[i]!.analysis ? feats[i]!.transients : null
+      transients: items[i]!.features || items[i]!.analysis ? feats[i]!.transients : null,
+      // Del 20 A: fra stem-analysen (mangler til låta er analysert – da gjelder markørene som før)
+      ...grooveFields(m)
     };
   });
 }

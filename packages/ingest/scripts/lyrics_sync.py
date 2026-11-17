@@ -221,6 +221,32 @@ class Models:
         v16 = torchaudio.functional.resample(vocals.cpu(), m.samplerate, 16000).numpy().astype("float32")
         return v16, ratio
 
+    def stems(self, audio_path: str):
+        """Del 20 A: alle fire stammene (mono, 22 050 Hz, numpy) og miksen. Stammene lagres aldri."""
+        import torchaudio  # type: ignore
+        from demucs.apply import apply_model  # type: ignore
+        from demucs.audio import AudioFile  # type: ignore
+        from demucs.pretrained import get_model  # type: ignore
+
+        if self.demucs is None:
+            self.demucs = get_model("htdemucs")
+            self.demucs.to(self.device)
+            self.demucs.eval()
+        m = self.demucs
+        wav = AudioFile(audio_path).read(streams=0, samplerate=m.samplerate, channels=m.audio_channels)
+        ref = wav.mean(0)
+        mean, std = ref.mean(), ref.std() + 1e-8
+        with self.torch.no_grad():
+            sources = apply_model(m, ((wav - mean) / std)[None], device=self.device, split=True, overlap=0.25, progress=False)[0]
+        sources = sources * std + mean
+        rs = lambda x: torchaudio.functional.resample(x.mean(0).cpu(), m.samplerate, 22050).numpy().astype("float32")
+        out = {name: rs(sources[i]) for i, name in enumerate(m.sources)}
+        mix = rs(wav)
+        del sources
+        if self.device == "cuda":
+            self.torch.cuda.empty_cache()
+        return out, mix
+
     def whisper_model(self, name: str, language):
         import whisperx  # type: ignore
 
@@ -238,6 +264,7 @@ class Models:
 
 
 def serve():
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import whisperx  # type: ignore
 
     models = Models()
@@ -250,6 +277,19 @@ def serve():
         jid = job.get("id", "")
         st = lambda name: print(f"STAGE: {jid} {name}", file=sys.stderr, flush=True)
         try:
+            if job.get("kind") == "analyze":
+                # Del 20 A: groove, bass, vokalkart, takt-rutenett og ren intro/outro fra stemmene
+                from groove_analysis import analyze_stems  # noqa: E402
+
+                st("stems")
+                stems, mix = models.stems(job["audio"])
+                st("analyse")
+                result = analyze_stems(stems, mix, job.get("bpm"))
+                result["device"] = models.device
+                with open(job["out"], "w", encoding="utf-8") as f:
+                    json.dump(result, f)
+                print(json.dumps({"id": jid, "ok": True, "kind": "analyze"}), flush=True)
+                continue
             st("demucs")
             audio, ratio = models.separate(job["audio"])
             if ratio < INSTRUMENTAL_RATIO and not job.get("text"):

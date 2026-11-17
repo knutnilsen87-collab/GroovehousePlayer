@@ -57,7 +57,7 @@ export const presetById = (list: FxPreset[], id: string | null | undefined) => (
 // ---------------------------------------------------------------- automatisk forslag (pkt. 3)
 
 export interface SuggestInput {
-  info: Pick<TransitionInfo, 'relation' | 'tempoPct' | 'mix'>;
+  info: Pick<TransitionInfo, 'relation' | 'tempoPct' | 'mix'> & { score?: Pick<TransitionInfo['score'], 'vocalClash' | 'bassClash' | 'swingDiff'> };
   /** Energi 1–10 for A og B, hvis kjent. */
   energyA?: number | null;
   energyB?: number | null;
@@ -71,12 +71,15 @@ export function suggestPreset(x: SuggestInput): { id: string; reason: string } {
   const { relation, tempoPct, mix } = x.info;
   const dE = x.energyA != null && x.energyB != null ? x.energyB - x.energyA : 0;
   if (relation === 'clash') return { id: dE >= 2 ? 'cut-on-drop' : 'echo-out', reason: 'Toneartskollisjon' };
+  // Del 20 B: vokal oppå vokal eller ulik groove gir kort overgang, ikke lang blend
+  if (x.info.score?.vocalClash) return { id: dE >= 2 ? 'loop-build' : 'echo-out', reason: 'Vokal oppå vokal' };
+  if (x.info.score?.swingDiff != null && x.info.score.swingDiff > 4 && mix.kind === 'short') return { id: 'cut-on-drop', reason: `Ulik swing (${x.info.score.swingDiff} %)` };
   if (tempoPct != null && Math.abs(tempoPct) > 3) return { id: dE >= 2 ? 'loop-build' : 'echo-out', reason: `Tempoavvik ${Math.abs(tempoPct).toFixed(1)} %` };
   if (dE >= 3) return { id: 'loop-build', reason: 'Stort hopp opp i energi' };
   if (dE <= -2) return { id: mix.bars >= 16 ? 'filter-fade' : 'reverb-wash', reason: 'Ned i energi' };
   if (relation === 'boost2' || relation === 'boost7') return { id: 'energy-lift', reason: 'Energiløft i Camelot' };
   if (mix.bars >= 32) return { id: 'long-blend-32', reason: 'God harmoni, lange intro/outro' };
-  if (mix.bars >= 16) return { id: 'bass-swap-16', reason: 'God harmoni, 16 takter' };
+  if (mix.bars >= 16) return { id: 'bass-swap-16', reason: x.info.score?.bassClash ? 'Bass i begge låtene' : 'God harmoni, 16 takter' };
   return { id: 'echo-out', reason: 'Kort intro/outro' };
 }
 

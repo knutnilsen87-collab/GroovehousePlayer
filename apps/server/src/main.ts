@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { findRoot, loadConfig, loadDotEnv } from '@gv/ingest/config';
 import { startWatcher } from '@gv/ingest/watcher';
 import { sharedLyricsQueue } from '@gv/ingest/lyrics-queue';
+import { sharedStemQueue } from '@gv/ingest/stem-analysis';
 import { receiveFromBulkImg, takeOverdueWarnings } from '@gv/ingest/bulkimg';
 import { createFingerprintStore, createHashCache, createSkippedStore } from '@gv/ingest/incoming';
 import { credRead } from './credstore';
@@ -80,8 +81,13 @@ async function main() {
   };
   setTimeout(() => void checkCovers(), 5000);
   setInterval(() => void checkCovers(), 60_000).unref();
-  const queueLyrics = (res: { manifest: { slug: string; title: string } }, sourceFile: string | null) =>
+  // Del 20 A: stem-analyse i bakgrunnen (samme GPU-prosess som teksten, én låt om gangen)
+  const stemQueue = sharedStemQueue({ mediaDir, dataDir: path.join(root, 'data'), root, log });
+  setTimeout(() => void stemQueue.start().catch((err) => log(`! Analyse: ${err instanceof Error ? err.message : err}`)), 60_000).unref();
+  const queueLyrics = (res: { manifest: { slug: string; title: string } }, sourceFile: string | null) => {
     lyricsQueue.enqueue(res.manifest.slug, { title: res.manifest.title, audioFile: sourceFile });
+    void stemQueue.enqueueNew().catch(() => {});
+  };
   let port = config.ports.server;
   // Sanger som finnes fra før importeres ikke på nytt (samme lyd → stille, samme låt → «Hoppet over» i Studio)
   const incoming = {

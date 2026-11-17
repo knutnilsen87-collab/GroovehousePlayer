@@ -13,6 +13,7 @@ import { DRAFT_BASE, manualPalette, statusOf, validPoint, validateMarkers, versi
 import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type PlaylistStore } from './playlists';
 import { createFavoritesStore, createListenStore, LibraryError } from './library';
 import { hasWordTimes, sharedLyricsQueue } from './lyrics-queue';
+import { sharedStemQueue } from './stem-analysis';
 import { buildCoverPrompt, bulkImgStatus, COVER_STYLES, receiveFromBulkImg, sendToBulkImg } from './bulkimg';
 import { createSkippedStore } from './incoming';
 import { importSkipped } from './import-actions';
@@ -83,6 +84,8 @@ export function createApiHandler(opts: ApiOptions) {
   const favorites = createFavoritesStore(path.join(dataDir, 'favorites.json'));
   // Tekstkøen (Demucs + WhisperX) deles med watcheren i serveren; samme lager, så skrivingene går i rekkefølge
   const lyricsQueue = sharedLyricsQueue({ mediaDir: opts.mediaDir, dataDir, root });
+  // Del 20 A: stem-analysen deler den vedvarende GPU-prosessen med tekstkøen
+  const stemQueue = sharedStemQueue({ mediaDir: opts.mediaDir, dataDir, root });
   const lyrics = lyricsQueue.store;
   const skippedStore = createSkippedStore(dataDir);
   const listens = createListenStore(path.join(dataDir, 'listens.json'));
@@ -146,6 +149,19 @@ export function createApiHandler(opts: ApiOptions) {
         return send(res, 200, { exclude: next.exclude, singles: next.singles });
       }
       return send(res, 405, { error: 'GET eller PUT' });
+    }
+    // Del 20 A: analysekøen (status, pause, fortsett, prøv feilede på nytt)
+    if (url.pathname === '/api/analysis/status' && req.method === 'GET') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return send(res, 200, stemQueue.status());
+    }
+    const aq = url.pathname.match(/^\/api\/analysis\/(pause|resume|retry)$/);
+    if (aq && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      if (aq[1] === 'pause') stemQueue.pause();
+      else if (aq[1] === 'resume') stemQueue.resume();
+      else await stemQueue.retryFailed();
+      return send(res, 200, stemQueue.status());
     }
     // Del 25: utgivelsesinfo per låt (dato, distributør, UPC/ISRC, lenker). Bare egne enheter, aldri /drop/.
     if (url.pathname === '/api/releases' || url.pathname.startsWith('/api/releases/')) {

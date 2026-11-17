@@ -47,7 +47,7 @@ export type LyricsStage = 'demucs' | 'language' | 'transcribe' | 'align' | 'writ
 
 const workers = new Map<string, LyricsWorker>();
 /** Én vedvarende tekst-prosess per Python-tolk. */
-function workerFor(python: string): LyricsWorker {
+export function workerFor(python: string): LyricsWorker {
   let w = workers.get(python);
   if (!w) workers.set(python, (w = createLyricsWorker({ python })));
   return w;

@@ -79,6 +79,8 @@ export function slimManifest(m: AssetManifest): AssetManifest {
     ...(m.titleNeedsReview ? { titleNeedsReview: true } : {}),
     ...(m.hidden ? { hidden: true } : {}),
     ...(m.shareBlocked ? { shareBlocked: m.shareBlocked } : {}),
+    // Del 20 A: groove-sammendraget (settbygger, likhet og overgangsscore)
+    ...(m.groove ? { groove: m.groove } : {}),
     durationMs: m.durationMs,
     sampleRate: m.sampleRate,
     channels: m.channels,
