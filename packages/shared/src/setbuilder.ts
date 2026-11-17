@@ -53,6 +53,8 @@ export interface SbTrack {
   introNoBass?: number | null;
   outroNoBass?: number | null;
   firstDownbeatMs?: number | null;
+  /** Tempo fra takt-rutenettet (mer presist enn bpm), brukes til å plassere mikspunktene. */
+  gridBpm?: number | null;
 }
 
 /** Likhetsgrunnlaget for et spor (deles med albumbyggeren). */
@@ -76,6 +78,11 @@ export const DEFAULT_WEIGHTS: Weights = { harmonic: 1, tempo: 1, mix: 0.6, lufs:
 
 export interface BuildOptions {
   durationMin: number;
+  /**
+   * Del 20 D (Vibe Shifter): «slutt mer Tech». Fra midten av settet og ut vektes låter med denne taggen opp,
+   * gradvis (mer jo nærmere slutten). Knuts egne tagger, ingen sjangergjenkjenning.
+   */
+  styleEnd?: string | null;
   curve: CurveKind;
   /** «Egen» kurve: verdier 1–10 jevnt fordelt over settet (minst 2). */
   customCurve?: number[];
@@ -226,8 +233,8 @@ function vocalCollisionMs(a: SbTrack, b: SbTrack, outAt: number, inAt: number, l
 }
 
 export function transitionScore(a: SbTrack, b: SbTrack): TransitionScore {
-  const barA = barMsOf(a.bpm);
-  const barB = barMsOf(b.bpm);
+  const barA = barMsOf(a.gridBpm ?? a.bpm);
+  const barB = barMsOf(b.gridBpm ?? b.bpm);
   const downA = a.firstDownbeatMs ?? 0;
   const downB = b.firstDownbeatMs ?? 0;
   // Rene områder i takter (fra stem-analysen, ellers markørene)
@@ -381,13 +388,30 @@ export function evaluate(seq: SbTrack[], opts: BuildOptions, weights: Weights = 
   }
   parts.energy /= seq.length;
   parts.variation = variationPenalty(seq);
+  // Vibe Shifter: andelen av siste halvdel (vektet mot slutten) som mangler stil-taggen
+  let style = 0;
+  if (opts.styleEnd) {
+    const want = opts.styleEnd.toLowerCase();
+    let acc = 0;
+    let w = 0;
+    let pos = 0;
+    for (const t of seq) {
+      const mid = (pos + t.durationMs / 2) / total;
+      pos += t.durationMs;
+      const ramp = Math.max(0, (mid - 0.5) / 0.5);
+      if (ramp <= 0) continue;
+      w += ramp;
+      if (!(t.tags ?? []).some((x) => x.toLowerCase() === want)) acc += ramp;
+    }
+    style = w ? acc / w : 0;
+  }
   // Første låt: lang intro; siste: tydelig outro
   const edge = (seq[0]!.introMs < 16 * barMsOf(seq[0]!.bpm) ? 0.5 : 0) + (seq[seq.length - 1]!.outroMs < 8 * barMsOf(seq[seq.length - 1]!.bpm) ? 0.5 : 0);
   parts.mix += edge / n;
   const target = opts.durationMin * 60_000;
   const durPenalty = Math.max(0, Math.abs(total - target) / target - 0.05) * 6;
   const cost =
-    weights.harmonic * parts.harmonic + weights.tempo * parts.tempo + weights.mix * parts.mix + weights.lufs * parts.lufs + weights.energy * parts.energy * 2 + weights.variation * parts.variation + durPenalty;
+    weights.harmonic * parts.harmonic + weights.tempo * parts.tempo + weights.mix * parts.mix + weights.lufs * parts.lufs + weights.energy * parts.energy * 2 + weights.variation * parts.variation + durPenalty + 1.5 * style;
   return { cost, parts };
 }
 

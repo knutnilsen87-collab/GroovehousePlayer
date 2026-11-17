@@ -178,6 +178,8 @@ export interface GrooveSummary {
   /** Andel av låta med vokal, og intervallene (ms). */
   vocalShare: number;
   vocals: Array<[number, number]>;
+  /** «words» = vokalkart og ren intro/outro fra ordtidene i teksten (mer presist enn vokalstammen). */
+  vocalSource?: 'stems' | 'words';
   /** Takt-rutenett: første downbeat (ms) og tempo fra analysen. */
   firstDownbeatMs: number | null;
   gridBpm: number | null;

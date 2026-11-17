@@ -102,6 +102,7 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
   const log = opts.log ?? (() => {});
   const jobs: LyricsJob[] = [];
   const sidecars = new Map<string, string | null>();
+  const retried = new Set<string>();
   let busy: Promise<void> | null = null;
   const clock = opts.clock ?? (() => new Date());
   const batchPath = path.join(opts.dataDir, 'lyrics-batch.json');
@@ -149,6 +150,7 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
   };
 
   async function work(job: LyricsJob) {
+    let requeue = false;
     job.status = 'running';
     job.stage = 'start';
     job.startedAt = now();
@@ -191,10 +193,24 @@ export function createLyricsQueue(opts: LyricsQueueOptions) {
       job.status = 'done';
       log(res.mode === 'instrumental' ? `  ✓ Tekst: ${job.title} – instrumental (ingen vokal)` : `  ✓ Tekst: ${job.title} – ${res.wordCount} ord (${res.mode === 'auto' ? 'automatisk, sjekk teksten' : 'ordtider'}) på ${((Date.now() - t0) / 1000).toFixed(0)} s`);
     } catch (err) {
+      const msg = err instanceof Error ? err.message.split('\n')[0]!.slice(0, 300) : String(err);
+      // GPU-prosessen stoppet (krasj eller omstart): prøv låta én gang til før den regnes som feilet
+      if (/prosessen stoppet/i.test(msg) && !retried.has(job.slug)) {
+        retried.add(job.slug);
+        requeue = true;
+        log(`  ↻ Tekst: ${job.title} – prøves igjen (${msg})`);
+        return;
+      }
       job.status = 'failed';
-      job.note = err instanceof Error ? err.message.split('\n')[0]!.slice(0, 300) : String(err);
+      job.note = msg;
       log(`  ✗ Tekst: ${job.title} – ${job.note}`);
     } finally {
+      if (requeue) {
+        job.status = 'waiting';
+        job.stage = null;
+        job.startedAt = null;
+        return;
+      }
       job.stage = null;
       job.finishedAt = now();
       job.ms = Date.now() - t0;

@@ -42,6 +42,8 @@ export function createLyricsWorker(opts: { python: string; idleMs?: number; log?
   let ready: Promise<void> | null = null;
   let idleTimer: NodeJS.Timeout | null = null;
   let seq = 0;
+  // De siste stderr-linjene (uten STAGE og advarsler), så en krasj kan forklares i loggen
+  const tail: string[] = [];
   const waiting = new Map<string, { resolve: (r: WorkerResult) => void; onStage?: (s: string) => void }>();
 
   const stopIdle = () => {
@@ -84,10 +86,18 @@ export function createLyricsWorker(opts: { python: string; idleMs?: number; log?
       });
       createInterface({ input: p.stderr }).on('line', (line) => {
         const m = /^STAGE: (\S+) (\w+)/.exec(line);
-        if (m) waiting.get(m[1]!)?.onStage?.(m[2]!);
+        if (m) return void waiting.get(m[1]!)?.onStage?.(m[2]!);
+        if (/warn|^\s*$/i.test(line)) return;
+        tail.push(line.slice(0, 300));
+        if (tail.length > 30) tail.shift();
       });
       p.on('error', (err) => reject(new Error(`Kunne ikke starte Python (${err.message}). Sjekk .venv-lyrics.`)));
       p.on('close', (code) => {
+        if (code && code !== 0) {
+          const at = tail.map((l) => l.startsWith('Traceback')).lastIndexOf(true);
+          const tb = tail.slice(Math.max(0, at));
+          opts.log?.(`✗ GPU-prosessen stoppet (kode ${code}). Siste linjer:\n  ${tb.slice(-12).join('\n  ')}`);
+        }
         if (proc === p) {
           proc = null;
           ready = null;

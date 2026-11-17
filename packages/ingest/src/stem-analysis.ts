@@ -52,6 +52,45 @@ export function summarize(r: StemResult, at = new Date().toISOString()): GrooveS
   };
 }
 
+/**
+ * Vokalkart fra ordtidene i teksten (WhisperX): ordene slås sammen når pausen er under 2,5 s, og korte biter
+ * (under 1 s) fjernes. Treffer vokalen bedre enn vokalstammen alene, som kan ta med pads i introen.
+ * Ren funksjon (testes).
+ */
+export function vocalsFromWords(words: Array<{ start?: number; end?: number }>, gapMs = 2500, minMs = 1000): Array<[number, number]> {
+  const w = words
+    .map((x) => [Math.round((x.start ?? 0) * 1000), Math.round((x.end ?? 0) * 1000)] as [number, number])
+    .filter(([a, b]) => b > a)
+    .sort((a, b) => a[0] - b[0]);
+  const out: Array<[number, number]> = [];
+  for (const [a, b] of w) {
+    const last = out[out.length - 1];
+    if (last && a - last[1] < gapMs) last[1] = Math.max(last[1], b);
+    else out.push([a, b]);
+  }
+  return out.filter(([a, b]) => b - a >= minMs);
+}
+
+/** Bytter vokalkart og ren intro/outro i sammendraget med det ordtidene gir (bass og groove beholdes). */
+export function withWordVocals(g: GrooveSummary, vocals: Array<[number, number]>, durationMs: number): GrooveSummary {
+  if (!vocals.length || !g.gridBpm) return { ...g, vocals, vocalShare: 0 };
+  const bar = 240_000 / g.gridBpm;
+  const down = g.firstDownbeatMs ?? 0;
+  const r4 = (x: number) => Math.max(0, Math.floor(x / 4) * 4);
+  const intro = r4(Math.floor((vocals[0]![0] - down) / bar));
+  const outro = r4(Math.floor((durationMs - vocals[vocals.length - 1]![1]) / bar));
+  return {
+    ...g,
+    vocals,
+    vocalShare: Math.round((vocals.reduce((s, [a, b]) => s + b - a, 0) / Math.max(1, durationMs)) * 1000) / 1000,
+    introBars: intro,
+    outroBars: outro,
+    introNoBass: g.introNoBass == null ? null : Math.min(g.introNoBass, intro),
+    outroNoBass: g.outroNoBass == null ? null : Math.min(g.outroNoBass, outro),
+    vocalSource: 'words'
+  };
+}
+
 export interface StemJob {
   slug: string;
   variant: string | null;
@@ -104,6 +143,40 @@ export function createStemQueue(opts: { mediaDir: string; dataDir: string; root?
   let busy: Promise<void> | null = null;
   let device: string | null = null;
   const times: number[] = [];
+  const retried = new Set<string>();
+
+  /** Ordtidene fra teksten, hvis låta har dem (data/lyrics/<slug>.words.json). */
+  async function preferWords(slug: string, g: GrooveSummary, durationMs: number): Promise<GrooveSummary> {
+    const wf = path.join(opts.dataDir, 'lyrics', `${slug}.words.json`);
+    if (!existsSync(wf)) return g;
+    try {
+      const words = JSON.parse(await readFile(wf, 'utf8')) as Array<{ start?: number; end?: number }>;
+      return Array.isArray(words) && words.length >= 10 ? withWordVocals(g, vocalsFromWords(words), durationMs) : g;
+    } catch {
+      return g;
+    }
+  }
+
+  /** Analyserte låter som har fått tekst siden: vokalkart og ren intro/outro fra ordene. */
+  async function refreshFromWords(): Promise<number> {
+    const media = path.resolve(opts.mediaDir);
+    const idxFile = path.join(media, 'index.json');
+    if (!existsSync(idxFile)) return 0;
+    const idx = JSON.parse(await readFile(idxFile, 'utf8')) as CatalogIndex;
+    let n = 0;
+    for (const e of idx.assets) {
+      const mp = path.join(media, e.manifest);
+      if (!existsSync(path.join(path.dirname(mp), STEMS_FILE))) continue;
+      const m = JSON.parse(await readFile(mp, 'utf8')) as AssetManifest;
+      if (!m.groove || m.groove.vocalSource === 'words') continue;
+      const g = await preferWords(m.slug, m.groove, m.durationMs);
+      if (g === m.groove) continue;
+      await writeFile(`${mp}.tmp`, JSON.stringify({ ...m, groove: g }, null, 2));
+      await rename(`${mp}.tmp`, mp);
+      n++;
+    }
+    return n;
+  }
 
   /** Alle låter som mangler analyse (eller har en eldre versjon av den). */
   async function scan(): Promise<StemJob[]> {
@@ -151,7 +224,7 @@ export function createStemQueue(opts: { mediaDir: string; dataDir: string; root?
       await rename(tmp, path.join(job.dir, STEMS_FILE));
       // Manifestet leses på nytt rett før skriving (kan være endret i Studio imens)
       const fresh = JSON.parse(await readFile(manifestPath, 'utf8')) as AssetManifest;
-      const next: AssetManifest = { ...fresh, groove: summarize(result) };
+      const next: AssetManifest = { ...fresh, groove: await preferWords(job.slug, summarize(result), fresh.durationMs) };
       await writeFile(`${manifestPath}.tmp`, JSON.stringify(next, null, 2));
       await rename(`${manifestPath}.tmp`, manifestPath);
       done++;
@@ -159,6 +232,13 @@ export function createStemQueue(opts: { mediaDir: string; dataDir: string; root?
       if (times.length > 20) times.shift();
       log(`  ✓ Analyse: ${job.title} (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
     } catch (err) {
+      // Prosessen stoppet (krasj eller omstart): prøv låta én gang til senere, ikke merk den som feilet
+      if (err instanceof Error && /prosessen stoppet/i.test(err.message) && !retried.has(job.dir)) {
+        retried.add(job.dir);
+        queue.push(job);
+        log(`  ↻ Analyse: ${job.title} – prøves igjen (${err.message})`);
+        return;
+      }
       const s = readState();
       s.failed[`${job.slug}::${job.variant ?? ''}::${job.version}`] = err instanceof Error ? err.message.slice(0, 200) : String(err);
       writeState(s);
@@ -180,6 +260,10 @@ export function createStemQueue(opts: { mediaDir: string; dataDir: string; root?
   return {
     /** Finn alt som mangler og start (i bakgrunnen). */
     async start() {
+      const fixed = await refreshFromWords().catch(() => 0);
+      if (fixed) log(`Analyse: vokalkart fra teksten for ${fixed} låter`);
+      // Ny tekst kommer i bakgrunnen: sjekk hvert 10. minutt
+      setInterval(() => void refreshFromWords().catch(() => 0), 10 * 60_000).unref?.();
       queue = await scan();
       if (queue.length) log(`Analyse (del 20 A): ${queue.length} av ${total} låter mangler – kjører én om gangen i bakgrunnen`);
       kick();

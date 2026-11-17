@@ -8,6 +8,8 @@ import { BUILT_IN_PRESETS, cueName, mostUsed, placeSteps, presetById, presetFor,
 interface FxStore {
   custom: FxPreset[];
   ideas: FxIdea[];
+  /** Del 20 C: tommel ned på en ferdig overgang (A>B>preset) – foreslås ikke igjen for det paret. */
+  dislikes: string[];
   loaded: boolean;
   /** Siste lagrede idé (for «Angre»-meldingen). */
   lastSaved: { idea: FxIdea; text: string } | null;
@@ -28,12 +30,14 @@ async function api<T>(path: string, method = 'GET', body?: unknown): Promise<T> 
 export const useFx = create<FxStore>((set, get) => ({
   custom: [],
   ideas: [],
+  dislikes: [],
   loaded: false,
   lastSaved: null,
   load: async () => {
     try {
       const r = await api<{ presets: FxPreset[]; ideas: FxIdea[] }>('/api/fx');
-      set({ custom: r.presets, ideas: r.ideas, loaded: true });
+      const fb = await api<{ items: Array<{ from: string; to: string; preset: string; vote: number }> }>('/api/renders/feedback').catch(() => ({ items: [] }));
+      set({ custom: r.presets, ideas: r.ideas, dislikes: fb.items.filter((x) => x.vote < 0).map((x) => `${x.from}>${x.to}>${x.preset}`), loaded: true });
     } catch {
       set({ loaded: true });
     }
@@ -59,6 +63,9 @@ export const useFx = create<FxStore>((set, get) => ({
   }
 }));
 
+/** Del 20 C: tommel opp på en overgang = idé for akkurat dette paret (læringen). */
+export const captureIdeaFor = (from: string, to: string, preset: string) => useFx.getState().saveIdea(from, to, preset);
+
 export const allPresets = () => [...BUILT_IN_PRESETS, ...useFx.getState().custom];
 export const useAllPresets = () => {
   const custom = useFx((s) => s.custom);
@@ -72,7 +79,12 @@ export const useMostUsed = (n = 6) => {
 /** Preset for overgangen a → b: idé/læring først, ellers regelen fra settbyggeren. */
 export function transitionPreset(a: SbTrack, b: SbTrack, info: TransitionInfo, last: boolean, ideas: FxIdea[]): { preset: FxPreset; reason: string; learned: boolean } {
   const rule = suggestPreset({ info, energyA: a.energy, energyB: b.energy, last });
-  const pick = presetFor(ideas, a.slug, b.slug, rule);
+  let pick = presetFor(ideas, a.slug, b.slug, rule);
+  // Del 20 C: tommel ned på denne overgangen med dette presetet → en annen type overgang
+  if (useFx.getState().dislikes.includes(`${a.slug}>${b.slug}>${pick.id}`)) {
+    const alt = pick.id === 'echo-out' ? 'cut-on-drop' : 'echo-out';
+    pick = { id: alt, reason: 'Du ga tommel ned på forrige forslag her', learned: true };
+  }
   const preset = presetById(allPresets(), pick.id) ?? presetById(allPresets(), rule.id)!;
   return { preset, reason: pick.reason, learned: pick.learned };
 }

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream, existsSync, readFileSync } from 'node:fs';
 import { pipeline } from 'node:stream/promises';
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import sharp from 'sharp';
@@ -14,6 +14,7 @@ import { COVER_FILE_RE, createPlaylistStore, PlaylistError, thumbOf, type Playli
 import { createFavoritesStore, createListenStore, LibraryError } from './library';
 import { hasWordTimes, sharedLyricsQueue } from './lyrics-queue';
 import { sharedStemQueue } from './stem-analysis';
+import { renderTransition, type VersionRef } from './renders';
 import { buildCoverPrompt, bulkImgStatus, COVER_STYLES, receiveFromBulkImg, sendToBulkImg } from './bulkimg';
 import { createSkippedStore } from './incoming';
 import { importSkipped } from './import-actions';
@@ -149,6 +150,91 @@ export function createApiHandler(opts: ApiOptions) {
         return send(res, 200, { exclude: next.exclude, singles: next.singles });
       }
       return send(res, 405, { error: 'GET eller PUT' });
+    }
+    // Del 20 D: Knuts egne stil-tagger per låt (data/tags.json). Ingen sjangergjenkjenning fra lyd.
+    if (url.pathname === '/api/tags') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const file = path.join(dataDir, 'tags.json');
+      const readTags = async (): Promise<{ tags: Record<string, string[]>; names: string[] }> => {
+        try {
+          const j = JSON.parse(await readFile(file, 'utf8')) as { tags?: Record<string, string[]>; names?: string[] };
+          return { tags: j.tags ?? {}, names: j.names ?? [] };
+        } catch {
+          return { tags: {}, names: [] };
+        }
+      };
+      if (req.method === 'GET') return send(res, 200, await readTags());
+      if (req.method !== 'PUT') return send(res, 405, { error: 'GET eller PUT' });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      const b = ((await readJson(req).catch(() => null)) ?? {}) as { slug?: unknown; tags?: unknown; names?: unknown };
+      const clean = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((t): t is string => typeof t === 'string').map((t) => t.trim().slice(0, 30)).filter(Boolean))].slice(0, 12) : null);
+      const cur = await readTags();
+      if (typeof b.slug === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/.test(b.slug)) {
+        const tags = clean(b.tags);
+        if (!tags) return send(res, 400, { error: 'tags må være en liste med tekst' });
+        if (tags.length) cur.tags[b.slug] = tags;
+        else delete cur.tags[b.slug];
+        // Nye navn huskes i lista over tagger (i den rekkefølgen de ble laget)
+        for (const t of tags) if (!cur.names.some((n) => n.toLowerCase() === t.toLowerCase())) cur.names.push(t);
+      }
+      const names = clean(b.names);
+      if (names) cur.names = names;
+      await writeJsonAtomic(file, { schema: 1, ...cur, updatedAt: new Date().toISOString() });
+      return send(res, 200, cur);
+    }
+    // Del 20 C: ferdigmiksede overganger («Hør overgangen»), og tommel opp/ned
+    if (url.pathname === '/api/renders' && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+      const b = ((await readJson(req).catch(() => null)) ?? {}) as { from?: VersionRef; to?: VersionRef; preset?: unknown };
+      const okRef = (r: unknown): r is VersionRef => !!r && typeof (r as VersionRef).slug === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/.test((r as VersionRef).slug) && Number.isInteger((r as VersionRef).version);
+      if (!okRef(b.from) || !okRef(b.to)) return send(res, 400, { error: 'from og to må være { slug, variant, version }' });
+      try {
+        const r = await renderTransition({ mediaDir: opts.mediaDir, dataDir, from: b.from, to: b.to, preset: typeof b.preset === 'string' ? b.preset : null });
+        const withUrl = <T extends { file: string }>(x: T) => ({ ...x, url: `/api/renders/${x.file}` });
+        return send(res, 200, { ...withUrl(r), ...(r.alternative ? { alternative: withUrl(r.alternative) } : {}) });
+      } catch (err) {
+        return send(res, (err as { status?: number }).status ?? 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err) });
+      }
+    }
+    const rf = url.pathname.match(/^\/api\/renders\/([0-9a-f]{24})\.m4a$/);
+    if (rf && (req.method === 'GET' || req.method === 'HEAD')) {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const file = path.join(dataDir, 'renders', `${rf[1]}.m4a`);
+      if (!existsSync(file)) return send(res, 404, { error: 'finnes ikke (lag overgangen på nytt)' });
+      const size = (await stat(file)).size;
+      const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range ?? ''));
+      const start = range && range[1] ? Number(range[1]) : 0;
+      const end = range && range[2] ? Math.min(size - 1, Number(range[2])) : size - 1;
+      res.statusCode = range ? 206 : 200;
+      res.setHeader('Content-Type', 'audio/mp4');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'private, max-age=86400');
+      res.setHeader('Content-Length', String(end - start + 1));
+      if (range) res.setHeader('Content-Range', `bytes ${start}-${end}/${size}`);
+      if (req.method === 'HEAD') return void res.end();
+      return void createReadStream(file, { start, end }).pipe(res);
+    }
+    if (url.pathname === '/api/renders/feedback') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const file = path.join(dataDir, 'transition-feedback.json');
+      const readFb = async (): Promise<Array<{ from: string; to: string; preset: string; vote: 1 | -1; at: string }>> => {
+        try {
+          return (JSON.parse(await readFile(file, 'utf8')) as { items?: [] }).items ?? [];
+        } catch {
+          return [];
+        }
+      };
+      if (req.method === 'GET') return send(res, 200, { items: await readFb() });
+      if (req.method !== 'POST') return send(res, 405, { error: 'GET eller POST' });
+      const b = ((await readJson(req).catch(() => null)) ?? {}) as { from?: unknown; to?: unknown; preset?: unknown; vote?: unknown };
+      const slug = (s: unknown) => typeof s === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/.test(s);
+      if (!slug(b.from) || !slug(b.to) || typeof b.preset !== 'string' || !/^[a-z0-9-]{1,41}$/.test(b.preset) || (b.vote !== 1 && b.vote !== -1)) return send(res, 400, { error: 'from, to (slug), preset og vote (1 eller -1)' });
+      // Siste stemme per overgang og preset gjelder
+      const items = (await readFb()).filter((x) => !(x.from === b.from && x.to === b.to && x.preset === b.preset));
+      items.push({ from: b.from as string, to: b.to as string, preset: b.preset, vote: b.vote, at: new Date().toISOString() });
+      await writeJsonAtomic(file, { schema: 1, items: items.slice(-2000) });
+      return send(res, 200, { items });
     }
     // Del 20 A: analysekøen (status, pause, fortsett, prøv feilede på nytt)
     if (url.pathname === '/api/analysis/status' && req.method === 'GET') {
@@ -442,7 +528,8 @@ export function createApiHandler(opts: ApiOptions) {
         const idx = JSON.parse(await readFile(path.join(opts.mediaDir, 'index.json'), 'utf8')) as CatalogIndex;
         const bySlug = new Map<string, string>();
         for (const a of idx.assets) if (a.kind !== 'set' && !bySlug.has(a.slug)) bySlug.set(a.slug, a.title);
-        lyricsQueue.startBatch([...bySlug.entries()].map(([slug, title]) => ({ slug, title })));
+        // allDay: kjør nå og hele døgnet (GPU-en tar ca. 20 s per låt); ellers bare om natta (01–07)
+        lyricsQueue.startBatch([...bySlug.entries()].map(([slug, title]) => ({ slug, title })), (body as { allDay?: unknown }).allDay === true ? { from: 0, to: 24 } : undefined);
         return send(res, 200, lyricsQueue.status());
       }
       if (body.action === 'pause' || body.action === 'resume' || body.action === 'stop') {

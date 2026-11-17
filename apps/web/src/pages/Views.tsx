@@ -13,6 +13,7 @@ import { buildListView, ColorDot, ListCover } from '../components/Playlists';
 import { useFavorites } from '../lib/library';
 import { skinTrackVars } from '../lib/skin';
 import { homeNews } from '../lib/home';
+import { PasserEtter } from '../components/PasserEtter';
 
 /**
  * Del 14: nye sider, enkle i første versjon. Hjem, DJ-verktøy og Analyse (egne avspillinger).
@@ -335,7 +336,6 @@ export function DjView({ tracks, onPlay }: { tracks: Track[]; onPlay: PlayFn }) 
     return b == null || (b >= range[0] && b <= range[1]);
   });
   const filtered = inRange.filter((t) => !code || t.main.manifest.key?.camelot === code).sort((a, b) => (a.main.manifest.bpm ?? 0) - (b.main.manifest.bpm ?? 0));
-  const matches = ref ? songs.filter((t) => t.slug !== ref.slug && mixesWith({ bpm: ref.bpm, camelot: ref.key?.camelot ?? null }, { bpm: t.main.manifest.bpm, camelot: t.main.manifest.key?.camelot ?? null })) : [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -363,17 +363,12 @@ export function DjView({ tracks, onPlay }: { tracks: Track[]; onPlay: PlayFn }) 
               </label>
             </div>
           </Panel>
-          <Panel title={ref ? `Passer etter «${ref.title}»` : 'Passer etter denne'} right={ref ? <span className="font-mono text-[11px] text-muted">{ref.key?.camelot ?? '–'} · {ref.bpm ? Math.round(ref.bpm) : '–'} BPM · ±3 %</span> : undefined}>
+          <Panel title={ref ? `Passer etter «${ref.title}»` : 'Passer etter denne'} right={ref ? <span className="font-mono text-[11px] text-muted">{ref.key?.camelot ?? '–'} · {ref.bpm ? Math.round(ref.bpm) : '–'} BPM</span> : undefined}>
             {!ref ? (
               <p className="m-0 text-sm text-muted">Spill en låt, så vises låtene som passer harmonisk etter den (Camelot ±1 eller relativ dur/moll, og BPM ±3 %).</p>
-            ) : matches.length === 0 ? (
-              <p className="m-0 text-sm text-muted">Ingen låter passer innenfor ±3 % BPM og nabotonearter.</p>
             ) : (
-              <ul className="m-0 flex list-none flex-col p-0">
-                {matches.map((t) => (
-                  <Row key={t.slug} t={t} onPlay={onPlay} />
-                ))}
-              </ul>
+              // Del 20 D: Vibe Shifter, Match groove, cue/loop-forhåndsvisning og «Hør overgangen»
+              <PasserEtter songs={songs} cur={cur!} onPlay={onPlay} />
             )}
           </Panel>
         </div>

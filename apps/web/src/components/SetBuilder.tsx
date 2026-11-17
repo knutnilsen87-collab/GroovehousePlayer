@@ -31,6 +31,10 @@ import { Panel } from './Deck';
 import { DraftBadge } from './Draft';
 import { useLockConfirm } from './DjLock';
 import { TransitionFx } from './FxChip';
+import { EnergyTimeline } from './EnergyTimeline';
+import { TransitionPreview } from './TransitionPreview';
+import { makeRender, type RenderInfo } from '../lib/renders';
+import { useTags } from '../lib/tags';
 import { fxCuesFor, transitionPreset, useFx } from '../lib/fx';
 
 /**
@@ -45,7 +49,12 @@ const QUALITY_COLOR = { good: '#3DDC84', ok: '#F5C84B', poor: '#FF6B5A' } as con
 const PART_NAMES: Record<string, string> = { harmonic: 'Harmonisk', tempo: 'Tempo', mix: 'Mikspunkter', lufs: 'Lydnivå', energy: 'Energikurve', variation: 'Variasjon' };
 
 export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
-  const pool = useMemo(() => toSbTracks(assets.filter((a) => a.manifest.kind !== 'set'), dupeGroups()), [assets]);
+  // Del 20 D: Knuts egne stil-tagger følger med inn i settbyggeren (likhet og «slutt mer …»)
+  const tagMap = useTags((s) => s.tags);
+  useEffect(() => void useTags.getState().load(), []);
+  const pool = useMemo(() => toSbTracks(assets.filter((a) => a.manifest.kind !== 'set'), dupeGroups()).map((t) => ({ ...t, tags: tagMap[t.slug] ?? null })), [assets, tagMap]);
+  const tagNames = useTags((s) => s.names);
+  const [styleEnd, setStyleEnd] = useState<string>('');
   const byId = useMemo(() => new Map(assets.map((a) => [a.manifest.id, a])), [assets]);
   const [durationMin, setDuration] = useState(60);
   const [curve, setCurve] = useState<CurveKind>('journey');
@@ -109,6 +118,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
     seed,
     weights,
     knownPairs: learn.knownPairs,
+    styleEnd: styleEnd || null,
     ...(seedTrack ? { seedTrack: { id: seedTrack.id, place: seedPlace } } : {}),
     ...extra
   });
@@ -137,6 +147,40 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
     if (seedTrack) build({ seedTrack: { id: seedTrack.id, place } });
   };
   const cur = alts?.[active];
+  // Del 20 C: alle overgangene i settet på én gang (3 om gangen), med kvalitetssjekk
+  const [renders, setRenders] = useState<Record<string, RenderInfo>>({});
+  const [rendering, setRendering] = useState<{ done: number; total: number } | null>(null);
+  const renderAll = async () => {
+    if (!cur) return;
+    const jobs = cur.tracks.slice(0, -1).map((t, i) => ({ t, next: cur.tracks[i + 1]!, fx: fxAt(i) }));
+    setRendering({ done: 0, total: jobs.length });
+    const t0 = performance.now();
+    let done = 0;
+    let red = 0;
+    const out: Record<string, RenderInfo> = {};
+    const queue = [...jobs];
+    const worker = async () => {
+      for (let j = queue.shift(); j; j = queue.shift()) {
+        const a = byId.get(j.t.id);
+        const b = byId.get(j.next.id);
+        if (a && b && j.fx) {
+          try {
+            const r = await makeRender(a, b, j.fx.preset.id);
+            out[`${j.t.id}>${j.next.id}>${j.fx.preset.id}`] = r;
+            if (!r.quality.ok) red++;
+          } catch {
+            red++;
+          }
+        }
+        done++;
+        setRendering({ done, total: jobs.length });
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+    setRenders((x) => ({ ...x, ...out }));
+    setRendering(null);
+    useToast.getState().show(`${jobs.length} overganger laget på ${((performance.now() - t0) / 1000).toFixed(0)} s${red ? ` – ${red} trenger en sjekk (alternativ foreslått)` : ' – alle besto kvalitetssjekken'}`);
+  };
 
   /** Lås og bygg på nytt: låste plasser beholdes, resten regnes om. */
   const rebuild = () => {
@@ -348,6 +392,18 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
               <input type="checkbox" checked={includeDrafts} onChange={(e) => setIncludeDrafts(e.target.checked)} />
               Ta med umastret
             </label>
+            {/* Del 20 D: Vibe Shifter i settbyggeren – «slutt mer Tech» med dine egne tagger */}
+            <label className="flex items-center gap-1.5">
+              Slutt mer
+              <select value={styleEnd} onChange={(e) => setStyleEnd(e.target.value)} aria-label="Stil mot slutten av settet" className="h-9 rounded-lg border border-white/10 bg-sunken px-2 text-sm text-ink">
+                <option value="">(ingen stil)</option>
+                {tagNames.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <TrackPicker label="Må være med" pool={pool} chosen={must.map((m) => m.id)} onAdd={(id) => setMust([...must, { id, position: null }])} onRemove={(id) => setMust(must.filter((m) => m.id !== id))} positions={must} setPosition={(id, p) => setMust(must.map((m) => (m.id === id ? { ...m, position: p } : m)))} />
           <TrackPicker label="Utelat" pool={pool} chosen={pool.filter((t) => exclude.includes(t.slug)).map((t) => t.id)} onAdd={(id) => setExclude([...exclude, pool.find((t) => t.id === id)!.slug])} onRemove={(id) => setExclude(exclude.filter((s) => s !== pool.find((t) => t.id === id)?.slug))} />
@@ -400,8 +456,28 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
             ))}
           </div>
 
-          <Panel title="Energikurve" right={<span className="font-mono text-[11px] text-muted">stiplet = mål ({CURVE_NAMES[curve]})</span>}>
-            <EnergyChart tracks={cur.tracks} curve={curve} custom={custom} />
+          <Panel title="Energitidslinje" right={<span className="font-mono text-[11px] text-muted">stiplet = mål ({CURVE_NAMES[curve]})</span>}>
+            <EnergyTimeline
+              tracks={cur.tracks}
+              byId={byId}
+              curve={curve}
+              custom={custom}
+              onCurve={(pts) => {
+                setCurve('custom');
+                setCustom(pts);
+                // Ny bølge: bygg det valgte forslaget på nytt etter kurven, låste plasser beholdes
+                const pins = [...locked].map((i) => ({ id: cur.tracks[i]!.id, position: i }));
+                const r = buildAlternatives(pool, options({ curve: 'custom', customCurve: pts, mustInclude: [...must.filter((m) => !pins.some((p) => p.id === m.id)), ...pins] }));
+                if (r[active]) setAlts(alts!.map((a, i) => (i === active ? { ...r[active]!, character: a.character } : a)));
+              }}
+              onMove={(i, j) => {
+                const seq = [...cur.tracks];
+                const [t] = seq.splice(i, 1);
+                seq.splice(j, 0, t!);
+                logEvent({ type: 'move' });
+                setTracks(seq);
+              }}
+            />
           </Panel>
 
           <Panel
@@ -410,6 +486,9 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={play} className="h-9 rounded-full border border-accent/60 px-3 text-xs font-semibold text-accent">
                   Spill
+                </button>
+                <button type="button" onClick={() => void renderAll()} disabled={!!rendering} className="h-9 rounded-full bg-white/[0.04] px-3 text-xs text-ink disabled:opacity-50" title="Lager alle overgangene (forhåndsvisning med kvalitetssjekk)">
+                  {rendering ? `Lager overganger … ${rendering.done}/${rendering.total}` : 'Lag alle overganger'}
                 </button>
                 <button type="button" onClick={rebuild} disabled={!locked.size} title="Låste plasser beholdes, resten regnes om" className="h-9 rounded-full bg-white/[0.04] px-3 text-xs text-ink disabled:opacity-40">
                   Lås og bygg på nytt ({locked.size})
@@ -478,9 +557,13 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
                         </span>
                         {(() => {
                           const fx = fxAt(i);
+                          const fromA = byId.get(t.id);
+                          const toB = byId.get(next!.id);
                           return fx && next ? (
-                            <div className="w-full pt-1">
+                            <div className="flex w-full flex-col gap-1 pt-1">
                               <TransitionFx a={t} b={next} info={fx.info} preset={fx.preset} reason={fx.reason} learned={fx.learned} />
+                              {tr.score.reasons.length > 0 && <span className="text-[11px] text-soft">{tr.score.reasons.join(' · ')}</span>}
+                              {fromA && toB && <TransitionPreview from={fromA} to={toB} preset={fx.preset.id} compact initial={renders[`${t.id}>${next.id}>${fx.preset.id}`]} />}
                             </div>
                           ) : null;
                         })()}
@@ -520,31 +603,6 @@ function scoresOf(a: Alt) {
   const p = a.parts;
   const s = (v: number, scale = 1) => Math.round(100 * Math.max(0, 1 - v / scale));
   return { harmonic: s(p.harmonic), tempo: s(p.tempo, 1.5), mix: s(p.mix), energy: s(p.energy, 0.5), variation: s(p.variation, 0.5) };
-}
-
-/** Energien til låtene (stolper) oppå målkurven (stiplet). */
-function EnergyChart({ tracks, curve, custom }: { tracks: SbTrack[]; curve: CurveKind; custom: number[] }) {
-  const W = 600;
-  const H = 120;
-  const total = tracks.reduce((s, t) => s + t.durationMs, 0) || 1;
-  let at = 0;
-  const bars = tracks.map((t) => {
-    const x = (at / total) * W;
-    const w = (t.durationMs / total) * W;
-    at += t.durationMs;
-    return { x, w, y: H - (t.energy / 10) * H, title: `${t.title}: ${t.energy.toFixed(1)}` };
-  });
-  const target = Array.from({ length: 41 }, (_, i) => `${(i / 40) * W},${H - (curveAt(curve, i / 40, custom) / 10) * H}`).join(' ');
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-32 w-full" role="img" aria-label="Energien i settet mot målkurven">
-      {bars.map((b, i) => (
-        <rect key={i} x={b.x + 1} y={b.y} width={Math.max(1, b.w - 2)} height={H - b.y} rx={3} style={{ fill: 'color-mix(in srgb, var(--accent) 55%, transparent)' }}>
-          <title>{b.title}</title>
-        </rect>
-      ))}
-      <polyline points={target} fill="none" stroke="#F5F7FA" strokeWidth={2} strokeDasharray="6 5" opacity={0.8} />
-    </svg>
-  );
 }
 
 /** Velg låter (søk i tittel) for «Må være med» og «Utelat». */

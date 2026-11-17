@@ -49,7 +49,7 @@ const workers = new Map<string, LyricsWorker>();
 /** Én vedvarende tekst-prosess per Python-tolk. */
 export function workerFor(python: string): LyricsWorker {
   let w = workers.get(python);
-  if (!w) workers.set(python, (w = createLyricsWorker({ python })));
+  if (!w) workers.set(python, (w = createLyricsWorker({ python, log: (l) => console.log(l) })));
   return w;
 }
 

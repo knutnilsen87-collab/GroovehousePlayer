@@ -79,3 +79,18 @@ describe('transitionScore', () => {
     expect(s.inAtMs).toBe(480);
   });
 });
+
+import { buildSet } from '../src/setbuilder';
+describe('Vibe Shifter i settbyggeren: «slutt mer Tech»', () => {
+  it('flere Tech-låter i siste halvdel med valget på', () => {
+    const pool = Array.from({ length: 40 }, (_, i) =>
+      t({ id: `t${i}`, slug: `s${i}`, title: `S${i}`, durationMs: 300_000, energy: 3 + (i % 7), camelot: `${(i % 3) + 7}A`, tags: i % 4 === 0 ? ['Tech'] : null })
+    );
+    const opts = { durationMin: 60, curve: 'journey' as const, includeDrafts: true, seed: 3 };
+    const techShare = (r: ReturnType<typeof buildSet>) => {
+      const back = r!.tracks.slice(Math.floor(r!.tracks.length / 2));
+      return back.filter((x) => x.tags?.includes('Tech')).length / back.length;
+    };
+    expect(techShare(buildSet(pool, { ...opts, styleEnd: 'Tech' }))).toBeGreaterThan(techShare(buildSet(pool, opts)));
+  });
+});

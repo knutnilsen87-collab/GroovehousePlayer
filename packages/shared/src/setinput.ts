@@ -67,7 +67,8 @@ export function grooveFields(m: AssetManifest) {
     outroBars: g.outroBars,
     introNoBass: g.introNoBass,
     outroNoBass: g.outroNoBass,
-    firstDownbeatMs: g.firstDownbeatMs
+    firstDownbeatMs: g.firstDownbeatMs,
+    gridBpm: g.gridBpm
   };
 }
 
