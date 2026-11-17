@@ -13,7 +13,7 @@ type View = 'drops' | 'archive' | 'sets';
 
 /** Ditt arbeidsbord. Gull er systemfarge her, men data og kontroll har prioritet. */
 export function CommandCenter() {
-  const { assets, loading } = useCatalog();
+  const { assets, loading, error, retry } = useCatalog();
   const [view, setView] = useState<View>('drops');
 
   return (
@@ -21,7 +21,13 @@ export function CommandCenter() {
       <Sidebar view={view} setView={setView} />
       <main className="min-w-0 flex-[999_1_560px] px-8 pb-28 pt-7">
         {loading ? (
-          <p className="text-muted">Laster katalog…</p>
+          <p role="status" className="text-muted">Laster katalog…</p>
+        ) : error ? (
+          <div role="alert" className="rounded-2xl border border-white/15 bg-surface p-6">
+            <h1 className="text-lg font-semibold text-ink-strong">Kunne ikke laste katalogen</h1>
+            <p className="mt-2 break-words text-sm text-muted">{error}</p>
+            <button type="button" onClick={retry} className="mt-4 min-h-11 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02]">Prøv igjen</button>
+          </div>
         ) : view === 'drops' ? (
           <DropsView assets={assets} />
         ) : (

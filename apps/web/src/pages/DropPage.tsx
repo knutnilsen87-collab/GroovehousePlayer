@@ -16,7 +16,7 @@ import { findDrop } from '../lib/seed';
  */
 export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient: string | null }) {
   const drop = findDrop(dropSlug);
-  const { assets, loading } = useCatalog();
+  const { assets, loading, error, retry } = useCatalog();
   const { queue, index, playing, positionMs, started, setQueue, playIndex, toggle, next, prev, seek } = usePlayer();
 
   const dropAssets = useMemo(() => {
@@ -35,6 +35,12 @@ export function DropPage({ dropSlug, recipient }: { dropSlug: string; recipient:
 
   if (!drop) return <Centered>{t.notFound}</Centered>;
   if (loading) return <Centered>{t.loading}</Centered>;
+  if (error) return (
+    <Centered>
+      <span role="alert">Could not load this listening room.</span>
+      <button type="button" onClick={retry} className="min-h-11 rounded-full border border-gold/50 px-5 text-sm font-semibold text-gold">Try again</button>
+    </Centered>
+  );
   if (drop.opensAt && new Date(drop.opensAt) > new Date()) return <Countdown opensAt={drop.opensAt} />;
   if (drop.expiresAt && new Date(drop.expiresAt) < new Date()) return <Centered>{t.notFound}</Centered>;
   if (!current) return <Centered>{t.empty}</Centered>;

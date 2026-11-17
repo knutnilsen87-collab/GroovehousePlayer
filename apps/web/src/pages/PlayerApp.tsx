@@ -30,7 +30,7 @@ type Filter = 'all' | 'track' | 'set';
  * Desktop: sidebar, presisjonstabell og transport-dock. Gull er rammen; det som spilles farger rommet.
  */
 export function PlayerApp() {
-  const { assets, loading } = useCatalog();
+  const { assets, loading, error, retry } = useCatalog();
   const tracks = useMemo(() => groupTracks(assets), [assets]);
   const [view, setView] = useState<View>('catalog');
   const [filter, setFilter] = useState<Filter>('all');
@@ -103,7 +103,14 @@ export function PlayerApp() {
         </header>
 
         {loading ? (
-          <p className="text-sm text-muted">Åpner hvelvet …</p>
+          <p role="status" className="text-sm text-muted">Åpner hvelvet …</p>
+        ) : error ? (
+          <div role="alert" className="rounded-2xl border border-white/15 bg-surface p-6">
+            <h1 className="text-lg font-semibold text-ink-strong">Kunne ikke laste musikkbiblioteket</h1>
+            <p className="mt-2 text-sm text-muted">Sjekk at media/index.json og manifestfilene finnes, og at ingest-motoren er ferdig.</p>
+            <p className="mt-2 break-words text-xs text-muted">{error}</p>
+            <button type="button" onClick={retry} className="mt-4 min-h-11 rounded-full bg-gold px-5 text-sm font-semibold text-[#120D02]">Prøv igjen</button>
+          </div>
         ) : tracks.length === 0 ? (
           <EmptyState />
         ) : view === 'catalog' ? (
