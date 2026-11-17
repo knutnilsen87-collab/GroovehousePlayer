@@ -263,6 +263,15 @@ class Models:
         return self.align[lang]
 
 
+def has_align_model(lang: str) -> bool:
+    """Har WhisperX en standard justeringsmodell for språket?"""
+    try:
+        from whisperx.alignment import DEFAULT_ALIGN_MODELS_HF, DEFAULT_ALIGN_MODELS_TORCH  # type: ignore
+    except Exception:  # noqa: BLE001 – eldre/nyere whisperx: prøv som før
+        return True
+    return lang in DEFAULT_ALIGN_MODELS_TORCH or lang in DEFAULT_ALIGN_MODELS_HF
+
+
 def serve():
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import whisperx  # type: ignore
@@ -308,6 +317,14 @@ def serve():
                 res = models.whisper_model(job.get("model") or "large-v2", language).transcribe(audio, batch_size=16 if models.device == "cuda" else 4)
                 segments_in = res["segments"]
                 lang = res.get("language") or language or "en"
+                # Gjettet språk uten justeringsmodell (f.eks. la, jw, mn for instrumentale partier): Knut synger på engelsk
+                if not has_align_model(lang):
+                    st("transcribe-en")
+                    res = models.whisper_model(job.get("model") or "large-v2", "en").transcribe(audio, batch_size=16 if models.device == "cuda" else 4)
+                    segments_in = res["segments"]
+                    lang = "en"
+            if not has_align_model(lang):
+                lang = "en"
             st("align")
             model_a, meta = models.align_model(lang)
             segments = whisperx.align(segments_in, model_a, meta, audio, models.device, return_char_alignments=False).get("segments", [])

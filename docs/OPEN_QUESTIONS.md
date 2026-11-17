@@ -46,3 +46,4 @@ _(ingen ennå)_
 36. **Del 27 – «Flere valg» i settbyggeren** er lukket som standard og viser «(N i bruk)» når noe er satt der. Frølåt og «Må være med» fra «Lag sett fra denne» vises som før.
 37. **Del 27 – treffflater på PC.** Søkefeltet (tekstfeltet er 20 px inne i en 40 px boks som tar klikket) og det skjulte filfeltet for cover er ikke endret. Tittelknappene i låttabellen er 24 px.
 38. **Testspor fjernet.** Sjekkene i hodeløs Edge spilte «Lost» og la 6 avspillinger (0 ms) i lytteloggen og en posisjon i `playback.json`. De er fjernet; kopier ligger i `data/listens.backup-2026-11-17T1947.json` og `data/playback.backup-2026-11-17T1950.json`.
+39. **Tekst – feil språk.** Gjetter WhisperX et språk uten justeringsmodell (latin, javanesisk, mongolsk, walisisk – skjedde på 14 låter, typisk instrumentale partier), transkriberes låta på nytt med engelsk. Norsk har modell og berøres ikke.
