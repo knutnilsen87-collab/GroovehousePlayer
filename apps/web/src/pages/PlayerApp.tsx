@@ -34,14 +34,43 @@ import { skinTrackVars, useSkinId, useTagline } from '../lib/skin';
 import { Heartbeat, useHeartbeatMotif } from '../components/Brand';
 import { useFx } from '../lib/fx';
 import { useSeedSet } from '../lib/seedset';
+import { EmptyLibrary, ImportBanner, ImportStatusSheetHost } from '../components/ImportStatus';
+import { parsePlayerRoute, playerUrl, type PlayerRoute, type SetsTab } from '../lib/route';
+import { LockConfirmHost } from '../components/DjLock';
 
 type Filter = 'all' | 'track' | 'set';
 
-/** Del 14: direkte lenke til en visning, f.eks. /?vis=bibliotek. */
-// Menyen heter «Live-sett», så /?vis=live-sett (og varianter) må virke i tillegg til /?vis=sett
-const VIEW_PARAM: Record<string, View> = { hjem: 'home', bibliotek: 'library', lister: 'playlists', spillelister: 'playlists', sett: 'sets', 'live-sett': 'sets', livesett: 'sets', live: 'sets', dj: 'dj', analyse: 'stats', statistikk: 'stats' };
-/** Leser ?vis=… uten å bry seg om store bokstaver eller mellomrom («Live sett»). */
-export const viewFromParam = (v: string | null): View | undefined => (v ? VIEW_PARAM[v.trim().toLowerCase().replace(/[\s_]+/g, '-')] : undefined);
+/** Del 14/27: direkte lenke til en visning, f.eks. /?vis=bibliotek (se lib/route.ts). */
+export { viewFromParam } from '../lib/route';
+
+/**
+ * Del 27 pkt. 5: visning, liste og fane følger adressen. Navigasjon legger et steg i historikken (Tilbake/Frem),
+ * og adressen leses ved oppstart og ved Tilbake/Frem. Avspillingen påvirkes aldri.
+ */
+function usePlayerRoute() {
+  const [route, setRoute] = useState<PlayerRoute>(() => parsePlayerRoute(location.search));
+  useEffect(() => {
+    const onPop = () => setRoute(parsePlayerRoute(location.search));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+  const navigate = (patch: Partial<PlayerRoute>, opts: { replace?: boolean } = {}) => {
+    setRoute((cur) => {
+      const next: PlayerRoute = { ...cur, ...patch };
+      if (patch.view && patch.view !== cur.view) {
+        if (!('listId' in patch)) next.listId = null;
+        if (!('setsTab' in patch)) next.setsTab = null;
+      }
+      const url = playerUrl(next);
+      if (url !== location.pathname + location.search) {
+        if (opts.replace) history.replaceState(history.state, '', url);
+        else history.pushState({ gv: true }, '', url);
+      }
+      return next;
+    });
+  };
+  return [route, navigate] as const;
+}
 
 function useIsDesktop(): boolean {
   const [desktop, setDesktop] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
@@ -64,8 +93,10 @@ function useIsDesktop(): boolean {
 export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = {}) {
   const { assets, index: catalogIndex, loading, error: catalogError, reload } = useCatalog();
   const tracks = useMemo(() => groupTracks(assets), [assets]);
-  // Startvisning fra lenken (/?vis=bibliotek), ellers Hjem
-  const [view, setView] = useState<View>(() => viewFromParam(new URLSearchParams(location.search).get('vis')) ?? 'home');
+  // Visning, liste og fane fra adressen (/?vis=bibliotek), ellers Hjem
+  const [route, navigate] = usePlayerRoute();
+  const { view, listId } = route;
+  const setView = (v: View) => navigate({ view: v });
   const [sort, setSort] = useState<Sort>({ key: 'none', dir: 1 });
   const [filter, setFilter] = useState<Filter>('all');
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -75,7 +106,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   useEffect(() => {
     if (!seedReq) return;
     setFull(false);
-    setView('sets');
+    navigate({ view: 'sets', setsTab: 'build' });
   }, [seedReq?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const moreReq = useSeedSet((s) => s.moreLike);
   useEffect(() => {
@@ -98,7 +129,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
           .catch(toastError)
     });
   }, [moreReq?.nonce, assets.length]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [listId, setListId] = useState<string | null>(null);
+  const setListId = (id: string | null) => navigate({ view: 'playlists', listId: id });
   const addSheet = useUi((s) => s.addSheet);
   const openActions = useUi((s) => s.openActions);
   /** Desktop: valgte låter i tabellen (Ctrl/Shift-klikk). Mobil: velgemodus (hold inne på en låt). */
@@ -112,8 +143,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   const vctx = useVersionCtx(catalogIndex, usePlaylists((s) => s.playlists));
 
   const openList = (id: string | null) => {
-    setListId(id);
-    setView('playlists');
+    navigate({ view: 'playlists', listId: id });
     setFull(false);
     window.scrollTo({ top: 0 });
   };
@@ -165,6 +195,17 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     setSelectMode(false);
     setSelected([]);
   };
+  // Tilbake/Frem i nettleseren: fullskjerm og ark lukkes, visningen følger adressen (lyden spiller videre)
+  useEffect(() => {
+    const onPop = () => {
+      setFull(false);
+      const ui = useUi.getState();
+      if (ui.actions) ui.closeActions();
+      if (ui.addSheet) ui.closeAddSheet();
+    };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
   // Mobil: tilbake-knappen avslutter velgemodus
   useEffect(() => {
     if (!selectMode) return;
@@ -185,8 +226,9 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     else if (paletteOpen) setPaletteOpen(false);
     else if (full) setFull(false);
     else if (selectMode) history.back();
-    else if (listId) setListId(null);
-    else if (view !== 'home') setView('home');
+    // Del 27: Tilbake følger historikken (samme som i nettleseren); uten historikk går den til Hjem først
+    else if (history.state?.gv) history.back();
+    else if (view !== 'home') navigate({ view: 'home' }, { replace: true });
     else void CapApp.minimizeApp();
   };
   useEffect(() => {
@@ -267,6 +309,11 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     playFrom(list, list.indexOf(chosen), atMs);
   };
   const trackOf = (a: LoadedAsset | undefined) => (a ? tracks.find((t) => t.slug === a.manifest.slug) : undefined);
+  const playAsset = (a: LoadedAsset) => {
+    const t = trackOf(a);
+    if (t) play(t, a);
+    else playFrom([a], 0);
+  };
 
   /** Desktop: klikk = velg én, Ctrl = legg til/fjern, Shift = område. */
   const selectRow = (slug: string, e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) => {
@@ -306,8 +353,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
     }
   };
   const goto = (v: View) => {
-    setView(v);
-    setListId(null);
+    navigate({ view: v, listId: null, setsTab: null });
     setSelected([]);
     window.scrollTo({ top: 0 });
   };
@@ -326,6 +372,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
         </header>
         <ResumeBanner tracks={tracks} />
         <AlbumBuilderSheet assets={assets} />
+        {!(loading && tracks.length === 0) && <ImportBanner assets={assets} onPlay={playAsset} emptyLibrary={tracks.length === 0} />}
 
         {loading && tracks.length === 0 ? (
           <LoadingVault onRetry={reload} error={catalogError} />
@@ -376,8 +423,13 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                     </span>
                   </div>
                   {/* Del 16: «Alle (gruppert)» – Release-klar øverst, Umastret under, i hver sin seksjon */}
+                  {libStatus === 'draft' && visible.length === 0 && filter !== 'set' && <EmptyLibrary kind="draft" />}
                   {(libStatus === 'all' ? ([['Release-klar', visible.filter((t) => !isDraft(t.main.manifest))], ['Umastret', visible.filter((t) => isDraft(t.main.manifest))]] as const) : ([[null, visible]] as const)).map(([heading, list]) =>
-                    list.length === 0 && heading ? null : (
+                    list.length === 0 && heading === 'Umastret' && filter !== 'set' ? (
+                      <section key="umastret-tom" aria-label="Umastret" className="mt-2 flex flex-col gap-2">
+                        <EmptyLibrary kind="draft" />
+                      </section>
+                    ) : list.length === 0 && (heading || libStatus === 'draft') ? null : (
                       <section key={heading ?? 'alle'} aria-label={heading ?? undefined} className="flex flex-col gap-2">
                         {heading && (
                           <h2 className="gv-label m-0 mt-2 flex items-baseline gap-2 text-[11px] text-soft">
@@ -431,7 +483,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                 ) : (
                   <PlaylistsOverview tracks={tracks} onOpen={openList} vctx={vctx} />
                 ))}
-              {view === 'sets' && <SetsView sets={visible} tracks={tracks} onPlay={play} onOpenList={openList} />}
+              {view === 'sets' && <SetsView sets={visible} tracks={tracks} onPlay={play} onOpenList={openList} tab={route.setsTab} onTab={(t) => navigate({ setsTab: t })} />}
               {view === 'dj' && (
                 <>
                   <div className="flex justify-end">
@@ -489,8 +541,10 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
       )}
       <TrackActionsHost tracks={tracks} index={catalogIndex} onPlay={play} />
       <DraftConfirmHost />
+      <LockConfirmHost />
       <QueuePanel />
       <ShareSheetHost />
+      <ImportStatusSheetHost assets={assets} onPlay={playAsset} />
       <Toast />
       <CommandPalette
         open={paletteOpen}
@@ -534,9 +588,9 @@ function EmptyState() {
   const motif = useHeartbeatMotif();
   const line = useTagline('', 1);
   return (
-    <div className="rounded-2xl border border-dashed border-accent/30 p-8 text-center text-sm text-muted">
-      {motif && line && <p className="gv-script m-0 mb-3 text-2xl">{line}</p>}
-      Hvelvet er tomt. Kjør <code className="text-ink">pnpm make-fixtures</code> og <code className="text-ink">pnpm gh-ingest fixtures/blue-fire</code>, eller bounce til eksportmappa med <code className="text-ink">pnpm gh-watch</code>.
+    <div className="flex flex-col gap-3">
+      {motif && line && <p className="gv-script m-0 text-2xl">{line}</p>}
+      <EmptyLibrary />
     </div>
   );
 }
@@ -701,7 +755,6 @@ function TrackList({
 
 // ---------------------------------------------------------------- Live-sett
 
-type SetsTab = 'recorded' | 'planned' | 'build';
 const SETS_TABS: Array<[SetsTab, string]> = [
   ['recorded', 'Innspilte sett'],
   ['planned', 'Planlagte sett'],
@@ -709,27 +762,25 @@ const SETS_TABS: Array<[SetsTab, string]> = [
 ];
 
 /** Live-sett (del 17): innspilte sett, planlagte sett (Sett-planer fra del 16) og settbyggeren – holdt atskilt. */
-function SetsView({ sets, tracks, onPlay, onOpenList }: { sets: Track[]; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onOpenList: (id: string) => void }) {
-  const [tab, setTab] = useState<SetsTab>(() => {
+function SetsView({ sets, tracks, onPlay, onOpenList, tab: urlTab, onTab }: { sets: Track[]; tracks: Track[]; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onOpenList: (id: string) => void; tab: SetsTab | null; onTab: (t: SetsTab) => void }) {
+  // Fanen følger adressen (&fane=…); uten den brukes sist valgte fane på enheten
+  const [remembered] = useState<SetsTab>(() => {
     try {
-      return (localStorage.getItem('gv.setsTab') as SetsTab) || 'recorded';
+      const v = localStorage.getItem('gv.setsTab');
+      return v === 'planned' || v === 'build' ? v : 'recorded';
     } catch {
       return 'recorded';
     }
   });
+  const tab = urlTab ?? remembered;
   const pick = (t: SetsTab) => {
-    setTab(t);
+    onTab(t);
     try {
       localStorage.setItem('gv.setsTab', t);
     } catch {
       /* uten lagring */
     }
   };
-  // «Lag sett fra denne»: rett til settbyggeren
-  const seedReq = useSeedSet((s) => s.seedSet);
-  useEffect(() => {
-    if (seedReq) pick('build');
-  }, [seedReq?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const allLists = usePlaylists((s) => s.playlists);
   const plans = useMemo(() => allLists.filter((p) => p.plan === 'set'), [allLists]);
   const assets = useMemo(() => tracks.flatMap((t) => t.variants), [tracks]);

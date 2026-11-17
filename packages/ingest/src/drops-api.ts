@@ -30,6 +30,24 @@ export function listenConfigured(): boolean {
   return !!(process.env.LISTEN_ADMIN_URL && process.env.LISTEN_ADMIN_TOKEN);
 }
 
+/**
+ * Del 27: er lenketjenesten (del 13) faktisk tilgjengelig? Sjekkes før delingsarket fylles ut.
+ * «unconfigured» = ikke satt opp på PC-en; «unreachable» = satt opp, men svarer ikke nå (målt, ikke antatt).
+ * Svaret har aldri adresse eller token.
+ */
+export type LinkServiceStatus = { available: true } | { available: false; reason: 'unconfigured' | 'unreachable'; detail: string };
+export async function linkServiceStatus(fetcher: typeof fetch = fetch, timeoutMs = 4000): Promise<LinkServiceStatus> {
+  const base = process.env.LISTEN_ADMIN_URL?.replace(/\/$/, '');
+  if (!base || !process.env.LISTEN_ADMIN_TOKEN) return { available: false, reason: 'unconfigured', detail: 'Lenketjenesten er ikke satt opp på PC-en ennå.' };
+  try {
+    const r = await fetcher(`${base}/`, { method: 'GET', signal: AbortSignal.timeout(timeoutMs), redirect: 'manual' });
+    if (r.status >= 500) return { available: false, reason: 'unreachable', detail: `Lenketjenesten svarer med feil (${r.status}) akkurat nå.` };
+    return { available: true };
+  } catch {
+    return { available: false, reason: 'unreachable', detail: 'Lenketjenesten svarer ikke akkurat nå (sjekket nettopp).' };
+  }
+}
+
 export async function publishToWorker(req: PublishRequest): Promise<{ id: string; url: string; token: string }> {
   const base = process.env.LISTEN_ADMIN_URL?.replace(/\/$/, '');
   const token = process.env.LISTEN_ADMIN_TOKEN;

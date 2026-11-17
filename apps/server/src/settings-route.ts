@@ -4,6 +4,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { existsSync, statSync, accessSync, constants } from 'node:fs';
 import path from 'node:path';
 import { DEFAULTS, loadConfig, setLanEnabled } from '@gv/ingest/config';
+import { checkFolder } from '@gv/ingest/folder-check';
 import { countAudioFiles, editableOf, previewExport, recolorAll, saveSettings, type SettingsPatch } from '@gv/ingest/settings';
 import type { WatcherStatus } from '@gv/ingest/watcher';
 import { credRead, credWrite } from './credstore';
@@ -23,7 +24,10 @@ export interface SettingsHooks {
   mediaDir: string;
   port: () => number;
   watcherStatus: () => WatcherStatus | null;
-  restartWatcher: () => Promise<WatcherStatus | null>;
+  /** Del 27: watcherne for umastrede låter (mappe + status). */
+  draftWatcherStatus?: () => WatcherStatus[];
+  /** catchUp: ta også med filer som ikke er importert ennå (som ved oppstart). */
+  restartWatcher: (o?: { catchUp?: boolean }) => Promise<WatcherStatus | null>;
   /** Stopper og starter serverprosessen på nytt (samme port hvis ledig). */
   restartServer: () => void;
   /** Testkrok for brannmurregel-sjekken (PowerShell). */
@@ -79,6 +83,23 @@ export function createSettingsRoute(h: SettingsHooks) {
       });
     }
 
+    // Del 27: importstatus for tomt bibliotek, «Ser etter låter …» og «Mappe utilgjengelig» med årsak og løsning
+    if (p === '/api/settings/import' && method === 'GET') {
+      const cfg = loadConfig(h.root);
+      const exportDir = cfg.exportDir ? path.resolve(h.root, cfg.exportDir) : null;
+      const watcher = h.watcherStatus();
+      const drafts = h.draftWatcherStatus?.() ?? [];
+      const inbox = path.join(h.root, 'data', 'drafts-inbox');
+      return json(res, 200, {
+        export: { ...checkFolder(exportDir), watcher },
+        drafts: cfg.draftDirs.map((d) => {
+          const abs = path.resolve(h.root, d);
+          return { ...checkFolder(abs), watcher: drafts.find((w) => path.resolve(w.exportDir) === abs) ?? null };
+        }),
+        inbox: drafts.find((w) => path.resolve(w.exportDir) === inbox) ?? null
+      });
+    }
+
     if (method !== 'GET' && !(req.headers['content-type'] ?? '').startsWith('application/json')) return json(res, 415, { error: 'krever application/json' });
     let body: Record<string, unknown> = {};
     if (method !== 'GET') {
@@ -128,7 +149,7 @@ export function createSettingsRoute(h: SettingsHooks) {
 
     if (p === '/api/settings/recolor' && method === 'POST') return json(res, 200, await recolorAll(h.mediaDir, loadConfig(h.root)));
 
-    if (p === '/api/settings/watcher/restart' && method === 'POST') return json(res, 200, { watcher: await h.restartWatcher() });
+    if (p === '/api/settings/watcher/restart' && method === 'POST') return json(res, 200, { watcher: await h.restartWatcher({ catchUp: body.catchUp === true }) });
 
     if (p === '/api/settings/server/restart' && method === 'POST') {
       json(res, 202, { ok: true });

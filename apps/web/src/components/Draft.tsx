@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from 'react';
 import { create } from 'zustand';
 import { isDraft, type AssetManifest, type StatusFilter } from '@gv/shared/web';
 import { skinTrackVars } from '../lib/skin';
+import { useDialog } from '../lib/dialog';
 
 /**
  * Del 16: utkast holdes atskilt og er tydelig merket overalt:
@@ -106,8 +107,10 @@ export const useDraftConfirm = create<ConfirmState>((set) => ({
 export function DraftConfirmHost() {
   const ask = useDraftConfirm((s) => s.ask);
   const [dontAsk, setDontAsk] = useState(false);
+  const ref = useDialog<HTMLDivElement>(() => ask && done(false), { active: !!ask });
   if (!ask) return null;
-  const done = (ok: boolean) => {
+  function done(ok: boolean) {
+    if (!ask) return;
     if (ok && dontAsk) {
       try {
         localStorage.setItem(skipKey(ask.listId), '1');
@@ -118,10 +121,10 @@ export function DraftConfirmHost() {
     ask.resolve(ok);
     setDontAsk(false);
     useDraftConfirm.setState({ ask: null });
-  };
+  }
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/55 p-3 sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && done(false)}>
-      <div role="alertdialog" aria-modal="true" aria-label="Umastret låt i vanlig liste" className="gv-panel w-full max-w-md !bg-surface p-5">
+      <div ref={ref} tabIndex={-1} role="alertdialog" aria-modal="true" aria-label="Umastret låt i vanlig liste" className="gv-panel w-full max-w-md !bg-surface p-5">
         <h2 className="m-0 text-base font-semibold text-ink-strong">Denne låta er umastret – legg til likevel?</h2>
         <p className="m-0 mt-2 text-sm text-soft">
           «{ask.listName}» er en vanlig liste. Umastrede låter hører vanligvis hjemme i en Album-plan eller Sett-plan, så de ikke blandes med det som er klart for release.

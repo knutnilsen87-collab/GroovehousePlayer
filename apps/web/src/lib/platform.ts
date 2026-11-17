@@ -4,6 +4,7 @@ import { HtmlAudioEngine } from './engine/html';
 import { NativeEngine, type NativePlayerPlugin } from './engine/native';
 import { mergeSavedPositions, setEngineFactory } from './player';
 import { setNativeSkinHook } from './skin';
+import { explainPair, type ConnectHelp, type HealthOutcome } from './connectErrors';
 
 /**
  * Web/desktop eller Android-appen (Capacitor, del 12). Importeres først i main.tsx.
@@ -57,18 +58,32 @@ export async function loadConnection(): Promise<boolean> {
   return false;
 }
 
-/** «Koble til Vault»: adresse + PIN → enhetstoken (lagres kryptert). */
-export async function pairDevice(server: string, pin: string, name: string): Promise<void> {
+const online = () => (typeof navigator === 'undefined' ? true : navigator.onLine !== false);
+
+/** Del 27, steg 4 «Test forbindelsen»: svarer Vault på adressen? (Ingen PIN eller token sendes.) */
+export async function probeVault(server: string, timeoutMs = 10_000): Promise<HealthOutcome> {
+  try {
+    const r = await fetch(`${server}/api/health`, { cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) });
+    const body = await r.json().catch(() => null);
+    return { kind: 'response', status: r.status, body };
+  } catch (err) {
+    return { kind: 'network-error', online: online(), timedOut: err instanceof DOMException && err.name === 'TimeoutError' };
+  }
+}
+
+/** «Koble til Vault»: adresse + PIN → enhetstoken (lagres kryptert). Gir forklaringen ved feil, null når det gikk. */
+export async function pairDevice(server: string, pin: string, name: string): Promise<ConnectHelp | null> {
   let r: Response;
   try {
-    r = await fetch(`${server}/api/devices/pair`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, name }) });
+    r = await fetch(`${server}/api/devices/pair`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin, name }), signal: AbortSignal.timeout(15_000) });
   } catch {
-    throw new Error('Får ikke kontakt med Vault. Er Tailscale på, og står PC-en på?');
+    return explainPair({ kind: 'network-error', online: online() });
   }
   const j = (await r.json().catch(() => ({}))) as { token?: string; error?: string };
-  if (!r.ok || !j.token) throw new Error(j.error ?? `Feil ${r.status}`);
+  if (!r.ok || !j.token) return explainPair({ kind: 'response', status: r.status, error: j.error });
   await VaultAuth.save({ server, token: j.token });
   setConnection(server, j.token);
+  return null;
 }
 
 export async function forgetConnection() {

@@ -200,14 +200,50 @@ export function skinAccentVars(skin: Skin, track?: Palette | null, dim = false):
   const p = skinPalette(skin, track);
   const k = skin.glow / 50;
   const a = (x: number) => Math.min(1, x * k * (dim ? 0.5 : 1));
+  const base = skin.background.base;
   return {
     '--accent': p.primary,
     '--accent-2': p.secondary,
     '--accent-3': skin.accent3 ?? p.secondary,
     '--on-accent': p.onPrimary,
-    '--glow': withAlpha(p.primary, a(0.42)),
-    '--glow-2': withAlpha(p.secondary, a(0.18))
+    // Del 27 pkt. 12: gløden dempes ved behov, så tekst over den alltid holder 4,5:1 (WCAG 2.2 AA)
+    '--glow': withAlpha(p.primary, safeGlowAlpha(p.primary, base, a(0.42), p.primary)),
+    '--glow-2': withAlpha(p.secondary, safeGlowAlpha(p.secondary, base, a(0.18), p.primary))
   };
+}
+
+/** Sterkeste dekning gløden får på skjermen (AmbientGlow: 0,35 + sub-bass × 0,3). */
+export const GLOW_PEAK = 0.65;
+/** Den svakeste teksten som står over gløden (muted-tokenet). */
+export const WEAKEST_TEXT = '#A3ACBA';
+
+/** a over b med dekkevne t (0–1), i sRGB slik nettleseren blander. */
+export function overColor(a: string, b: string, t: number): string {
+  const n = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [n(a), n(b)];
+  return '#' + x.map((v, i) => Math.round(v * t + y[i]! * (1 - t)).toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Høyeste glød-alfa (≤ ønsket) der svakeste tekst og aksent-teksten fortsatt har 4,5:1 mot gløden på sitt sterkeste.
+ * Aksent som allerede er under 4,5:1 mot bakgrunnen (skal ikke skje, se kontrastlåsen), stopper ikke gløden.
+ */
+export function safeGlowAlpha(color: string, base: string, want: number, accent: string): number {
+  if (!/^#[0-9a-f]{6}$/i.test(color) || !/^#[0-9a-f]{6}$/i.test(base)) return want;
+  const accentOk = /^#[0-9a-f]{6}$/i.test(accent) && contrastRatio(accent, base) >= MIN_SKIN_CONTRAST;
+  const ok = (al: number) => {
+    const bg = overColor(color, base, al * GLOW_PEAK);
+    return contrastRatio(WEAKEST_TEXT, bg) >= MIN_SKIN_CONTRAST && (!accentOk || contrastRatio(accent, bg) >= MIN_SKIN_CONTRAST);
+  };
+  if (ok(want)) return want;
+  let lo = 0;
+  let hi = want;
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    if (ok(mid)) lo = mid;
+    else hi = mid;
+  }
+  return Math.floor(lo * 1000) / 1000;
 }
 
 /** Variablene som ligger på <html> og gjelder hele appen (bakgrunn, paneler, glød, kanter, radius, ramme). */

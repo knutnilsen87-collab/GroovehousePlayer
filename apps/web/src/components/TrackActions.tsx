@@ -7,6 +7,7 @@ import { usePlayer } from '../lib/player';
 import { toastError, useToast } from '../lib/playlists';
 import { isDesktop, useUi, type ActionsRequest } from '../lib/ui';
 import { useTouchReorder } from '../lib/useTouchReorder';
+import { useDialog } from '../lib/dialog';
 import { CoverArt } from './CoverArt';
 import { ChevronDownIcon, GripIcon, TrashIcon } from './Icons';
 import { PresetRow } from './FxChip';
@@ -40,7 +41,8 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
   const close = useUi((s) => s.closeActions);
   const [panel, setPanel] = useState<Panel>('main');
   const desktop = isDesktop();
-  const box = useRef<HTMLDivElement>(null);
+  // Del 27 pkt. 11: fokus fanges i menyen, Esc går ett nivå opp (eller lukker), og fokus går tilbake til ⋯-knappen
+  const box = useDialog<HTMLDivElement>(() => (panel !== 'main' ? setPanel('main') : close()), { autoFocus: desktop });
   // Klikket som kommer etter et langt trykk (minispilleren) skal ikke lukke menyen det nettopp åpnet.
   const openedAt = useRef(Date.now());
   const multi = req.assets.length > 1;
@@ -53,14 +55,10 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
   const toast = useToast.getState().show;
   const label = multi ? `${req.assets.length} låter` : m.title;
 
-  // Esc lukker; piltaster flytter mellom valgene (desktop)
+  // Piltaster flytter mellom valgene (Esc håndteres av useDialog)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        if (panel !== 'main') setPanel('main');
-        else close();
-      } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         const items = [...(box.current?.querySelectorAll<HTMLButtonElement>('[role=menuitem]:not([disabled]),[role=menuitemradio]') ?? [])];
         if (!items.length) return;
         e.preventDefault();
@@ -313,17 +311,14 @@ export function QueuePanel() {
   };
   const touch = useTouchReorder(listRef, { attr: 'q', onMove: (id, before) => moveTo(Number(id), before === null ? null : Number(before)), onSwipe: (id) => remove(Number(id)), setDropBefore }, [open]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, setOpen]);
+  const dialogRef = useDialog<HTMLElement>(() => setOpen(false), { active: open });
   if (!open) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/45 lg:bg-transparent" onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Køen"

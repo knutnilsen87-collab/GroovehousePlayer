@@ -37,6 +37,9 @@ interface UiState {
   share: LoadedAsset | null;
   openShare: (a: LoadedAsset) => void;
   closeShare: () => void;
+  /** Del 27: importstatus (mapper, «Ser etter låter …», siste import). */
+  importOpen: boolean;
+  setImportOpen: (open: boolean) => void;
 }
 
 export const useUi = create<UiState>((set) => ({
@@ -50,5 +53,7 @@ export const useUi = create<UiState>((set) => ({
   setQueueOpen: (queueOpen) => set({ queueOpen, actions: null }),
   share: null,
   openShare: (share) => set({ share, actions: null }),
-  closeShare: () => set({ share: null })
+  closeShare: () => set({ share: null }),
+  importOpen: false,
+  setImportOpen: (importOpen) => set({ importOpen, actions: null })
 }));

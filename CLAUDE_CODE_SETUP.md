@@ -18,18 +18,13 @@ Får du `'claude' is not recognized`: kjør `irm https://claude.ai/install.ps1 |
 
 # Oppdrag: Sett opp Groovehouse Vault på denne PC-en og fullfør det som mangler
 
-Du jobber på Knuts stasjonære Windows-PC. Prosjektets rotmappe er `F:\prosjekter_MAIN\GroovehousePlayer`. Groovehouse Vault er hans private spiller og arkiv for egen musikk (låter, demoer, varianter og hybride live-sett, kun eget materiale). Kodebasen er klonet fra GitHub (`knutnilsen87-collab/GroovehousePlayer`, gren `main`) til rotmappa. **Les `status_bundle.txt`, `README.md` og `docs/CLAUDE_CODE_PROMPT.md` før du gjør noe**: `status_bundle.txt` sier hvor prosjektet står nå, de to andre beskriver arkitekturen og beslutningene som er låst.
+Du jobber på Knuts stasjonære Windows-PC. Prosjektets rotmappe er `F:\prosjekter_MAIN\GroovehousePlayer`. Groovehouse Vault er hans private spiller og arkiv for egen musikk (låter, demoer, varianter og hybride live-sett, kun eget materiale). Kodebasen er klonet fra GitHub (`knutnilsen87-collab/GroovehousePlayer`, gren `main`) til rotmappa. **Les `README.md` og `docs/CLAUDE_CODE_PROMPT.md` før du gjør noe**: der står arkitekturen og beslutningene som er låst.
 
 ## Arbeidsmåte
 
-- **`status_bundle.txt` (i rotmappa) er prosjektets statusfil. Den skal alltid leses før du starter, og oppdateres når du har fullført noe nytt.**
-  - **Før start:** les `current_state` og `handoff`, og sjekk at fila stemmer med `git status` og `git log`. Motsier fila repoet, undersøk avviket og rett fila før du gjør noe annet.
-  - **Når noe er fullført** (en del, et delmål, en commit, en testkjøring): oppdater `last_updated`, `current_state`, `execution_log`, `validation`, `repo_health`, `acceptance_criteria`, `closure_readiness` og `handoff`, før du melder at det er ferdig.
-  - Følg reglene øverst i fila: ikke skriv «passed» for tester som ikke er kjørt, skill fakta fra antagelser, ingen hemmeligheter, og `can_claim_success: true` bare med dokumentert bevis.
-  - Fila skal være gyldig YAML. Commit den sammen med endringene den beskriver.
 - Jobb i delene under, i rekkefølge. Legg fram en kort plan per del, og **vent på OK** før du gjør endringer.
 - **Spør før** du installerer programmer (winget, npm -g), lager planlagte oppgaver, snarveier eller brannmurregler, eller skriver utenfor `F:\prosjekter_MAIN\GroovehousePlayer`.
-- Kjør det du bygger. Etter hver del: `pnpm test`, `pnpm typecheck`, og en faktisk sjekk av det delen skulle levere. Si tydelig fra hvis noe ikke virker, i stedet for å anta at det gjør det. Skriv resultatene inn i `status_bundle.txt`.
+- Kjør det du bygger. Etter hver del: `pnpm test`, `pnpm typecheck`, og en faktisk sjekk av det delen skulle levere. Si tydelig fra hvis noe ikke virker, i stedet for å anta at det gjør det.
 - Hemmeligheter (Supabase-nøkler, PIN) skal aldri i git eller i chatten. Bruk `.env` (gitignored) eller Windows Credential Manager.
 - Ikke endre de låste beslutningene uten å spørre: ingen Web Audio på mobil, aksentfarger kun fra `assets.palette` via CSS-variabler (coveret styrer alle aksenter; gull bare i logoen, se del 14), HLS AAC 256 kbps, ingest som CLI med watcher som trigger.
 - **Porter:** server **41733**, dev **41734** (ikke 5173/4747). Portene ligger i `groovehouse.config.json`, binder kun til `127.0.0.1` (unntak: LAN-modus i del 6), og velges etter sjekk mot `Get-NetTCPConnection` og `netsh interface ipv4 show excludedportrange protocol=tcp`. `GET /api/health` svarer `{ "app": "groovehouse-vault", "version": … }`. Launcheren sjekker dette før vinduet åpnes, og sier tydelig fra hvis et annet program bruker porten. Er porten tatt ved oppstart: prøv de neste 10, skriv valgt port til `%LOCALAPPDATA%\GroovehouseVault\port`, og la snarveien lese den.
@@ -162,7 +157,7 @@ Uutgitt musikk skal ikke være åpen for alle på nettverket.
 
 ## Del 7 – Spilleren på mobilen utenfor hjemmet (Tailscale)
 
-**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 25 (utgitte låter)** → **del 26 (albumbygger)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
+**Rekkefølge avklart med Knut:** del 6 (Wi-Fi) → del 7 (Tailscale) → **del 9 (spillelister)** → **del 11 («⋯»-meny)** → **del 12 (Android-app)** → **del 10 (del en låt som fil, både web og app)** → del 1 punkt 7–8 (autostart og varsel) → del 8 (innstillinger) → **del 15 (oppdatering av appen)** → **del 14 (nytt utseende)** → **del 16 (utkast)** → del 2 → del 4 → del 3 → **del 17 (settbygger)** → **del 18 (overgangs-presets)** → **del 19 (skins)** → **del 22 (visuell finpuss)** → **del 23 (automatisk coverart)** → **del 24 (utgivelser via LANDR)** → **del 25 (utgitte låter)** → **del 26 (albumbygger)** → **del 27 (stille onboarding og UX-rettelser, P0/P1 først)** → **del 20 (jevnere autosett)** → **del 21 (Raspberry Pi)** → **del 13 (deling med lenker)**.
 
 Mål: Knut åpner spilleren på mobilen hvor som helst (4G, borte), uten at noe åpnes mot internett.
 
@@ -801,9 +796,7 @@ Mål: ingen låt skal stå med tomt cover. Vault lager et passende cover automat
    - valgt **stilmal**, f.eks. «Echo Groove Nights» (`docs/design/reference/echo-groove-nights.jpg`): natt-lilla, magenta neon, måne og vann, krom
 
    Knut kan redigere prompten før generering, men trenger ikke.
-6. Bildet genereres **uten tekst**. Vault legger tittel og artist oppå med egen typografi (AI-modeller skriver tekst dårlig).
-   - **Med bulkIMG (førstevalg):** varianter, sammenligning og valg av vinner skjer i bulkIMG. Vault lager ikke egne varianter og har ingen egen velger; det Knut eksporterer, blir coveret.
-   - Bare ved direkte leverandør inne i Vault (fallback, se punkt 7): lag 4 varianter, og Knut velger med ett trykk eller «Lag nye».
+6. Bildet genereres **uten tekst**. Vault legger tittel og artist oppå med egen typografi (AI-modeller skriver tekst dårlig). Lag 4 varianter. Knut velger med ett trykk, eller «Lag nye».
 7. **Førstevalg (Knut, 2026-11-16): bulkIMG / AURORA Asset Studio**, Knuts eget lokale bildeverktøy, med løs kobling og uten API-nøkler i Vault:
    - «Lag AI-cover» (én eller batch) skriver en **CSV i bulkIMGs batchformat** (`filename,prompt,category,section`) med filnavn `<slug>__<variant|main>.png` og ferdig prompt, til en avtalt innboks-mappe.
    - Knut kjører batchen i bulkIMG, sammenligner generatorene, velger vinnere og eksporterer.
@@ -933,6 +926,69 @@ Mål: Knut velger format (single, EP eller album) og eventuelt en pool av låter
 **Tester:** formatlengder og sidelengder for vinyl, at regel for sterk åpning og singel blant de tre første holder, variasjonsregler (toneart, tempo, energi, vokal), at låste plasser respekteres, determinisme med frø, at utgitte låter er utelatt som standard, og forhåndslytting med riktige hook-utdrag.
 
 **Ferdig når:** Knut velger «Album, 10 låter» fra hele biblioteket. Han får tre forslag på noen sekunder, hører gjennom ett med 20-sekunders utdrag, bytter ut én låt, lagrer som Album-plan og lager release-pakke for albumet.
+
+## Del 27 – Stille onboarding og UX-rettelser (fra UX-rapporten 2026-11)
+
+Kilde: Knuts UX-rapport «Groovehouse Vault: UX-rapport og stille onboarding». Den bygger på kildekoden, ikke testing av den kjørende appen. **Kontroller hvert funn mot dagens kode før du endrer noe.** Noe kan allerede være rettet.
+
+**Avklaringer mot tidligere deler**
+- **Typografi:** del 22 (Clash Display / Syncopate / Inter / Geist Mono) gjelder. Rapportens forslag om å beholde Satoshi og JetBrains Mono er skrevet før del 22 og følges ikke. Rapportens krav om måling gjelder likevel: test 11 px-etiketter ved 200 % zoom, og hev dem hvis de ikke holder.
+- **Ingen automatisk sjanger- eller stemningsmerking med ML** (samme som del 20 D). Stil-tagger er Knuts egne.
+- **Ingen tilgangssikkerhet senkes.** PIN skal aldri legges i en delbar QR-kode eller i logger.
+
+**P0: første import og mobiltilkobling**
+1. **Tomt bibliotek:** i dag vises pnpm-kommandoer. Erstatt med «Musikken din samles her», knappen **Velg eksportmappe** (eksisterende innstilling, viser mappa som allerede er valgt, endrer den aldri automatisk) og **Åpne importstatus**. Samme for tom Umastret-gruppe.
+2. **Importstatus synlig:** «Ser etter låter …» med fremdrift. «Mappe utilgjengelig» skal ha konkret løsning (sti, årsak, f.eks. at disken F: ikke er tilkoblet eller at en annen prosess låser mappa). Første ferdige fil vises som «Ny eksport · v3» med tydelig Spill-knapp.
+3. **Mobiltilkobling som trinn** (`Connect.tsx`), og kan gjenopptas:
+   1. Er Tailscale på?
+   2. Adresse, med hint om hvor den finnes.
+   3. PIN.
+   4. Test forbindelsen.
+
+   Egne hjelpetekster for:
+   - feil adresse
+   - feil PIN
+   - PC-en av eller Vault ikke startet
+   - 421 «Misdirected request»
+   - avbrutt nett
+
+**P1**
+4. **Samme navn overalt:** én betegnelse for Studio/Vault (bruk **Studio** i navigasjon, «Vault» er appens navn). Mobil og desktop har samme begreper. DJ-verktøy og Analyse skal kunne nås på mobil (f.eks. under Studio eller «Mer»), uten å fjerne funksjoner.
+5. **URL og historikk:** hver visning og fane skal ha egen URL (`/?vis=…` eller ruter). Tilbake, Frem og oppdatering skal gi riktig visning, valgt låt skal bevares, og avspillingen stopper aldri av navigasjon. Direktelenken `/?vis=live-sett` åpner i dag Hjem: rett det.
+6. **Søk:** vis reelt antall treff, ikke størrelsen på utvalget. «Vis flere» over 30 treff. Forslag ved null treff (nærmeste titler, «prøv BPM eller toneart»). Test med 0, 1, 30 og flere enn 30 treff, også med bare tastatur.
+7. **Versjonsstatus i lister og sett:** vis «Følger nyeste» eller «Låst til v3» på hver oppføring. En DJ-godkjent eller låst versjon skal peke på en konkret fil også etter v4. Rapporten fant at `itemFor` i `lib/playlists.ts` setter `version` til null: kontroller og rett.
+8. **«DJ-klar»:** første gang en versjon låses for et sett, forklar én gang: «Denne versjonen låses, slik at cue-punktene følger riktig fil». Bekreft versjonen før lagring.
+9. **Hjem:** siste eksport fra Reason og **uhørte nye versjoner** først (etter versjonens importtid, ikke låtens opprettelsesdato), deretter Fortsett og Nylig spilt. «Passer med» og «Ligner» vises bare når en låt er valgt eller nylig spilt.
+10. **Deling:** sjekk om lenketjenesten (del 13) faktisk er tilgjengelig før arket fylles ut. Er den ikke det, vis filalternativet (del 10) først, med tydelig grunn. Si aldri at tjenesten er nede uten å ha sjekket.
+11. **Dialoger og fokus:** fokusfangst, retur av fokus til knappen som åpnet, Escape fra hele dialogen, og full tastaturbruk i Ctrl+K, ark og menyer.
+12. **Kontrast på dynamisk bakgrunn:** mål faktisk kontrast for tekst og kontroller over representative cover i alle skins (WCAG 2.2 AA: 4,5:1 tekst, 3:1 stor tekst og komponenter). Følg «redusert bevegelse» fra systemet.
+
+**P2**
+13. **Synlige alternativer til gester:** alt som gjøres med sveip eller langt trykk, skal også ha en synlig knapp eller menyvalg (legg til, flytt, åpne handlinger). Gestene beholdes som snarveier.
+14. **Treffflater:** mål faktiske klikkflater på mobil og ved zoom. Mål 44 × 44 px for hovedkontroller, aldri under 24 × 24 px (WCAG 2.2 AA).
+15. **Settbygger:** enkel start (varighet + kurve + «Lag»), med avanserte valg samlet bak «Flere valg». Bekreft at rekordbox-import og filkoblinger faktisk virker.
+
+**Stille hint (ikke rundtur)**
+16. Hint dukker opp når de trengs, kan lukkes og vises bare én gang:
+    - etter første avspilling: «Lagre låten i en liste» ved spillelisteknappen
+    - første DJ-lås (punkt 8)
+    - første gang Umastret vises
+
+    Ingen modaler og ingen automatisk lagring. **Innstillinger → Hjelp → Vis hint igjen.** Fullførte hint lagres per enhet, uten sensitive data.
+
+**Personvern i logging:** logg bare nødvendige hendelser. Aldri PIN, tokens, mottakernavn, lyttelenker eller rå søketekst.
+
+**Tester:**
+- Tomt bibliotek uten terminal.
+- Mobilparing med feil adresse, feil PIN, avslått PC og avbrutt nett.
+- Tilbake, Frem og oppdatering uten at lyden stopper.
+- At v4 ikke endrer en låst v3, mens «følg nyeste» oppdateres.
+- Søk med 0/1/30/>30 treff og tastatur.
+- Kontrast og fokus i alle skins over tre ulike cover.
+- 200 % zoom, skjermleser-etiketter og redusert bevegelse.
+- At hint vises én gang og kan vises igjen.
+
+**Ferdig når:** en ny enhet kan kobles til uten hjelp fra Knut eller terminal. Alle visninger har egen lenke som virker. En låst versjon i et sett overlever en ny bounce. Knut har testet de viktigste oppgavene på mobil og PC og ikke stått fast.
 
 ## Del 15 – Oppdatering av Android-appen
 
@@ -1139,4 +1195,4 @@ Tailscale-adressen virker bare for Knuts egne enheter og skal **aldri** havne i 
 
 ## Avslutning
 
-Oppdater README (oppsett på Windows, desktop-app, LAN-modus, markør-editor, analyse-treffrate, ytelsestall) og `status_bundle.txt`, commit per del med beskrivende meldinger på egen gren, spør før push, og gi Knut en kort oppsummering: hva som virker, hva som er målt, og hva som gjenstår.
+Oppdater README (oppsett på Windows, desktop-app, LAN-modus, markør-editor, analyse-treffrate, ytelsestall), commit per del med beskrivende meldinger på egen gren, spør før push, og gi Knut en kort oppsummering: hva som virker, hva som er målt, og hva som gjenstår.

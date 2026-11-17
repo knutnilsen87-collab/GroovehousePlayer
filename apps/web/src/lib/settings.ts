@@ -72,7 +72,7 @@ export const settingsApi = {
   checkDir: (dir: string) => call<{ ok: boolean; error?: string; audioFiles?: number; many?: boolean }>('/api/settings/check-dir', 'POST', { dir }),
   preview: (patch: Partial<Editable>) => call<{ rows: PreviewRow[]; total: number; copyright: string | null }>('/api/settings/preview', 'POST', patch),
   recolor: () => call<{ changed: number; skipped: number }>('/api/settings/recolor', 'POST', {}),
-  restartWatcher: () => call<{ watcher: WatcherStatus | null }>('/api/settings/watcher/restart', 'POST', {}),
+  restartWatcher: (catchUp = false) => call<{ watcher: WatcherStatus | null }>('/api/settings/watcher/restart', 'POST', { catchUp }),
   restartServer: () => call<{ ok: true }>('/api/settings/server/restart', 'POST', {}),
   setLan: (enabled: boolean) => call<{ ok: true; restarting: boolean }>('/api/settings/lan', 'POST', { enabled }),
   setPin: (pin: string, repeat: string) => call<{ ok: true; restarting: boolean }>('/api/settings/lan/pin', 'POST', { pin, repeat })

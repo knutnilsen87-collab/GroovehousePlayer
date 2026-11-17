@@ -41,6 +41,10 @@ describe.skipIf(!hasFfmpeg)('watcher (krever ffmpeg)', () => {
       const deadline = Date.now() + 40_000;
       while (got.length === 0 && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
       await w.idle();
+      // Del 27: importstatusen viser siste import («Ny eksport · v2») og ingen innhenting
+      const st = w.status();
+      expect(st.recent.map((r) => `${r.slug}/${r.variant}/v${r.version}`)).toEqual(['would-you-run/extended/v2']);
+      expect(st.scan).toBeNull();
     } finally {
       await w.close();
     }

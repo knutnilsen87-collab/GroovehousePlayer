@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { BUILTIN_SMART, bpmLabel, isDraft, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
+import { BUILTIN_SMART, bpmLabel, isDraft, versionName, camelotNeighbors, formatTime, keyShort, mixesWith, paletteToCssVars, parseCamelot } from '@gv/shared/web';
 import { SetBuilder } from '../components/SetBuilder';
 import { assetUrl, type LoadedAsset, type Track } from '../lib/catalog';
 import { fetchListens, type ListenLog } from '../lib/library';
@@ -12,6 +12,7 @@ import { ChevronDownIcon, PlayIcon } from '../components/Icons';
 import { buildListView, ColorDot, ListCover } from '../components/Playlists';
 import { useFavorites } from '../lib/library';
 import { skinTrackVars } from '../lib/skin';
+import { homeNews } from '../lib/home';
 
 /**
  * Del 14: nye sider, enkle i første versjon. Hjem, DJ-verktøy og Analyse (egne avspillinger).
@@ -78,16 +79,23 @@ function Row({ t, onPlay, sub }: { t: Track; onPlay: PlayFn; sub?: string }) {
 
 // ---------------------------------------------------------------- Hjem
 
+const unheardOf = (t: Track, log: ListenLog | null | undefined) => {
+  const at = log?.bySlug[t.slug]?.lastAt;
+  return !at || at < t.main.manifest.createdAt;
+};
+
 export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[]; onPlay: PlayFn; onOpenList: (id: string) => void; table?: ReactNode }) {
   const [playedOpen, setPlayedOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
   const [listsOpen, setListsOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
-  const log = useListens(playedOpen);
+  const log = useListens(true);
   const playlists = usePlaylists((s) => s.playlists);
   useFavorites((s) => s.slugs);
   const { queue, index, positionMs } = usePlayer();
   const cur = queue[index];
   const bySlug = useMemo(() => new Map(tracks.map((t) => [t.slug, t])), [tracks]);
   const recentlyAdded = useMemo(() => [...tracks].sort((a, b) => b.main.manifest.createdAt.localeCompare(a.main.manifest.createdAt)).slice(0, 8), [tracks]);
+  // Del 27 pkt. 9: siste eksport og uhørte nye versjoner først (etter versjonens importtid)
+  const news = useMemo(() => homeNews(tracks, (slug) => log?.bySlug[slug]?.lastAt), [tracks, log]);
   const recentlyPlayed = (log?.recent ?? []).flatMap((r) => bySlug.get(r.slug) ?? []).slice(0, 10);
   // Fortsett: låta i køen (pauset), ellers et live-sett med lagret posisjon
   const resume = cur
@@ -106,6 +114,25 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
       <div className="lg:hidden">
         <H1>Hjem</H1>
       </div>
+      {(news.latest || news.unheard.length > 0) && (
+        <section aria-labelledby="gv-home-new" className="gv-panel-quiet flex flex-col gap-2 px-4 py-3.5">
+          <h2 id="gv-home-new" className="gv-label m-0">
+            Nytt fra Reason
+          </h2>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {news.latest && (
+              <Row
+                t={news.latest}
+                onPlay={onPlay}
+                sub={`Siste eksport · ${versionName(news.latest.main.manifest)} · ${new Date(news.latest.main.manifest.createdAt).toLocaleString('nb-NO', { dateStyle: 'short', timeStyle: 'short' })}${unheardOf(news.latest, log) ? ' · ikke hørt' : ''}`}
+              />
+            )}
+            {news.unheard.map((t) => (
+              <Row key={t.slug} t={t} onPlay={onPlay} sub={`${(t.main.manifest.version % 1000) > 1 ? `Ny versjon · ${versionName(t.main.manifest)}` : 'Ny'} · ikke hørt · ${new Date(t.main.manifest.createdAt).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short' })}`} />
+            ))}
+          </ul>
+        </section>
+      )}
       {/* Mobil: fortsett-kort (desktop har dekket øverst) */}
       {resume?.t && (
         <section aria-label="Fortsett der du slapp" className="gv-panel flex items-center gap-4 p-3 lg:hidden" style={skinTrackVars(resume.a.manifest.palette) as CSSProperties}>
@@ -122,8 +149,6 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
           </button>
         </section>
       )}
-
-      {table}
 
       {recentlyPlayed.length > 0 && (
         <section aria-labelledby="gv-home-played" className="gv-panel-quiet px-4 py-3.5">
@@ -163,6 +188,8 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
           )}
         </section>
       )}
+
+      {table}
 
       <section aria-labelledby="gv-home-added" className="lg:hidden">
         <h2 id="gv-home-added" className="gv-label m-0 mb-2">

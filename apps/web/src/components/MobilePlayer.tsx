@@ -1,3 +1,4 @@
+import { useDialog } from '../lib/dialog';
 import { useEffect, useRef, useState } from 'react';
 import { formatTimeMs, isDraft, sectionAt } from '@gv/shared/web';
 import { assetUrl, useFullAsset, variantName, type LoadedAsset, type Track } from '../lib/catalog';
@@ -26,10 +27,14 @@ export function FullPlayer({ cur: curIn, track, tracks, onClose, onPlay, onMore 
   const single = m.kind === 'set' && now?.refSlug ? tracks.find((x) => x.slug === now.refSlug && x.main.manifest.kind === 'track') : undefined;
   const coverSize = Math.round(Math.min(window.innerWidth - 48, window.innerHeight * 0.34, 420));
   const isLyricsStage = tab === 'lyrics';
+  // Del 27 pkt. 11: fokus inn i spilleren, Esc lukker, og fokus tilbake til minispilleren
+  const dialogRef = useDialog<HTMLDivElement>(onClose);
 
   if (isLyricsStage) {
     return (
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Spiller: ${m.title}`}
@@ -88,7 +93,7 @@ export function FullPlayer({ cur: curIn, track, tracks, onClose, onPlay, onMore 
   }
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Spiller: ${m.title}`} className="gv-scroll fixed inset-0 z-40 flex flex-col overflow-y-auto bg-obsidian px-5 [&>*]:shrink-0 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] lg:hidden">
+    <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Spiller: ${m.title}`} className="focus:outline-none gv-scroll fixed inset-0 z-40 flex flex-col overflow-y-auto bg-obsidian px-5 [&>*]:shrink-0 pb-[max(20px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))] lg:hidden">
       <div aria-hidden="true" className="pointer-events-none fixed left-1/2 top-[24%] h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: 'radial-gradient(closest-side, var(--glow), var(--glow-2) 55%, transparent)', opacity: 'calc(0.55 + var(--sub, 0) * 0.35)' }} />
       <div className="relative flex items-center justify-between">
         <button type="button" onClick={onClose} aria-label="Lukk spilleren" className="flex h-11 w-11 items-center justify-center rounded-full text-soft">

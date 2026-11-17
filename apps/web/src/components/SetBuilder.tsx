@@ -29,6 +29,7 @@ import { toastError, usePlaylists, useToast } from '../lib/playlists';
 import { CoverArt } from './CoverArt';
 import { Panel } from './Deck';
 import { DraftBadge } from './Draft';
+import { useLockConfirm } from './DjLock';
 import { TransitionFx } from './FxChip';
 import { fxCuesFor, transitionPreset, useFx } from '../lib/fx';
 
@@ -248,9 +249,16 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
   const save = async () => {
     try {
       const st = usePlaylists.getState();
+      const listName = name || `Sett ${durationMin} min`;
+      // Del 27 pkt. 8: «DJ-klar» – hver låt låses til versjonen settet ble bygget med (bekreftes først)
+      const items = cur!.tracks.flatMap((t) => {
+        const a = byId.get(t.id);
+        return a ? [{ slug: t.slug, variant: t.variant, version: a.manifest.version, title: a.manifest.title, variantLabel: a.manifest.variantLabel ?? null }] : [];
+      });
+      if (!(await useLockConfirm.getState().confirm(listName, items.map(({ title, variantLabel, version }) => ({ title, variantLabel, version }))))) return;
       const created = await st.create(
-        name || `Sett ${durationMin} min`,
-        cur!.tracks.map((t) => ({ slug: t.slug, variant: t.variant, version: t.draft ? (byId.get(t.id)?.manifest.version ?? null) : null }))
+        listName,
+        items.map(({ slug, variant, version }) => ({ slug, variant, version }))
       );
       const p = await st.setPlan(created.id, 'set');
       useToast.getState().show(`Lagret under Live-sett → Planlagte sett: «${p.name}»`);

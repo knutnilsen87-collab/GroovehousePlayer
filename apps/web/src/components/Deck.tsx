@@ -1,4 +1,5 @@
 import { haptic, useSeedSet } from '../lib/seedset';
+import { linkClick } from '../lib/nav';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { bpmConfidenceText, bpmUncertain, camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
 import { assetUrl, uploadAssetCover, useFullAsset, variantName, type LoadedAsset } from '../lib/catalog';
@@ -422,7 +423,7 @@ function AudioSettings({ cur }: { cur: LoadedAsset | undefined }) {
           ) : (
             <p className="m-0 text-muted">Ingen låt spilles.</p>
           )}
-          <a href="/studio/innstillinger" className="text-accent no-underline hover:underline">
+          <a href="/studio/innstillinger" onClick={linkClick} className="text-accent no-underline hover:underline">
             Målnivå og mer i Innstillinger →
           </a>
         </div>
@@ -590,7 +591,7 @@ export function LyricsView({ cur, className = '', stage = false, idle }: { cur: 
     return (
       <p className="m-0 text-sm text-muted">
         Ingen tekst ennå –{' '}
-        <a href={`/studio#arkiv-${cur.manifest.slug}`} className="text-accent no-underline hover:underline">
+        <a href={`/studio#arkiv/${cur.manifest.slug}`} onClick={linkClick} className="text-accent no-underline hover:underline">
           legg til eller auto-transkriber i Studio
         </a>
       </p>
@@ -777,7 +778,7 @@ export function NowPanel({ cur, onMore, extra, idle }: { cur: LoadedAsset; onMor
         <span title="Spilles på denne enheten" className="hidden h-9 w-9 items-center justify-center text-soft xl:flex">
           <OutputIcon width={19} height={19} />
         </span>
-        <a href="/studio" aria-label="Åpne i Studio" title="Åpne i Studio" className="flex h-9 w-9 items-center justify-center rounded-lg text-soft hover:text-ink-strong">
+        <a href="/studio" onClick={linkClick} aria-label="Åpne i Studio" title="Åpne i Studio" className="flex h-9 w-9 items-center justify-center rounded-lg text-soft hover:text-ink-strong">
           <ScreenIcon width={19} height={19} />
         </a>
         <button

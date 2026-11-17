@@ -35,6 +35,9 @@ import { useUi, type ExtraAction } from '../lib/ui';
 import { serverBase } from '../lib/connection';
 import { useFavorites } from '../lib/library';
 import { DraftBadge } from './Draft';
+import { useLockConfirm } from './DjLock';
+import { useDialog } from '../lib/dialog';
+import { lockVersionLabel } from '../lib/lock';
 import { CoverArt } from './CoverArt';
 import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
 
@@ -139,6 +142,23 @@ function favoriteAssets(tracks: Track[]): LoadedAsset[] {
   return useFavorites.getState().slugs.flatMap((s) => bySlug.get(s) ?? []);
 }
 
+/**
+ * Del 27 pkt. 8: en liste som blir et sett, får versjonene låst («DJ-klar»), etter bekreftelse.
+ * Oppføringer som allerede er låst, beholder sin versjon.
+ */
+async function makeSetPlan(id: string, v: ListView): Promise<void> {
+  const toLock = v.rows.filter((r): r is typeof r & { asset: LoadedAsset } => r.entry.version == null && !!r.asset);
+  const ok = await useLockConfirm.getState().confirm(
+    v.name,
+    toLock.map((r) => ({ title: r.asset.manifest.title, variantLabel: r.asset.manifest.variantLabel ?? null, version: r.asset.manifest.version }))
+  );
+  if (!ok) return;
+  const st = usePlaylists.getState();
+  if (toLock.length) await st.lockVersions(id, toLock.map((r) => ({ entryId: r.entry.id, version: r.asset.manifest.version })));
+  await st.setPlan(id, 'set');
+  useToast.getState().show(toLock.length ? `«${v.name}» er et sett nå. ${toLock.length} ${toLock.length === 1 ? 'versjon er låst' : 'versjoner er låst'}.` : `«${v.name}» er et sett nå.`);
+}
+
 export function buildListView(id: string, playlists: Playlist[], tracks: Track[], vctx?: VersionCtx): ListView | null {
   // Del 16: smarte lister (også de innebygde) bruker bare release-klare låter
   const releaseTracks = tracks.filter((t) => !isDraft(t.main.manifest));
@@ -216,11 +236,7 @@ export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose
   const lockable = items.length === 1 && !!items[0]!.variant;
   const final = items.map((i) => (lockable && !lock ? { ...i, variant: null } : i));
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  const ref = useDialog<HTMLDivElement>(onClose);
 
   const pick = async (p: Playlist) => {
     setBusy(true);
@@ -255,7 +271,10 @@ export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose
       <li key={p.id}>
         <button type="button" disabled={busy} onClick={() => void pick(p)} className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-ink-strong hover:bg-white/[0.05] active:bg-white/[0.08] disabled:opacity-50 lg:min-h-10 lg:text-sm">
           <ColorDot color={c} />
-          <span className="min-w-0 flex-1 truncate">{p.name}</span>
+          <span className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate">{p.name}</span>
+            {p.plan === 'set' && <span className="text-[11px] text-muted">Sett · versjonen låses</span>}
+          </span>
           <span className="tabular text-xs text-muted">{p.entries.length}</span>
         </button>
       </li>
@@ -265,6 +284,8 @@ export function AddToPlaylistSheet({ items, label, variantLabel, anchor, onClose
   return (
     <div className="fixed inset-0 z-50 bg-black/55 backdrop-blur-[2px]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Legg til i spilleliste"
@@ -321,9 +342,10 @@ const SheetHeading = ({ children }: { children: ReactNode }) => <h3 className="m
 // ---------------------------------------------------------------- Ikonvelger (Groovehouse-ikonpakka)
 
 export function IconPicker({ value, hasCover, onPick, onClose }: { value: string | null; hasCover: boolean; onPick: (id: string | null) => void; onClose: () => void }) {
+  const ref = useDialog<HTMLDivElement>(onClose);
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Velg ikon" className="fixed inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[12vh] lg:w-[560px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Velg ikon" className="fixed inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[12vh] lg:w-[560px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="m-0 text-base font-semibold text-ink-strong">Velg ikon</h2>
           <button type="button" onClick={onClose} className="h-10 rounded-full px-3 text-sm text-muted hover:text-ink">
@@ -367,10 +389,11 @@ export function ColorPicker({ value, onPick, onClose }: { value: string; onPick:
   const [group, setGroup] = useState<'neon' | 'candy'>(colorById(value).group);
   const [hover, setHover] = useState<PlaylistColor | null>(null);
   const shown = hover ?? colorById(value);
+  const ref = useDialog<HTMLDivElement>(onClose);
   // Portal til body: lista ligger i <main> (egen stablingskontekst), og arket må over minispilleren og bunnmenyen.
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label="Velg farge" className="fixed inset-x-0 bottom-0 rounded-t-2xl bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[20vh] lg:w-[380px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Velg farge" className="fixed inset-x-0 bottom-0 rounded-t-2xl bg-surface p-4 pb-[max(16px,env(safe-area-inset-bottom))] lg:bottom-auto lg:left-1/2 lg:top-[20vh] lg:w-[380px] lg:-translate-x-1/2 lg:rounded-2xl lg:border">
         <div role="tablist" aria-label="Fargegruppe" className="mb-4 flex gap-2">
           {(Object.keys(PLAYLIST_COLOR_GROUPS) as Array<'neon' | 'candy'>).map((g) => (
             <button key={g} type="button" role="tab" aria-selected={group === g} onClick={() => setGroup(g)} className={`h-9 rounded-full px-4 text-xs font-semibold ${group === g ? 'bg-white/[0.12] text-ink-strong' : ' text-muted'}`}>
@@ -731,7 +754,7 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
                         ...(v.kind === 'manual'
                           ? (([null, 'album', 'set'] as const)
                               .filter((pl) => (v.playlist?.plan ?? null) !== pl)
-                              .map((pl) => [`Gjør til ${PLAN_NAMES[pl ?? 'none'].toLowerCase()}`, () => void usePlaylists.getState().setPlan(id, pl).catch(toastError)]) as Array<[string, () => void]>)
+                              .map((pl) => [`Gjør til ${PLAN_NAMES[pl ?? 'none'].toLowerCase()}`, () => void (pl === 'set' ? makeSetPlan(id, v) : usePlaylists.getState().setPlan(id, pl)).catch(toastError)]) as Array<[string, () => void]>)
                           : []),
                         // Del 26: albumbyggeren med denne planen som utvalg
                         ...(v.playlist?.plan === 'album' ? ([['Bygg album', () => useAlbumUi.getState().show({ planId: id })]] as Array<[string, () => void]>) : []),
@@ -1043,6 +1066,7 @@ function ManualRows({ v, playingId, onPlay, vctx }: { v: ListView; playingId: st
 function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry<LoadedAsset>; vctx?: VersionCtx; onRemove: () => void }) {
   const t = r.track;
   const [sheet, setSheet] = useState(false);
+  const sheetRef = useDialog<HTMLDivElement>(() => setSheet(false), { active: sheet });
   const options = t && vctx ? lockOptions(t, vctx.index) : [];
   const current = lockValue(r.entry.variant, r.entry.version);
   // Står den låste versjonen ikke lenger i indeksen, vises den likevel som valgt (med forklaring i raden).
@@ -1066,14 +1090,17 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
     b.addEventListener('gv-open', open);
     return () => b.removeEventListener('gv-open', open);
   }, [r.asset]);
-  const lockLabel = r.entry.version != null ? `v${r.entry.version}` : r.entry.variant ? 'låst' : null;
+  // Del 27 pkt. 7: versjonsstatus på hver oppføring – «Følger nyeste» eller «Låst til v3»
+  const locked = r.entry.version != null;
+  const lockLabel = locked ? `Låst til ${lockVersionLabel(r.entry.version!)}` : r.entry.variant ? `Alltid ${r.asset ? variantName(r.asset) : r.entry.variant}` : 'Følger nyeste';
   return (
     <>
-      {lockLabel && (
-        <span className="flex-none rounded bg-white/[0.04] px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[1px] text-soft" title={all.find((o) => o.value === current)?.label}>
-          {lockLabel}
-        </span>
-      )}
+      <span
+        className={`flex-none whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-semibold ${locked ? 'bg-accent/[0.12] text-ink-strong' : 'bg-white/[0.04] text-soft'}`}
+        title={locked ? 'Denne versjonen spilles også etter en ny bounce' : r.entry.variant ? 'Nyeste versjon av denne varianten' : 'Nyeste versjon spilles'}
+      >
+        {lockLabel}
+      </span>
       {all.length > 1 && (
         <label className="hidden items-center lg:flex">
           <span className="sr-only">Versjon for {t?.main.manifest.title ?? r.entry.slug}</span>
@@ -1098,7 +1125,7 @@ function EntryControls({ p, r, vctx, onRemove }: { p: Playlist; r: ResolvedEntry
       {sheet &&
         createPortal(
         <div className="fixed inset-0 z-50 bg-black/55 lg:hidden" onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) setSheet(false); }}>
-          <div role="dialog" aria-modal="true" aria-label="Versjon og variant" className="fixed inset-x-0 bottom-0 max-h-[75svh] overflow-y-auto rounded-t-2xl bg-surface px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
+          <div ref={sheetRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Versjon og variant" className="fixed inset-x-0 bottom-0 max-h-[75svh] overflow-y-auto rounded-t-2xl bg-surface px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
             <div aria-hidden="true" className="mx-auto mb-2 h-1 w-10 rounded-full bg-white/15" />
             <h2 className="m-0 px-3 pb-2 text-sm font-semibold text-ink-strong">{t?.main.manifest.title ?? r.entry.slug}</h2>
             <ul role="radiogroup" aria-label="Spill" className="m-0 list-none p-0">

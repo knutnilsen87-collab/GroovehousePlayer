@@ -19,7 +19,7 @@ import { importSkipped } from './import-actions';
 import { findBrandLogo, handleSkins } from './skins-store';
 import { handleFx } from './fx-store';
 import { BUILT_IN_SKIN_IDS } from '@gv/shared';
-import { handleDrops, type DropPublisher } from './drops-api';
+import { handleDrops, linkServiceStatus, type DropPublisher } from './drops-api';
 import { loadPlayback, savePoint } from './playback-store';
 import { readMarkersFile, writeJsonAtomic, writeMarkersFile } from './markers-file';
 import { addLearn, m3u, readLearn, recordedPairs, rekordboxXml, resolveItems, type ExportItem } from './sets';
@@ -160,6 +160,10 @@ export function createApiHandler(opts: ApiOptions) {
       return send(res, 200, saved);
     }
     // Del 13: personlig lytterlenke. Tokenet returneres én gang og lagres ikke her.
+    if (url.pathname === '/api/drops/status' && req.method === 'GET') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return send(res, 200, opts.publishDrop ? { available: true } : await linkServiceStatus());
+    }
     if (url.pathname === '/api/drops') {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
       return handleDrops({ mediaDir: opts.mediaDir, dataDir, publish: opts.publishDrop }, req, res);

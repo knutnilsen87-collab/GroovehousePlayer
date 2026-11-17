@@ -21,8 +21,23 @@ import { usePlayer } from '../lib/player';
 import { useSkin, useSkinId } from '../lib/skin';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
 import { skinTrackVars } from '../lib/skin';
+import { ImportStatusSheetHost, useImportWatch } from '../components/ImportStatus';
+import { folderProblems, progressOf } from '../lib/importStatus';
+import { linkClick } from '../lib/nav';
+import { useUi } from '../lib/ui';
 
 type View = 'drops' | 'archive' | 'sets' | 'album' | 'mobile' | 'settings';
+const STUDIO_URL: Record<View, string> = { drops: '/studio', archive: '/studio#arkiv', sets: '/studio#sett', album: '/studio#album', mobile: '/studio#mobil', settings: '/studio/innstillinger' };
+function studioViewFromUrl(): View {
+  if (typeof location === 'undefined') return 'drops';
+  if (location.pathname.startsWith('/studio/innstillinger')) return 'settings';
+  const h = decodeURIComponent(location.hash);
+  if (h === '#mobil') return 'mobile';
+  if (h === '#album') return 'album';
+  if (h === '#sett') return 'sets';
+  if (h.startsWith('#arkiv')) return 'archive';
+  return 'drops';
+}
 
 /** Ditt arbeidsbord. Gull er systemfarge her, men data og kontroll har prioritet. */
 export function CommandCenter() {
@@ -36,17 +51,16 @@ export function CommandCenter() {
   // /studio#mobil åpner Mobil-visningen direkte.
   // /studio#arkiv/<slug> (fra «⋯ → Åpne i Studio» i spilleren) åpner Arkiv og markerer låta.
   // /studio/innstillinger (del 8) er en egen adresse.
-  const [view, setViewState] = useState<View>(() =>
-    typeof location === 'undefined' ? 'drops' : location.pathname.startsWith('/studio/innstillinger') ? 'settings' : location.hash === '#mobil' ? 'mobile' : location.hash === '#album' ? 'album' : location.hash.startsWith('#arkiv') ? 'archive' : 'drops'
-  );
+  // Del 27 pkt. 5: hver Studio-visning har sin egen adresse (Tilbake/Frem og oppdatering gir samme visning)
+  const [view, setViewState] = useState<View>(studioViewFromUrl);
   const setView = (v: View) => {
     setViewState(v);
-    const want = v === 'settings' ? '/studio/innstillinger' : '/studio';
-    if (location.pathname !== want) history.pushState(null, '', want);
+    const want = STUDIO_URL[v];
+    if (location.pathname + location.hash !== want) history.pushState({ gv: true }, '', want);
   };
   useEffect(() => {
     void loadPlaybackSettings();
-    const onPop = () => setViewState(location.pathname.startsWith('/studio/innstillinger') ? 'settings' : 'drops');
+    const onPop = () => setViewState(studioViewFromUrl());
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
@@ -88,7 +102,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
   ];
   return (
     <aside className="flex max-w-[260px] flex-[1_1_220px] flex-col gap-7 bg-sunken px-[18px] py-6">
-      <Logo size={48} subtitle="COMMAND CENTER" />
+      <Logo size={48} subtitle="STUDIO" />
       <nav aria-label="Hovedmeny" className="flex flex-col gap-0.5">
         {items.map(({ id, label, Icon }) => {
           const active = view === id;
@@ -106,17 +120,35 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
           );
         })}
       </nav>
-      <a href="/" className="flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-sm text-muted no-underline hover:text-ink-strong">
+      <a href="/" onClick={linkClick} className="flex min-h-11 items-center gap-2.5 rounded-[10px] px-3 text-sm text-muted no-underline hover:text-ink-strong">
         ← Tilbake til spilleren
       </a>
-      <div className="mt-auto flex flex-col gap-1.5 rounded-xl bg-surface p-3.5">
-        <div className="flex items-center gap-2 text-xs font-semibold">
-          <span aria-hidden="true" className="h-2 w-2 rounded-full bg-accent shadow-[0_0_10px_var(--glow)]" />
-          {t.watcher}
-        </div>
-        <span className="text-[11px] text-muted">{t.watcherHint}</span>
-      </div>
+      <WatcherCard />
     </aside>
+  );
+}
+
+/** Del 27: importstatusen i stedet for en fast tekst (grønn = alt i orden, rød = mappe utilgjengelig, med årsak). */
+function WatcherCard() {
+  const s = useImportWatch();
+  const p = progressOf(s);
+  const problem = folderProblems(s)[0];
+  const { assets } = useCatalog();
+  return (
+    <div className="mt-auto flex flex-col gap-1.5 rounded-xl bg-surface p-3.5">
+      <div className="flex items-center gap-2 text-xs font-semibold">
+        <span aria-hidden="true" className={`h-2 w-2 rounded-full ${problem ? 'bg-[#FF8A7A]' : 'bg-accent shadow-[0_0_10px_var(--glow)]'}`} />
+        {t.watcher}
+      </div>
+      <span className="text-[11px] text-muted">
+        {!s ? 'Henter status …' : p.working ? `Ser etter låter …${p.total ? ` ${p.done} av ${p.total}` : ''}` : problem ? problem.reason : t.watcherHint}
+      </span>
+      <button type="button" onClick={() => useUi.getState().setImportOpen(true)} className="w-fit text-left text-[11px] font-semibold text-accent hover:underline">
+        Åpne importstatus
+      </button>
+      {/* Samme ark som i spilleren; Spill bruker Studio-spilleren */}
+      <ImportStatusSheetHost assets={assets} onPlay={(a) => usePlayer.getState().playFrom([a], 0)} />
+    </div>
   );
 }
 
@@ -154,7 +186,11 @@ function MobileView() {
         <div className="flex flex-col gap-2 rounded-2xl bg-surface p-5 text-sm">
           <p className="m-0 font-semibold">{t.mobileOff}</p>
           <p className="m-0 text-muted">
-            Kjør <code className="text-ink">pnpm vault:lan on</code> i prosjektmappa. Du velger en PIN, og Windows spør om brannmurregel for private nettverk.
+            Slå på Wi-Fi-modus under{' '}
+            <a href="/studio/innstillinger" onClick={linkClick} className="text-accent">
+              Innstillinger
+            </a>{' '}
+            på denne PC-en. Du velger en PIN, og Windows spør om brannmurregel for private nettverk.
           </p>
         </div>
       )}
@@ -540,7 +576,7 @@ function DropDetail({ drop, assets }: { drop: SeedDrop; assets: LoadedAsset[] })
   if (!asset) {
     return (
       <div className="min-w-0 flex-[999_1_520px] rounded-[18px] bg-surface p-6 text-sm text-muted">
-        Ingen av assetene i denne dropen er ingestet ennå. Kjør <code className="text-ink">pnpm gh-ingest fixtures/{drop.assetSlugs[0]}</code>.
+        Ingen av låtene i denne dropen er importert ennå. De dukker opp her når de er bouncet til eksportmappa (se «Åpne importstatus» i menyen).
       </div>
     );
   }
@@ -820,7 +856,14 @@ function ArchiveView({ assets, title, log, onSaved, index }: { assets: LoadedAss
           </p>
         </div>
       </div>
-      {assets.length === 0 && <p className="text-sm text-muted">Ingenting her ennå. Kjør «pnpm gh-ingest &lt;mappe&gt;».</p>}
+      {assets.length === 0 && (
+        <p className="text-sm text-muted">
+          Ingenting her ennå. Låter dukker opp her når de er bouncet til eksportmappa.{' '}
+          <button type="button" onClick={() => useUi.getState().setImportOpen(true)} className="font-semibold text-accent hover:underline">
+            Åpne importstatus
+          </button>
+        </p>
+      )}
       <ul className="m-0 flex list-none flex-col gap-2.5 p-0">
         {assets.map((a, i) => (
           <ArchiveRow

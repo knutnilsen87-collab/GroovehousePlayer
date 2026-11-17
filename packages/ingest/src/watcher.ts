@@ -50,6 +50,10 @@ export interface WatcherStatus {
   queued: number;
   busy: boolean;
   lastEvent: { at: string; text: string } | null;
+  /** Del 27: «Ser etter låter …» ved oppstart (innhentingen). null når den er ferdig. */
+  scan: { total: number; done: number } | null;
+  /** Del 27: de siste låtene som faktisk ble importert (nyeste først, maks 5). */
+  recent: Array<{ at: string; slug: string; variant: string | null; version: number; title: string }>;
 }
 
 export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void>; status: () => WatcherStatus; catchUp: () => Promise<number> } {
@@ -60,6 +64,13 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
   let busy: Promise<void> | null = null;
   let lastEvent: WatcherStatus['lastEvent'] = null;
   const event = (text: string) => (lastEvent = { at: new Date().toISOString(), text });
+  let scan: { total: number; done: number; files: Set<string> } | null = null;
+  const recent: WatcherStatus['recent'] = [];
+  const scanned = (job: Job) => {
+    if (!scan) return;
+    if (job.kind === 'flat' && scan.files.has(job.file)) scan.done++;
+    if (scan.done >= scan.total) scan = null;
+  };
 
   let lastTen = -1;
   const say = (step: string, status: StepStatus, detail?: string) => {
@@ -121,11 +132,17 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
           const m = res.manifest;
           log(`  ${res.status === 'unchanged' ? '↷ uendret' : '✓ klar'}: ${m.title}${m.variantLabel ? ` (${m.variantLabel})` : ''}${m.bpm ? ` – ${Math.round(m.bpm)} BPM` : ''}${m.key ? ` · ${m.key.camelot}` : ''}`);
           event(`${res.status === 'unchanged' ? 'uendret' : 'klar'}: ${m.title}${m.variantLabel ? ` (${m.variantLabel})` : ''}`);
-          if (res.status !== 'unchanged') opts.onIngested?.(res, sourceFile);
+          if (res.status !== 'unchanged') {
+            recent.unshift({ at: new Date().toISOString(), slug: m.slug, variant: m.variant ?? null, version: m.version, title: m.title });
+            recent.length = Math.min(recent.length, 5);
+            opts.onIngested?.(res, sourceFile);
+          }
         }
       } catch (err) {
         log(`  ✗ ${err instanceof Error ? err.message.split('\n')[0] : err}`);
         event(`feil: ${err instanceof Error ? err.message.split('\n')[0] : String(err)}`);
+      } finally {
+        scanned(job);
       }
     }
   }
@@ -140,7 +157,8 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
 
   const same = (a: Job, b: Job) => (a.kind === 'flat' && b.kind === 'flat' ? a.file === b.file : a.kind === 'folder' && b.kind === 'folder' && a.folder === b.folder);
 
-  function enqueue(file: string) {
+  /** Legger fila i køen. Returnerer stien som ble lagt inn (flat jobb), ellers null. */
+  function enqueue(file: string): string | null {
     const name = path.basename(file);
     const folder = path.dirname(file);
     let job: Job | null = null;
@@ -149,9 +167,10 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
     } else if (SUBFOLDER_TRIGGER.test(name)) {
       job = { kind: 'folder', folder };
     }
-    if (!job || queue.some((q) => same(q, job!))) return;
+    if (!job || queue.some((q) => same(q, job!))) return null;
     queue.push(job);
     kick();
+    return job.kind === 'flat' ? job.file : null;
   }
 
   const w: FSWatcher = watch(exportDir, {
@@ -170,7 +189,7 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
       queue.length = 0;
       await busy;
     },
-    status: () => ({ exportDir, queued: queue.length + (busy ? 1 : 0), busy: !!busy, lastEvent }),
+    status: () => ({ exportDir, queued: queue.length + (busy ? 1 : 0), busy: !!busy, lastEvent, scan: scan ? { total: scan.total, done: scan.done } : null, recent: [...recent] }),
     /**
      * Ved oppstart: legg alle lydfiler i mappa i køen. Duplikatsjekken (hash mot det som finnes) gjør at bare
      * filer som ikke er importert ennå blir importert, så ingenting blir liggende igjen etter en pause.
@@ -185,7 +204,17 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
         }
       };
       await walk(exportDir, 8);
-      for (const f of files.sort()) enqueue(f);
+      // Bare filer som faktisk havner i køen telles. Jobbene fullføres asynkront, så tellingen er på plass før første er ferdig.
+      const s = { total: 0, done: 0, files: new Set<string>() };
+      scan = s;
+      for (const f of files.sort()) {
+        const added = enqueue(f);
+        if (added) {
+          s.files.add(added);
+          s.total++;
+        }
+      }
+      if (scan === s && s.total === 0) scan = null;
       return files.length;
     },
     /** Venter til køen er tom (brukes i tester). */

@@ -26,6 +26,14 @@ export function SettingsView() {
   useEffect(() => {
     void load();
   }, [load]);
+  // «Velg eksportmappe» (del 27): rett til feltet, med fokus i det
+  const loaded = !!state;
+  useEffect(() => {
+    if (!loaded || location.hash !== '#eksport') return;
+    const el = document.getElementById('eksport');
+    el?.scrollIntoView({ block: 'start' });
+    el?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+  }, [loaded]);
 
   if (error && !state) return <p role="alert" className="text-[#F2A08F]">Kunne ikke hente innstillingene: {error}</p>;
   if (!state || !draft) return <p className="text-muted">Henter innstillinger…</p>;
@@ -252,9 +260,9 @@ function Devices({ app }: { app: SettingsState['app'] }) {
   );
 }
 
-function Section({ title, hint, right, children }: { title: string; hint?: string; right?: ReactNode; children: ReactNode }) {
+function Section({ title, hint, right, children, id }: { title: string; hint?: string; right?: ReactNode; children: ReactNode; id?: string }) {
   return (
-    <section aria-label={title} className="flex flex-col gap-4 rounded-2xl bg-surface p-6 sm:p-8">
+    <section id={id} aria-label={title} className="flex scroll-mt-4 flex-col gap-4 rounded-2xl bg-surface p-6 sm:p-8">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="flex flex-col gap-1">
           <h2 className="m-0 text-base font-semibold text-ink-strong">{title}</h2>
@@ -330,7 +338,7 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
     return () => clearTimeout(t);
   }, [draft.exportDir, dirty]);
   return (
-    <Section title="Eksport og watcher" hint="Mappa Reason bouncer til. Vault leser bare – ingenting flyttes eller slettes der.">
+    <Section id="eksport" title="Eksport og watcher" hint="Mappa Reason bouncer til. Vault leser bare – ingenting flyttes eller slettes der.">
       <label className="flex flex-col gap-1.5 text-xs font-medium text-soft">
         Eksportmappe
         <input value={draft.exportDir ?? ''} onChange={(e) => set('exportDir', e.target.value || null)} placeholder="D:\Musikk\REASONDONE" className={`${field} font-mono text-[13px]`} spellCheck={false} />
@@ -351,8 +359,7 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
           spellCheck={false}
         />
         <span className="text-xs leading-relaxed text-soft">
-          Alle mappene overvåkes, og ved oppstart tas filer som ikke er importert ennå, med. Låter som finnes fra før, importeres ikke på nytt (se «Hoppet over» i Studio). MP3 og M4A godtas her. Låter herfra blir <b className="font-mono text-ink-strong">UMASTRET</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Eldre filer tas inn med{' '}
-          <code className="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-ink-strong">pnpm gh-ingest --backlog --drafts</code>. Du kan også dra filer inn på ingest-kortet («Importer som umastret»).
+          Alle mappene overvåkes, og ved oppstart tas filer som ikke er importert ennå, med. Låter som finnes fra før, importeres ikke på nytt (se «Hoppet over» i Studio). MP3 og M4A godtas her. Låter herfra blir <b className="font-mono text-ink-strong">UMASTRET</b>: holdes atskilt fra de release-klare, normaliseres til målnivået i spilleren, og leses bare. Du kan også dra filer inn på ingest-kortet («Importer som umastret»).
         </span>
       </label>
       {check && !check.ok && (
@@ -363,7 +370,7 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
       {check?.ok && (
         <p className={`m-0 text-xs ${check.many ? 'text-accent' : 'text-soft'}`}>
           {check.audioFiles} lydfiler i mappa.
-          {check.many && ' Watcheren importerer bare nye filer. For å ta inn det som ligger der fra før, kjør «pnpm gh-ingest --backlog» i et terminalvindu (viser listen og spør før den starter).'}
+          {check.many && ' Etter lagring tas nye bouncer med med en gang. Filene som ligger der fra før, tas inn når du trykker «Ta inn det som ligger der» nedenfor (eller ved neste oppstart). Låter som finnes fra før, importeres ikke på nytt.'}
         </p>
       )}
       {dirty && (
@@ -393,12 +400,12 @@ function ExportSection({ state, draft, set, busy, dirty, onSave, onReload }: { s
           className={`${ghostBtn} ml-auto`}
           onClick={async () => {
             setRestarting(true);
-            await settingsApi.restartWatcher().catch(() => null);
+            await settingsApi.restartWatcher(true).catch(() => null);
             setRestarting(false);
             onReload();
           }}
         >
-          {restarting ? 'Starter…' : 'Start watcheren på nytt'}
+          {restarting ? 'Starter…' : 'Ta inn det som ligger der'}
         </button>
       </div>
     </Section>

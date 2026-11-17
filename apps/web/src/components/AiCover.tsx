@@ -1,3 +1,4 @@
+import { useDialog } from '../lib/dialog';
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';
 import { useToast } from '../lib/playlists';
@@ -107,6 +108,7 @@ export function AiCoverCard() {
 /** Ark: antall låter, kostnad (avgjøres i bulkIMG), stilmal og redigerbar prompt. Sender først etter OK. */
 export function AiCoverDialog() {
   const { req, close } = useAiCover();
+  const dialogRef = useDialog<HTMLDivElement>(close, { active: !!req });
   const [items, setItems] = useState<PreviewItem[] | null>(null);
   const [styles, setStyles] = useState<Array<{ id: string; name: string }>>([]);
   const [style, setStyle] = useState('echo-groove-nights');
@@ -129,7 +131,7 @@ export function AiCoverDialog() {
   }, [req, style]);
   if (!req) return null;
   return (
-    <div role="dialog" aria-modal="true" aria-label="Lag AI-cover" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={close}>
+    <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Lag AI-cover" className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 focus:outline-none" onClick={close}>
       <div className="gv-panel gv-glass flex max-h-[85vh] w-full max-w-2xl flex-col gap-3 overflow-hidden bg-sunken/90 p-5" onClick={(e) => e.stopPropagation()}>
         <h2 className="gv-display m-0 text-[22px] font-semibold text-ink-strong">Lag AI-cover</h2>
         {err && <p className="m-0 text-sm text-ink-strong">{err}</p>}

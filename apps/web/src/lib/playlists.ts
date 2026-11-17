@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { addTargets, isDraft, type Playlist, type PlaylistEntry } from '@gv/shared/web';
 import { useDraftConfirm } from '../components/Draft';
+import { useLockConfirm } from '../components/DjLock';
 import type { LoadedAsset } from './catalog';
 import { usePlayer } from './player';
 
@@ -11,14 +12,9 @@ import { usePlayer } from './player';
  * på nytt mot den ferske lista – aldri stille overskriving av det den andre enheten gjorde.
  */
 
-export interface AddItem {
-  slug: string;
-  variant: string | null;
-  /** null = følg nyeste versjon. */
-  version?: number | null;
-  /** Del 16: bare i klienten – låta er et utkast (sendes ikke til serveren). */
-  draft?: boolean;
-}
+import { entriesToSave, newlyLocked, type AddItem } from './lock';
+export type { AddItem } from './lock';
+export { entriesToSave, newlyLocked } from './lock';
 
 type PatchBody = { name?: string; entries?: PlaylistEntry[]; add?: AddItem[]; query?: string; color?: string; icon?: string | null; plan?: 'album' | 'set' | null };
 
@@ -65,6 +61,8 @@ interface State {
   restoreEntries: (id: string, removed: Array<{ entry: PlaylistEntry; index: number }>) => Promise<Playlist>;
   /** Lås oppføringen: variant (null = hovedvarianten) og versjon (null = følg nyeste). */
   setLock: (id: string, entryId: string, variant: string | null, version: number | null) => Promise<Playlist>;
+  /** Del 27: lås flere oppføringer til en bestemt versjon (når en liste blir et sett). */
+  lockVersions: (id: string, locks: Array<{ entryId: string; version: number }>) => Promise<Playlist>;
   setColor: (id: string, color: string) => Promise<Playlist>;
   /** Ikon fra ikonpakka (null = ingen, da vises eget cover eller mosaikken). */
   setIcon: (id: string, icon: string | null) => Promise<Playlist>;
@@ -164,7 +162,7 @@ export const usePlaylists = create<State>((set, get) => {
       }
     },
     create: async (name, items = []) => {
-      const { playlist } = await api<{ playlist: Playlist }>('POST', '/api/playlists', { name, entries: items });
+      const { playlist } = await api<{ playlist: Playlist }>('POST', '/api/playlists', { name, entries: entriesToSave(items, null) });
       replace(playlist);
       return playlist;
     },
@@ -189,7 +187,9 @@ export const usePlaylists = create<State>((set, get) => {
       // Del 16: utkast i en vanlig liste (ikke Album-/Sett-plan) – spør først
       const p = get().playlists.find((x) => x.id === id);
       if (p && !p.plan && items.some((i) => i.draft) && !(await useDraftConfirm.getState().confirm(id, p.name))) throw new CancelledError();
-      return mutate(id, () => ({ add: items.map(({ draft: _d, ...x }) => x) }));
+      // Del 27: i et sett låses versjonen – bekreft den før lagring
+      if (p && !(await useLockConfirm.getState().confirm(p.name, newlyLocked(items, p.plan)))) throw new CancelledError();
+      return mutate(id, () => ({ add: entriesToSave(items, p?.plan) }));
     },
     rename: (id, name) => mutate(id, (p) => (p.name === name ? null : { name }), (p) => ({ ...p, name })),
     move: (id, entryId, beforeId) => {
@@ -225,6 +225,12 @@ export const usePlaylists = create<State>((set, get) => {
     setLock: (id, entryId, variant, version) => {
       const change = (p: Playlist) => p.entries.map((e) => (e.id === entryId ? { ...e, variant, version } : e));
       return mutate(id, (p) => ({ entries: change(p) }), (p) => ({ ...p, entries: change(p) }));
+    },
+    lockVersions: (id, locks) => {
+      const by = new Map(locks.map((l) => [l.entryId, l.version]));
+      // Bare oppføringer som fortsatt følger nyeste; en lås satt et annet sted i mellomtiden vinner
+      const change = (p: Playlist) => p.entries.map((e) => (e.version == null && by.has(e.id) ? { ...e, version: by.get(e.id)! } : e));
+      return mutate(id, (p) => (p.entries.some((e) => e.version == null && by.has(e.id)) ? { entries: change(p) } : null), (p) => ({ ...p, entries: change(p) }));
     },
     setColor: (id, color) => mutate(id, (p) => (p.color === color ? null : { color }), (p) => ({ ...p, color })),
     setIcon: (id, icon) => mutate(id, (p) => ((p.icon ?? null) === icon ? null : { icon }), (p) => ({ ...p, icon })),
@@ -275,7 +281,9 @@ export function usePlaylistSync() {
 export const mostRecentTarget = (playlists: Playlist[]): Playlist | undefined => addTargets(playlists).recent[0];
 
 /** «Legg til det du ser»: en variant som er valgt/spilles låses, ellers følger oppføringen hovedvarianten. */
-export const itemFor = (a: LoadedAsset): AddItem => ({ slug: a.manifest.slug, variant: a.manifest.variant, version: null, ...(isDraft(a.manifest) ? { draft: true } : {}) });
+// Del 27: version er fortsatt null her («følg nyeste» i vanlige lister) – med vilje. Versjonen som vises, følger med
+// i `shown`, og låses når målet er et sett (entriesToSave), etter bekreftelse.
+export const itemFor = (a: LoadedAsset): AddItem => ({ slug: a.manifest.slug, variant: a.manifest.variant, version: null, shown: { version: a.manifest.version, title: a.manifest.title, variantLabel: a.manifest.variantLabel ?? null }, ...(isDraft(a.manifest) ? { draft: true } : {}) });
 
 /** Brukeren avbrøt (f.eks. «legg til utkast likevel?» → Avbryt). Vises ikke som feil. */
 export class CancelledError extends Error {

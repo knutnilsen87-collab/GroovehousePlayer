@@ -6,6 +6,7 @@ import { toastError, useToast } from '../lib/playlists';
 import { canReveal, canShareFiles, fetchShareFile, logShare, revealInExplorer, shareFetched, type Fetched } from '../lib/share';
 import { isApp } from '../lib/platform';
 import { isDesktop, useUi } from '../lib/ui';
+import { useDialog } from '../lib/dialog';
 import { CoverArt } from './CoverArt';
 
 const KINDS: Array<{ kind: ShareKind; label: string; hint: string }> = [
@@ -39,20 +40,39 @@ function ShareSheet() {
   const draft = isDraft(m);
   const [draftOk, setDraftOk] = useState(false);
   const [mode, setMode] = useState<'link' | 'file'>('link');
+  // Del 27 pkt. 10: sjekk om lenketjenesten faktisk svarer før arket fylles ut. Er den ikke tilgjengelig, vises fila først.
+  const [svc, setSvc] = useState<'checking' | { available: true } | { available: false; detail: string }>('checking');
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/drops/status', { cache: 'no-store' })
+      .then((r) => (r.ok ? (r.json() as Promise<{ available: boolean; detail?: string }>) : Promise.reject(new Error(String(r.status)))))
+      .then((s) => {
+        if (!alive) return;
+        if (s.available) setSvc({ available: true });
+        else {
+          setSvc({ available: false, detail: s.detail ?? 'Lenketjenesten er ikke tilgjengelig.' });
+          setMode('file');
+        }
+      })
+      .catch(() => {
+        if (!alive) return;
+        // Fikk ikke sjekket (f.eks. eldre Vault): si det som det er, ikke at tjenesten er nede
+        setSvc({ available: false, detail: 'Fikk ikke sjekket lenketjenesten fra denne enheten.' });
+        setMode('file');
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const linkOk = svc !== 'checking' && svc.available;
   const [recipient, setRecipient] = useState('');
   const [link, setLink] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
   const fileName = shareFileName({ artist: m.artist, title: draft ? draftTitle(m.title) : m.title, variantLabel: m.variantLabel, kind });
   const blocked = draft && !draftOk;
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && close();
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      abort.current?.abort();
-    };
-  }, [close]);
+  const ref = useDialog<HTMLDivElement>(close);
+  useEffect(() => () => abort.current?.abort(), []);
 
   const choose = (k: ShareKind) => {
     abort.current?.abort();
@@ -119,6 +139,8 @@ function ShareSheet() {
   return createPortal(
     <div className="fixed inset-0 z-50 bg-black/55" onMouseDown={(e) => e.target === e.currentTarget && close()}>
       <div
+        ref={ref}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`Del ${m.title}`}
@@ -135,13 +157,18 @@ function ShareSheet() {
         </div>
 
         <div className="mb-3 grid grid-cols-2 gap-2">
-          <button type="button" onClick={() => setMode('link')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'link' ? 'bg-accent text-on-accent' : ' text-ink'}`}>
-            Del lenke
+          <button type="button" aria-pressed={mode === 'link'} disabled={!linkOk} onClick={() => setMode('link')} className={`h-11 rounded-full text-sm font-semibold disabled:opacity-40 ${mode === 'link' ? 'bg-accent text-on-accent' : ' text-ink'}`}>
+            {svc === 'checking' ? 'Sjekker lenke …' : 'Del lenke'}
           </button>
-          <button type="button" onClick={() => setMode('file')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'file' ? 'bg-accent text-on-accent' : ' text-ink'}`}>
+          <button type="button" aria-pressed={mode === 'file'} onClick={() => setMode('file')} className={`h-11 rounded-full text-sm font-semibold ${mode === 'file' ? 'bg-accent text-on-accent' : ' text-ink'}`}>
             Send fil
           </button>
         </div>
+        {svc !== 'checking' && !svc.available && (
+          <p role="status" className="m-0 mb-3 rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-soft">
+            <b className="text-ink">Send fil i stedet.</b> {svc.detail} Lenker krever lytter-tjenesten (del 13).
+          </p>
+        )}
         {mode === 'link' ? (
           <div className="flex flex-col gap-2">
             <p className="m-0 text-xs text-muted">Én personlig lenke. Mottakeren trykker og hører, uten app og uten Tailscale. Anbefalt.</p>
@@ -199,7 +226,7 @@ function ShareSheet() {
 
         <div className="mt-4 flex flex-col gap-2">
           {mode === 'link' ? (
-            <button type="button" disabled={blocked || !recipient.trim() || linkBusy} onClick={() => (link ? void navigator.clipboard.writeText(link).then(() => useToast.getState().show('Lenken er kopiert')).catch(() => setError('Kunne ikke kopiere')) : void makeLink())} className="h-12 rounded-full bg-accent text-sm font-semibold text-on-accent disabled:opacity-40">
+            <button type="button" disabled={blocked || !recipient.trim() || linkBusy || !linkOk} onClick={() => (link ? void navigator.clipboard.writeText(link).then(() => useToast.getState().show('Lenken er kopiert')).catch(() => setError('Kunne ikke kopiere')) : void makeLink())} className="h-12 rounded-full bg-accent text-sm font-semibold text-on-accent disabled:opacity-40">
               {linkBusy ? 'Lager lenken …' : link ? 'Kopier lenke' : 'Lag lenke'}
             </button>
           ) : progress ? (

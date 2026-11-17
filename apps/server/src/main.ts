@@ -138,11 +138,14 @@ async function main() {
     mediaDir,
     port: () => port,
     watcherStatus: () => watcher?.status() ?? null,
-    restartWatcher: async () => {
+    draftWatcherStatus: () => draftWatchers.map((w) => w.status()),
+    restartWatcher: async (o) => {
       await watcher?.close().catch(() => {});
       for (const w of draftWatchers) await w.close().catch(() => {});
       watcher = startWatch();
       draftWatchers = startDraftWatch();
+      // Del 27: «Prøv igjen» etter at disken er koblet til – ta med det som kom mens mappa var borte
+      if (o?.catchUp) for (const w of [watcher, ...draftWatchers]) if (w) void w.catchUp().catch(() => 0);
       return watcher?.status() ?? null;
     },
     firewallRule: firewallRuleExists,
