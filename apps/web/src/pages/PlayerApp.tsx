@@ -1,3 +1,4 @@
+import { AlbumBuilderSheet } from '../components/AlbumBuilder';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { bpmLabel, formatTime, isDraft, keyShort, matchesStatus, moreLikeThis, NEUTRAL_PALETTE, toSbTracks, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
@@ -324,6 +325,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
           </button>
         </header>
         <ResumeBanner tracks={tracks} />
+        <AlbumBuilderSheet assets={assets} />
 
         {loading && tracks.length === 0 ? (
           <LoadingVault onRetry={reload} error={catalogError} />

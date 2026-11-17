@@ -1,3 +1,4 @@
+import { AlbumBuilder, AlbumBuilderSheet } from '../components/AlbumBuilder';
 import { FullAsset } from '../components/FullAsset';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { computeCoverage, formatTime, paletteToCssVars, withAlpha, type AccessTier, type AssetManifest, type Palette, isDraft, skinPalette, versionName } from '@gv/shared/web';
@@ -21,7 +22,7 @@ import { useSkin, useSkinId } from '../lib/skin';
 import { SEED_DROPS, type SeedDrop, type SeedRecipient } from '../lib/seed';
 import { skinTrackVars } from '../lib/skin';
 
-type View = 'drops' | 'archive' | 'sets' | 'mobile' | 'settings';
+type View = 'drops' | 'archive' | 'sets' | 'album' | 'mobile' | 'settings';
 
 /** Ditt arbeidsbord. Gull er systemfarge her, men data og kontroll har prioritet. */
 export function CommandCenter() {
@@ -36,7 +37,7 @@ export function CommandCenter() {
   // /studio#arkiv/<slug> (fra «⋯ → Åpne i Studio» i spilleren) åpner Arkiv og markerer låta.
   // /studio/innstillinger (del 8) er en egen adresse.
   const [view, setViewState] = useState<View>(() =>
-    typeof location === 'undefined' ? 'drops' : location.pathname.startsWith('/studio/innstillinger') ? 'settings' : location.hash === '#mobil' ? 'mobile' : location.hash.startsWith('#arkiv') ? 'archive' : 'drops'
+    typeof location === 'undefined' ? 'drops' : location.pathname.startsWith('/studio/innstillinger') ? 'settings' : location.hash === '#mobil' ? 'mobile' : location.hash === '#album' ? 'album' : location.hash.startsWith('#arkiv') ? 'archive' : 'drops'
   );
   const setView = (v: View) => {
     setViewState(v);
@@ -62,6 +63,11 @@ export function CommandCenter() {
           <DropsView assets={assets} log={log} onRefresh={refresh} />
         ) : view === 'mobile' ? (
           <MobileView />
+        ) : view === 'album' ? (
+          <>
+            <AlbumBuilder assets={assets} />
+            <AlbumBuilderSheet assets={assets} />
+          </>
         ) : (
           <ArchiveView assets={view === 'sets' ? assets.filter((a) => a.manifest.kind === 'set') : assets} title={view === 'sets' ? t.sets : t.archive} log={log} onSaved={refresh} index={index} />
         )}
@@ -76,6 +82,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
     { id: 'drops', label: t.drops, Icon: DropsIcon },
     { id: 'archive', label: t.archive, Icon: ArchiveIcon },
     { id: 'sets', label: t.sets, Icon: PulseIcon },
+    { id: 'album', label: 'Album', Icon: ArchiveIcon },
     { id: 'mobile', label: t.mobile, Icon: LinkIcon },
     { id: 'settings', label: 'Innstillinger', Icon: StudioIcon }
   ];

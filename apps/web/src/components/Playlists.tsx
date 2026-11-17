@@ -1,3 +1,4 @@
+import { useAlbumUi } from './AlbumBuilder';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -732,6 +733,8 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
                               .filter((pl) => (v.playlist?.plan ?? null) !== pl)
                               .map((pl) => [`Gjør til ${PLAN_NAMES[pl ?? 'none'].toLowerCase()}`, () => void usePlaylists.getState().setPlan(id, pl).catch(toastError)]) as Array<[string, () => void]>)
                           : []),
+                        // Del 26: albumbyggeren med denne planen som utvalg
+                        ...(v.playlist?.plan === 'album' ? ([['Bygg album', () => useAlbumUi.getState().show({ planId: id })]] as Array<[string, () => void]>) : []),
                         ['Dupliser', () => void usePlaylists.getState().duplicate(v.playlist!).then((p) => useToast.getState().show(`Lagde «${p.name}»`)).catch(toastError)],
                         ['Slett …', () => setConfirmDelete(true)]
                       ] as Array<[string, () => void]>

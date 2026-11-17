@@ -122,6 +122,31 @@ export function createApiHandler(opts: ApiOptions) {
       res.setHeader('Content-Length', String(p.raw.length));
       return void res.end(p.raw);
     }
+    // Del 26: albumbyggerens valg – «Utelat disse låtene» (f.eks. allerede utgitt) og «Singel-kandidat» (slugs)
+    if (url.pathname === '/api/album') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const file = path.join(dataDir, 'album.json');
+      const read = async (): Promise<{ exclude: string[]; singles: string[] }> => {
+        try {
+          const j = JSON.parse(await readFile(file, 'utf8')) as { exclude?: unknown; singles?: unknown };
+          const list = (v: unknown) => (Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : []);
+          return { exclude: list(j.exclude), singles: list(j.singles) };
+        } catch {
+          return { exclude: [], singles: [] };
+        }
+      };
+      if (req.method === 'GET') return send(res, 200, await read());
+      if (req.method === 'PUT') {
+        if (!(req.headers['content-type'] ?? '').startsWith('application/json')) return send(res, 415, { error: 'krever application/json' });
+        const body = ((await readJson(req, 200_000).catch(() => null)) ?? {}) as { exclude?: unknown; singles?: unknown };
+        const slugs = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((s): s is string => typeof s === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/.test(s)))] : null);
+        const cur = await read();
+        const next = { schema: 1, exclude: slugs(body.exclude) ?? cur.exclude, singles: slugs(body.singles) ?? cur.singles, updatedAt: new Date().toISOString() };
+        await writeJsonAtomic(file, next);
+        return send(res, 200, { exclude: next.exclude, singles: next.singles });
+      }
+      return send(res, 405, { error: 'GET eller PUT' });
+    }
     // Del 5: posisjon på tvers av enheter. Nyeste tidsstempel vinner. Aldri fra /drop/.
     if (url.pathname === '/api/playback') {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });

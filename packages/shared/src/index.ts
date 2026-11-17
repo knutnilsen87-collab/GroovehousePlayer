@@ -15,6 +15,7 @@ export * from './drafts';
 export * from './setbuilder';
 export * from './setinput';
 export * from './similarity';
+export * from './albumbuilder';
 export * from './playback';
 export * from './listen';
 export * from './skins';
