@@ -92,6 +92,8 @@ export function ListCover({ v, size, rounded = 10 }: { v: ListView; size: number
         alt={`Ikon: ${v.name}`}
         width={size}
         height={size}
+        loading="lazy"
+        decoding="async"
         className="block flex-none object-cover"
         style={{ width: size, height: size, borderRadius: rounded }}
       />
@@ -104,6 +106,8 @@ export function ListCover({ v, size, rounded = 10 }: { v: ListView; size: number
       alt={`Cover: ${v.name}`}
       width={size}
       height={size}
+      loading="lazy"
+      decoding="async"
       className="block flex-none object-cover"
       style={{ width: size, height: size, borderRadius: rounded, boxShadow: `0 0 0 1px ${v.color.primary}80` }}
     />

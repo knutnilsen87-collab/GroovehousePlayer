@@ -21,13 +21,35 @@ interface FavState {
   toggle: (slug: string) => Promise<void>;
 }
 
+const FAV_CACHE_KEY = 'gv:favorites:v1';
+function readFavCache(): string[] {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(FAV_CACHE_KEY) : null;
+    const arr = raw ? (JSON.parse(raw) as unknown) : null;
+    return Array.isArray(arr) ? arr.filter((s): s is string => typeof s === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+function writeFavCache(slugs: string[]) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(FAV_CACHE_KEY, JSON.stringify(slugs));
+  } catch {
+    /* privat modus */
+  }
+}
+
 export const useFavorites = create<FavState>((set, get) => ({
-  slugs: [],
+  slugs: readFavCache(),
   loaded: false,
   load: async () => {
     try {
       const r = await fetch('/api/favorites', { cache: 'no-store' });
-      if (r.ok) set({ slugs: ((await r.json()) as { slugs: string[] }).slugs, loaded: true });
+      if (r.ok) {
+        const slugs = ((await r.json()) as { slugs: string[] }).slugs;
+        writeFavCache(slugs);
+        set({ slugs, loaded: true });
+      }
     } catch {
       /* frakoblet – prøv igjen ved neste visning */
     }
@@ -36,12 +58,17 @@ export const useFavorites = create<FavState>((set, get) => ({
   toggle: async (slug) => {
     const before = get().slugs;
     const on = !before.includes(slug);
-    set({ slugs: on ? [slug, ...before] : before.filter((s) => s !== slug) });
+    const optimistic = on ? [slug, ...before] : before.filter((s) => s !== slug);
+    set({ slugs: optimistic });
+    writeFavCache(optimistic);
     try {
       const r = await fetch(`/api/favorites/${encodeURIComponent(slug)}`, { method: on ? 'PUT' : 'DELETE', headers: json, body: '{}' });
       if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `HTTP ${r.status}`);
-      set({ slugs: ((await r.json()) as { slugs: string[] }).slugs });
+      const slugs = ((await r.json()) as { slugs: string[] }).slugs;
+      writeFavCache(slugs);
+      set({ slugs });
     } catch (err) {
+      writeFavCache(before);
       set({ slugs: before });
       toastError(err);
     }

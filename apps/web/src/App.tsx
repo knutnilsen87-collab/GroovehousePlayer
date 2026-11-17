@@ -32,9 +32,11 @@ export function App() {
         void startUpdater();
       });
   }, []);
-  // Del 19: egne skins og «samme på alle enheter» hentes fra Vault når vi er tilkoblet
+  // Del 19: egne skins og «samme på alle enheter» hentes fra Vault når det trengs
   useEffect(() => {
-    if (conn === 'ok' && !path.startsWith('/drop/')) void useSkin.getState().load();
+    if (conn === 'ok' && !path.startsWith('/drop/') && (!isApp || useSkin.getState().followShared || path.startsWith('/studio'))) {
+      void useSkin.getState().load();
+    }
   }, [conn, path]);
   if (conn === 'loading') return <main className="min-h-[100svh] bg-obsidian" />;
   if (conn === 'none') return <ConnectScreen onConnected={() => setConn('ok')} />;

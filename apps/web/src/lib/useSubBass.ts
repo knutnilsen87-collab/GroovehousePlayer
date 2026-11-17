@@ -8,8 +8,8 @@ import { getPositionMs } from './player';
  * så det virker likt på iPhone, Android og desktop. Rask attack, langsom release.
  */
 export function useSubBass(ref: RefObject<HTMLElement>, assetIn: LoadedAsset | undefined, playing: boolean) {
-  // Sub-bass-konvolutten finnes bare i full analyse (ikke i den lette katalogen)
-  const asset = useFullAsset(assetIn);
+  // Sub-bass-konvolutten finnes bare i full analyse og trengs kun når musikken faktisk spiller
+  const asset = useFullAsset(playing ? assetIn : undefined);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;

@@ -1,3 +1,4 @@
+import { FullAsset } from '../components/FullAsset';
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { computeCoverage, formatTime, paletteToCssVars, withAlpha, type AccessTier, type AssetManifest, type Palette, isDraft, skinPalette, versionName } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
@@ -1374,27 +1375,36 @@ function ArchiveRow({
 
       <SunoNotice entry={entry} />
 
+      {/* Redigering lagrer tilbake: bare fra det fulle manifestet (katalogen har et slankt et) */}
       {editing && (
-        <>
-          <MetaEditor
-            a={a}
-            onDone={() => {
-              setEditing(false);
-              onSaved();
-            }}
-          />
-          <AssetLook key={`${m.id}-${m.palette.primary}-${m.liveOffsetMs ?? 0}`} a={a} onSaved={onSaved} />
-          <LyricsEditor a={a} />
-        </>
+        <FullAsset a={a}>
+          {(full) => (
+            <>
+              <MetaEditor
+                a={full}
+                onDone={() => {
+                  setEditing(false);
+                  onSaved();
+                }}
+              />
+              <AssetLook key={`${full.manifest.id}-${full.manifest.palette.primary}-${full.manifest.liveOffsetMs ?? 0}`} a={full} onSaved={onSaved} />
+              <LyricsEditor a={full} />
+            </>
+          )}
+        </FullAsset>
       )}
 
       {markersOpen && (
-        <MarkerEditor
-          key={`${m.id}-${m.markers.map((k) => `${k.label}${k.startMs}${k.confirmed}`).join('|')}`}
-          a={a}
-          onSaved={onSaved}
-          onPlayAt={(ms) => usePlayer.getState().playFrom([a], 0, ms)}
-        />
+        <FullAsset a={a}>
+          {(full) => (
+            <MarkerEditor
+              key={`${full.manifest.id}-${full.manifest.markers.map((k) => `${k.label}${k.startMs}${k.confirmed}`).join('|')}`}
+              a={full}
+              onSaved={onSaved}
+              onPlayAt={(ms) => usePlayer.getState().playFrom([a], 0, ms)}
+            />
+          )}
+        </FullAsset>
       )}
 
       {isOpen && !markersOpen && (

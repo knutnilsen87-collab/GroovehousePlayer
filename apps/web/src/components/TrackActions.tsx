@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { displayLabel, formatTime, sectionsOf } from '@gv/shared/web';
-import { assetUrl, loadVersion, variantName, versionsOf, type IndexEntry, type LoadedAsset, type Track } from '../lib/catalog';
+import { assetUrl, loadVersion, useFullAsset, variantName, versionsOf, type IndexEntry, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { toastError, useToast } from '../lib/playlists';
 import { isDesktop, useUi, type ActionsRequest } from '../lib/ui';
@@ -246,7 +246,8 @@ function Radio({ options }: { options: Array<{ label: string; checked: boolean; 
 }
 
 /** Info: BPM, toneart/Camelot, LUFS, varighet, kildefil (privat, data/sources.json) og ingest-dato. */
-function InfoPanel({ a }: { a: LoadedAsset }) {
+function InfoPanel({ a: aIn }: { a: LoadedAsset }) {
+  const a = useFullAsset(aIn);
   const m = a.manifest;
   const [source, setSource] = useState<string | null | undefined>(undefined);
   useEffect(() => {

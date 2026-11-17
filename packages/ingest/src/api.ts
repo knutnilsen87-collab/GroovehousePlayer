@@ -87,8 +87,8 @@ export function createApiHandler(opts: ApiOptions) {
   const skippedStore = createSkippedStore(dataDir);
   const listens = createListenStore(path.join(dataDir, 'listens.json'));
   const catalogBundle = createCatalogBundler(opts.mediaDir);
-  // Varm opp katalogen ved oppstart: første lesing av ~330 manifester og analyser fra disken tar 10+ s
-  setTimeout(() => void catalogBundle(dataDir).catch(() => undefined), 2000).unref?.();
+  // Varm opp katalogen ved oppstart: leser disk-cache (data/catalog-bundle-cache.json) eller bygger i bakgrunnen
+  setTimeout(() => void catalogBundle.prepared(dataDir).catch(() => undefined), 200).unref?.();
   let version = '0.0.0';
   try {
     version = (JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')) as { version?: string }).version ?? version;
@@ -99,20 +99,28 @@ export function createApiHandler(opts: ApiOptions) {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (url.pathname === '/api/health') return send(res, 200, { app: APP_ID, version });
     // Samlet katalog: ett kall i stedet for manifest + analyse per låt. Ikke fra /drop/ (der vises bare én låt).
-    if (url.pathname === '/api/catalog' && req.method === 'GET') {
+    if (url.pathname === '/api/catalog' && (req.method === 'GET' || req.method === 'HEAD')) {
       if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
-      const b = await catalogBundle(dataDir);
-      if (!b) return send(res, 404, { error: 'tomt hvelv' });
-      const body = Buffer.from(JSON.stringify(b));
+      const p = await catalogBundle.prepared(dataDir);
+      if (!p) return send(res, 404, { error: 'tomt hvelv' });
+      res.setHeader('ETag', p.etag);
+      res.setHeader('Cache-Control', 'private, no-cache');
+      res.setHeader('Vary', 'Accept-Encoding');
+      const inm = String(req.headers['if-none-match'] ?? '').trim();
+      if (inm && (inm === p.etag || inm.split(',').some((x) => x.trim() === p.etag))) {
+        res.statusCode = 304;
+        return void res.end();
+      }
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      res.setHeader('Cache-Control', 'no-store');
-      res.setHeader('Vary', 'Accept-Encoding');
+      if (req.method === 'HEAD') return void res.end();
       if (/gzip/.test(String(req.headers['accept-encoding'] ?? ''))) {
         res.setHeader('Content-Encoding', 'gzip');
-        return void res.end(gzipSync(body, { level: 6 }));
+        res.setHeader('Content-Length', String(p.gzip.length));
+        return void res.end(p.gzip);
       }
-      return void res.end(body);
+      res.setHeader('Content-Length', String(p.raw.length));
+      return void res.end(p.raw);
     }
     // Del 5: posisjon på tvers av enheter. Nyeste tidsstempel vinner. Aldri fra /drop/.
     if (url.pathname === '/api/playback') {
@@ -233,6 +241,7 @@ export function createApiHandler(opts: ApiOptions) {
       const next: AssetManifest = { ...man, status: 'release', versionLabel: `${man.versionLabel ?? versionName(man)} (gjort release-klar)` };
       await writeJsonAtomic(mf, next);
       await updateCatalog(opts.mediaDir, next);
+      catalogBundle.invalidate();
       return send(res, 200, { manifest: next });
     }
 
@@ -262,6 +271,7 @@ export function createApiHandler(opts: ApiOptions) {
       await writeMarkersFile(dir, { schema: 1, updatedAt: new Date().toISOString(), markers: v.markers, dismissed });
       const next: AssetManifest = { ...manifest, markers: v.markers };
       await writeJsonAtomic(manifestFile, next);
+      catalogBundle.invalidate();
       return send(res, 200, { manifest: next });
     }
 
@@ -484,6 +494,7 @@ export function createApiHandler(opts: ApiOptions) {
         const meta = await sharp(buf).metadata().catch(() => null);
         if (!meta?.width || !meta.height) return send(res, 400, { error: 'fila er ikke et bilde som kan leses' });
         const manifests = await setAssetCover(opts.mediaDir, slug, buf, config());
+        catalogBundle.invalidate();
         return send(res, 200, { manifests });
       } catch (err) {
         if (err instanceof PlaylistError) return send(res, err.status, { error: err.message });
@@ -554,6 +565,7 @@ export function createApiHandler(opts: ApiOptions) {
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, JSON.stringify(next, null, 2));
       const manifests = await retagSlug(opts.mediaDir, slug, config());
+      catalogBundle.invalidate();
       return send(res, 200, { meta: next, manifests });
     } catch (err) {
       return send(res, 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err) });

@@ -45,9 +45,10 @@ export async function loadConnection(): Promise<boolean> {
     const r = await VaultAuth.load();
     if (r.server && r.token) {
       setConnection(r.server, r.token);
-      // Fortsett-posisjoner som native-tjenesten lagret mens appen var i bakgrunnen
-      const st = await NativePlayer.getState().catch(() => null);
-      mergeSavedPositions(st?.savedPositions);
+      // Fortsett-posisjoner som native-tjenesten lagret mens appen var i bakgrunnen (ikke blokker oppstarten)
+      void NativePlayer.getState()
+        .then((st) => mergeSavedPositions(st?.savedPositions))
+        .catch(() => null);
       return true;
     }
   } catch {

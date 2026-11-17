@@ -22,16 +22,37 @@ type PlayFn = (t: Track, v?: LoadedAsset, atMs?: number) => void;
 
 const H1 = ({ children }: { children: ReactNode }) => <h1 className="gv-display m-0 text-[30px] font-semibold text-ink-strong lg:text-[34px]">{children}</h1>;
 
-function useListens(): ListenLog | null | undefined {
-  const [log, setLog] = useState<ListenLog | null | undefined>(undefined);
+const LISTENS_CACHE_KEY = 'gv:listens:v1';
+function readListensCache(): ListenLog | undefined {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LISTENS_CACHE_KEY) : null;
+    return raw ? (JSON.parse(raw) as ListenLog) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function useListens(enabled = true): ListenLog | null | undefined {
+  const [log, setLog] = useState<ListenLog | null | undefined>(() => readListensCache());
   const playing = usePlayer((s) => s.playing);
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
-    void fetchListens().then((l) => alive && setLog(l));
+    void fetchListens().then((l) => {
+      if (!alive) return;
+      if (l) {
+        try {
+          localStorage.setItem(LISTENS_CACHE_KEY, JSON.stringify(l));
+        } catch {
+          /* privat modus */
+        }
+      }
+      setLog(l);
+    });
     return () => {
       alive = false;
     };
-  }, [playing]);
+  }, [playing, enabled]);
   return log;
 }
 
@@ -58,7 +79,9 @@ function Row({ t, onPlay, sub }: { t: Track; onPlay: PlayFn; sub?: string }) {
 // ---------------------------------------------------------------- Hjem
 
 export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[]; onPlay: PlayFn; onOpenList: (id: string) => void; table?: ReactNode }) {
-  const log = useListens();
+  const [playedOpen, setPlayedOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
+  const [listsOpen, setListsOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
+  const log = useListens(playedOpen);
   const playlists = usePlaylists((s) => s.playlists);
   useFavorites((s) => s.slugs);
   const { queue, index, positionMs } = usePlayer();
@@ -77,9 +100,6 @@ export function HomeView({ tracks, onPlay, onOpenList, table }: { tracks: Track[
     .map((id) => buildListView(id, playlists, tracks))
     .filter((v): v is NonNullable<typeof v> => !!v && v.assets.length > 0)
     .slice(0, 8);
-
-  const [playedOpen, setPlayedOpen] = useState(true);
-  const [listsOpen, setListsOpen] = useState(true);
 
   return (
     <div className="flex flex-col gap-6">

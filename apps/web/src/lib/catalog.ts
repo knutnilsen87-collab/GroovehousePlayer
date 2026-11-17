@@ -70,22 +70,84 @@ export function versionsOf(index: IndexEntry[], slug: string, variant: string | 
 
 const mediaBase = (manifestPath: string) => `${serverBase()}${MEDIA}/${manifestPath.replace(/manifest\.json$/, '')}`;
 
-export async function loadCatalog(): Promise<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null }> {
+export const CATALOG_CACHE_KEY = 'gv:catalog:v2';
+
+interface CachedCatalogPayload {
+  etag: string | null;
+  server: string;
+  index: IndexEntry[];
+  assets: Array<{ manifest: AssetManifest; analysis?: Analysis | null; features?: EnergyFeatures }>;
+  groups?: Record<string, string>;
+}
+
+function hydrateAssets(rawAssets: Array<{ manifest: AssetManifest; analysis?: Analysis | null; features?: EnergyFeatures }>, index: IndexEntry[]): LoadedAsset[] {
+  const byKey = new Map(index.map((e) => [versionKey(e.slug, e.variant, e.version), e] as const));
+  return rawAssets
+    .filter((x) => !x.manifest.hidden)
+    .map((x) => {
+      const e = byKey.get(versionKey(x.manifest.slug, x.manifest.variant, x.manifest.version));
+      return {
+        manifest: x.manifest,
+        analysis: x.analysis ?? null,
+        features: x.features,
+        base: mediaBase(e?.manifest ?? `${x.manifest.slug}/${x.manifest.variant ?? 'main'}/v${x.manifest.version}/manifest.json`),
+        slim: true
+      };
+    });
+}
+
+export function readCachedCatalog(): { assets: LoadedAsset[]; index: IndexEntry[]; etag: string | null } | null {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(CATALOG_CACHE_KEY) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedCatalogPayload;
+    if (!parsed || !Array.isArray(parsed.assets) || !Array.isArray(parsed.index)) return null;
+    if (parsed.server && serverBase() && parsed.server !== serverBase()) return null;
+    groups = parsed.groups ?? {};
+    return { assets: hydrateAssets(parsed.assets, parsed.index), index: parsed.index, etag: parsed.etag ?? null };
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedCatalog(payload: CachedCatalogPayload) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CATALOG_CACHE_KEY, JSON.stringify(payload));
+    }
+  } catch {
+    /* lagringskvote nådd eller privat modus */
+  }
+}
+
+export async function loadCatalog(opts?: { etag?: string | null }): Promise<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null; notModified?: boolean; etag?: string | null }> {
   // Ett kall med alt listene trenger. Eldre server uten /api/catalog: hent filene én og én som før.
   try {
-    const r = await fetch('/api/catalog', { cache: 'no-store' });
+    const headers: Record<string, string> = {};
+    if (opts?.etag) headers['If-None-Match'] = opts.etag;
+    const r = await fetch('/api/catalog', { cache: 'no-store', headers });
+    if (r.status === 304) {
+      return { assets: [], index: [], error: null, notModified: true, etag: opts?.etag ?? null };
+    }
     if (r.status === 404 && (r.headers.get('content-type') ?? '').includes('json')) {
       const j = (await r.json().catch(() => ({}))) as { error?: string };
-      if (j.error === 'tomt hvelv') return { assets: [], index: [], error: null };
+      if (j.error === 'tomt hvelv') {
+        writeCachedCatalog({ etag: null, server: serverBase(), index: [], assets: [], groups: {} });
+        return { assets: [], index: [], error: null };
+      }
     } else if (r.ok) {
+      const etag = r.headers.get('etag') ?? null;
       const b = (await r.json()) as { index: IndexEntry[]; assets: Array<{ manifest: AssetManifest; analysis: Analysis | null; features?: EnergyFeatures }>; groups?: Record<string, string> };
       groups = b.groups ?? {};
-      const byKey = new Map(b.index.map((e) => [versionKey(e.slug, e.variant, e.version), e] as const));
-      const assets = b.assets.map((x) => {
-        const e = byKey.get(versionKey(x.manifest.slug, x.manifest.variant, x.manifest.version));
-        return { manifest: x.manifest, analysis: x.analysis, features: x.features, base: mediaBase(e?.manifest ?? `${x.manifest.slug}/${x.manifest.variant ?? 'main'}/v${x.manifest.version}/manifest.json`), slim: true };
+      const assets = hydrateAssets(b.assets, b.index);
+      writeCachedCatalog({
+        etag,
+        server: serverBase(),
+        index: b.index,
+        assets: b.assets,
+        groups
       });
-      return { assets, index: b.index, error: null };
+      return { assets, index: b.index, error: null, etag };
     } else if (r.status === 401) {
       return { assets: [], index: [], error: `401 /api/catalog` };
     }
@@ -117,9 +179,27 @@ async function loadCatalogFiles(): Promise<{ assets: LoadedAsset[]; index: Index
   return { assets: loaded.filter((a) => !a.manifest.hidden), index: idx.assets, error: null };
 }
 
-/** Full analyse (analysis.json) for en låt fra den samlede katalogen. Hentes én gang per versjon. */
+/** Fullt manifest + analyse (manifest.json + analysis.json) hentes ved behov når en låt åpnes eller spilles. */
 const fullCache = new Map<string, Promise<Analysis | null>>();
 const fullDone = new Map<string, Analysis | null>();
+const fullManifestCache = new Map<string, Promise<AssetManifest>>();
+const fullManifestDone = new Map<string, AssetManifest>();
+
+export function loadFullManifest(a: LoadedAsset): Promise<AssetManifest> {
+  const key = `${a.base}manifest.json`;
+  let p = fullManifestCache.get(key);
+  if (!p) {
+    p = getJson<AssetManifest>(key).catch(() => {
+      fullManifestCache.delete(key);
+      return a.manifest;
+    });
+    // Feilet hentingen, får vi det slanke tilbake: da er det ikke «fullt» (prøves igjen neste gang)
+    void p.then((m) => m !== a.manifest && fullManifestDone.set(key, m));
+    fullManifestCache.set(key, p);
+  }
+  return p;
+}
+
 export function loadFullAnalysis(a: LoadedAsset): Promise<Analysis | null> {
   const key = a.base + (a.manifest.files.analysis ?? '');
   let p = fullCache.get(key);
@@ -137,22 +217,28 @@ export function loadFullAnalysis(a: LoadedAsset): Promise<Analysis | null> {
 }
 
 /**
- * Samme låt med full analyse. Returnerer den lette versjonen til den fulle er hentet (komponenten tegnes
- * først med lav oppløsning, så med full). Låter som ikke er «slim» returneres som de er.
+ * Samme låt med fullt manifest og full analyse. Returnerer den lette versjonen til den fulle er hentet,
+ * og henter bare når låta faktisk åpnes eller spilles. Låter som ikke er «slim» returneres som de er.
  */
 export function useFullAsset<T extends LoadedAsset | null | undefined>(a: T): T {
-  const key = a?.slim ? a.base + (a.manifest.files.analysis ?? '') : '';
+  const aKey = a?.slim ? a.base + (a.manifest.files.analysis ?? '') : '';
+  const mKey = a?.slim ? `${a.base}manifest.json` : '';
   const [, bump] = useState(0);
   useEffect(() => {
-    if (!a?.slim || fullDone.has(key)) return;
+    if (!a?.slim || (fullDone.has(aKey) && fullManifestDone.has(mKey))) return;
     let alive = true;
-    void loadFullAnalysis(a).then(() => alive && bump((n) => n + 1));
+    void Promise.all([loadFullManifest(a), loadFullAnalysis(a)]).then(() => alive && bump((n) => n + 1));
     return () => {
       alive = false;
     };
-  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
-  const full = key ? fullDone.get(key) : undefined;
-  return useMemo(() => (a && a.slim && full ? ({ ...a, analysis: full, slim: false } as T) : a), [a, full]);
+  }, [aKey, mKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fullAn = aKey ? fullDone.get(aKey) : undefined;
+  const fullMan = mKey ? fullManifestDone.get(mKey) : undefined;
+  return useMemo(
+    // «slim» blir false først når det fulle manifestet er hentet (redigering må aldri lagre fra det slanke)
+    () => (a && a.slim && (fullAn !== undefined || fullMan !== undefined) ? ({ ...a, manifest: fullMan ?? a.manifest, analysis: fullAn ?? a.analysis, slim: !fullMan } as T) : a),
+    [a, fullAn, fullMan]
+  );
 }
 
 const catalogListeners = new Set<() => void>();
@@ -160,11 +246,19 @@ export function notifyCatalogChanged() {
   versionCache.clear();
   fullCache.clear();
   fullDone.clear();
+  fullManifestCache.clear();
+  fullManifestDone.clear();
   for (const fn of catalogListeners) fn();
 }
 
 export function useCatalog() {
-  const [state, setState] = useState<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null; loading: boolean }>({ assets: [], index: [], error: null, loading: true });
+  const [state, setState] = useState<{ assets: LoadedAsset[]; index: IndexEntry[]; error: string | null; loading: boolean; refreshing: boolean }>(() => {
+    const cached = readCachedCatalog();
+    if (cached && cached.assets.length > 0) {
+      return { assets: cached.assets, index: cached.index, error: null, loading: false, refreshing: true };
+    }
+    return { assets: [], index: [], error: null, loading: true, refreshing: false };
+  });
   const [tick, setTick] = useState(0);
   useEffect(() => {
     const bump = () => setTick((t) => t + 1);
@@ -175,12 +269,21 @@ export function useCatalog() {
   }, []);
   useEffect(() => {
     let alive = true;
-    setState((s) => ({ ...s, loading: true }));
-    loadCatalog().then((c) => alive && setState({ ...c, loading: false }));
+    const cached = tick === 0 ? readCachedCatalog() : null;
+    setState((s) => (s.assets.length > 0 ? { ...s, refreshing: true, error: null } : { ...s, loading: true, error: null }));
+    loadCatalog({ etag: cached?.etag }).then((c) => {
+      if (!alive) return;
+      if (c.notModified) {
+        setState((s) => ({ ...s, loading: false, refreshing: false, error: null }));
+        return;
+      }
+      // Behold lagret katalog hvis nettverket er midlertidig utilgjengelig (men ikke ved 401: da må appen kobles til på nytt)
+      setState((s) => (c.error && s.assets.length > 0 && !/^401 /.test(c.error) ? { ...s, loading: false, refreshing: false } : { assets: c.assets, index: c.index, error: c.error, loading: false, refreshing: false }));
+    });
     return () => {
       alive = false;
     };
-  }, [tick]);
+  }, [tick]); // eslint-disable-line react-hooks/exhaustive-deps
   return { ...state, reload: () => setTick((t) => t + 1) };
 }
 

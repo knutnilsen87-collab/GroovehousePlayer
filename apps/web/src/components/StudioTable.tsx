@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { bpmUncertain, formatTime, isDraft, keyShort } from '@gv/shared/web';
 import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
@@ -102,6 +103,43 @@ export function StudioTable({
   const { queue, index, playing } = usePlayer();
   const cur = queue[index];
   const rows = limit ? tracks.slice(0, limit) : tracks;
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const ROW_H = 58;
+  const virtualize = !limit && rows.length > 50;
+  const [range, setRange] = useState<[number, number]>(() => [0, Math.min(rows.length, 32)]);
+
+  useEffect(() => {
+    if (!virtualize) return;
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      const el = wrapRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || 900;
+      const topOffset = Math.max(0, -rect.top);
+      const start = Math.max(0, Math.floor(topOffset / ROW_H) - 12);
+      const end = Math.min(rows.length, Math.ceil((topOffset + vh) / ROW_H) + 16);
+      setRange((prev) => (prev[0] === start && prev[1] === end ? prev : [start, end]));
+    };
+    update();
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [virtualize, rows.length]);
+
+  const [vStart, vEnd] = virtualize ? [Math.min(range[0], rows.length), Math.min(Math.max(range[1], range[0] + 24), rows.length)] : [0, rows.length];
+  const visibleRows = virtualize ? rows.slice(vStart, vEnd) : rows;
+  const topPad = virtualize ? vStart * ROW_H : 0;
+  const bottomPad = virtualize ? Math.max(0, (rows.length - vEnd) * ROW_H) : 0;
+
   const head = (key: SortKey, name: string, cls = '') => {
     const active = sort?.key === key;
     const ariaSort = active ? (sort!.dir === 1 ? 'ascending' : 'descending') : 'none';
@@ -123,7 +161,7 @@ export function StudioTable({
     );
   };
   return (
-    <div className="gv-panel gv-scroll hidden overflow-x-auto px-4 pb-3 pt-3.5 lg:block">
+    <div ref={wrapRef} className="gv-panel gv-scroll hidden overflow-x-auto px-4 pb-3 pt-3.5 lg:block">
       {selected.length > 1 && <p className="m-0 mb-2 text-[11px] text-soft">{selected.length} valgt · dra til en liste i sidemenyen, eller høyreklikk → Legg til i spilleliste · Esc fjerner valget</p>}
       <table aria-label={label} className="w-full min-w-[720px] border-collapse text-[14px]">
         <thead>
@@ -146,7 +184,13 @@ export function StudioTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((t, i) => {
+          {topPad > 0 && (
+            <tr aria-hidden="true">
+              <td colSpan={9} style={{ height: topPad, padding: 0 }} />
+            </tr>
+          )}
+          {visibleRows.map((t, idx) => {
+            const i = vStart + idx;
             const isCur = cur?.manifest.slug === t.slug;
             const a = isCur ? cur! : t.main;
             const m = a.manifest;
@@ -236,6 +280,11 @@ export function StudioTable({
               </tr>
             );
           })}
+          {bottomPad > 0 && (
+            <tr aria-hidden="true">
+              <td colSpan={9} style={{ height: bottomPad, padding: 0 }} />
+            </tr>
+          )}
         </tbody>
       </table>
     </div>

@@ -90,7 +90,8 @@ export function createHandler(opts: ServerOptions) {
       if (cors) {
         res.setHeader('Access-Control-Allow-Origin', APP_ORIGIN);
         res.setHeader('Vary', 'Origin');
-        res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, X-GV-App, X-GV-Bundle, X-GV-Import');
+        res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type, If-None-Match, X-GV-App, X-GV-Bundle, X-GV-Import');
+        res.setHeader('Access-Control-Expose-Headers', 'ETag');
         res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, PATCH, PUT, DELETE');
         res.setHeader('Access-Control-Max-Age', '600');
       }

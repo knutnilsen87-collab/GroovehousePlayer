@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { bpmConfidenceText, bpmUncertain, camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
-import { assetUrl, uploadAssetCover, variantName, type LoadedAsset } from '../lib/catalog';
+import { assetUrl, uploadAssetCover, useFullAsset, variantName, type LoadedAsset } from '../lib/catalog';
 import { needsCheck, useFavorites, useIsFavorite, useLyrics } from '../lib/library';
 import { getPositionMs, usePlayer } from '../lib/player';
 import { isApp } from '../lib/platform';
@@ -432,7 +432,8 @@ export function BottomControls({ cur }: { cur: LoadedAsset | undefined }) {
  * Del 22: låtinfo som rutenett av pills (2 kolonner). Etikett over i Syncopate, verdi i Geist Mono, aksent 8–12 % bak.
  * Camelot-pillen farges etter harmonien mot låta som kommer etter i køen (farger fra skin-variablene).
  */
-export function TrackInfoRows({ cur, compact = false }: { cur: LoadedAsset; compact?: boolean }) {
+export function TrackInfoRows({ cur: curIn, compact = false }: { cur: LoadedAsset; compact?: boolean }) {
+  const cur = useFullAsset(curIn);
   const m = cur.manifest;
   const nextM = usePlayer((s) => (s.queue[s.index]?.manifest.id === m.id ? s.queue[s.index + 1]?.manifest : undefined));
   const rel = nextM ? camelotRelation(m.key?.camelot ?? null, nextM.key?.camelot ?? null) : null;
@@ -464,7 +465,8 @@ export function TrackInfoRows({ cur, compact = false }: { cur: LoadedAsset; comp
   );
 }
 
-export function Credits({ cur }: { cur: LoadedAsset }) {
+export function Credits({ cur: curIn }: { cur: LoadedAsset }) {
+  const cur = useFullAsset(curIn);
   const m = cur.manifest;
   const source = useSourceFile(cur);
   const rows: Array<[string, ReactNode]> = [

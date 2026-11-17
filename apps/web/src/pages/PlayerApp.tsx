@@ -41,6 +41,19 @@ const VIEW_PARAM: Record<string, View> = { hjem: 'home', bibliotek: 'library', l
 /** Leser ?vis=… uten å bry seg om store bokstaver eller mellomrom («Live sett»). */
 export const viewFromParam = (v: string | null): View | undefined => (v ? VIEW_PARAM[v.trim().toLowerCase().replace(/[\s_]+/g, '-')] : undefined);
 
+function useIsDesktop(): boolean {
+  const [desktop, setDesktop] = useState(() => (typeof window !== 'undefined' ? window.innerWidth >= 1024 : true));
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => setDesktop(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  return desktop;
+}
+
 /**
  * Din egen spiller. Mobil: én tommel – bunnmeny, flytende mini-spiller, fullskjerm ved trykk.
  * Desktop (del 14 «High-End Studio»): sidemeny, dekket (cover, Spilles nå, låtinfo/zoom/spektrum) og
@@ -154,10 +167,13 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
 
   // Del 14: standardfargen (grønn) brukes med mindre låta har fått egen farge i Studio.
   useSkinId(); // del 19: bytt skin uten omstart
-  // Del 18: presets og overgangsidéer (rask idéfangst og påminnelser)
+  const desktop = useIsDesktop();
+  // Del 18: presets og overgangsidéer (rask idéfangst og påminnelser) – på mobil hentes dette først ved avspilling eller i sett/DJ-visning
   useEffect(() => {
-    void useFx.getState().load();
-  }, []);
+    if (desktop || playing || view === 'sets' || view === 'dj') {
+      void useFx.getState().load();
+    }
+  }, [desktop, playing, view]);
 
   // Tastatur: Ctrl/Cmd+K søk, mellomrom spill/pause, Shift+←/→ forrige/neste del, Esc lukker fullskjerm
   useEffect(() => {
@@ -241,12 +257,12 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   };
   const toggleMobileSelect = (slug: string) => setSelected((s) => (s.includes(slug) ? s.filter((x) => x !== slug) : [...s, slug]));
 
-  if (isApp && catalogError) return <UnreachableScreen error={catalogError} onRetry={reload} onReconnect={() => onDisconnected?.()} />;
+  if (isApp && catalogError && tracks.length === 0) return <UnreachableScreen error={catalogError} onRetry={reload} onReconnect={() => onDisconnected?.()} />;
 
   const deckAsset = cur ?? newest[0]?.main;
   // Del 14/19: låta i spilleren (også pauset), ellers låta som vises i dekket. Faste skins overstyrer i skinTrackVars.
   const vars = deckAsset ? trackVars(deckAsset.manifest) : (skinTrackVars(null) as CSSProperties);
-  const showDeck = (view === 'home' || view === 'library') && !!deckAsset && tracks.length > 0;
+  const showDeck = desktop && (view === 'home' || view === 'library') && !!deckAsset && tracks.length > 0;
   /** Dekket før noe er spilt: play/spoling starter låta som vises. */
   const idle = cur ? undefined : (atMs?: number) => newest[0] && playFrom(newest.map((t) => t.main), 0, atMs);
   const tableProps = {
@@ -280,8 +296,8 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
         </header>
         <ResumeBanner tracks={tracks} />
 
-        {loading ? (
-          <LoadingVault />
+        {loading && tracks.length === 0 ? (
+          <LoadingVault onRetry={reload} error={catalogError} />
         ) : tracks.length === 0 ? (
           <EmptyState />
         ) : (
@@ -313,7 +329,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                   tracks={homeTracks}
                   onPlay={play}
                   onOpenList={openList}
-                  table={<StudioTable {...tableProps} tracks={newest} limit={16} label="Nylig lagt til" />}
+                  table={desktop ? <StudioTable {...tableProps} tracks={newest} limit={16} label="Nylig lagt til" /> : undefined}
                 />
               )}
               {view === 'library' && (
@@ -337,39 +353,42 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
                             {heading} <span className="font-mono text-[11px] text-muted">{list.length}</span>
                           </h2>
                         )}
-                      <StudioTable {...tableProps} tracks={list} sort={sort} onSort={setSort} />
-                      <TrackList
-                        tracks={list}
-                        onPlay={play}
-                        onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
-                        onSwipeRight={(t) => {
-                          // Mobil: sveip til høyre = legg sist i køen (med angre).
-                          const a = shownAsset(t);
-                          const player = usePlayer.getState();
-                          player.enqueue([a]);
-                          const at = usePlayer.getState().queue.length - 1;
-                          useToast.getState().show(`Lagt i køen: ${a.manifest.title}`, {
-                            label: 'Angre',
-                            run: () => {
-                              const q = usePlayer.getState().queue;
-                              if (q[at]?.manifest.id === a.manifest.id && at !== usePlayer.getState().index) usePlayer.getState().removeFromQueue(at);
-                            }
-                          });
-                        }}
-                        onSwipeLeft={(t) => {
-                          // Mobil: sveip til venstre = legg til i sist brukte spilleliste (med angre). Ingen liste ennå → arket.
-                          const target = mostRecentTarget(usePlaylists.getState().playlists);
-                          if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
-                          else openSheet([shownAsset(t)]);
-                        }}
-                        selectMode={selectMode}
-                        selected={selected}
-                        onLongPress={(t) => {
-                          setSelectMode(true);
-                          setSelected([t.slug]);
-                        }}
-                        onToggle={(t) => toggleMobileSelect(t.slug)}
-                      />
+                      {desktop ? (
+                        <StudioTable {...tableProps} tracks={list} sort={sort} onSort={setSort} />
+                      ) : (
+                        <TrackList
+                          tracks={list}
+                          onPlay={play}
+                          onMore={(t) => openActions({ assets: [shownAsset(t)], context: 'row' })}
+                          onSwipeRight={(t) => {
+                            // Mobil: sveip til høyre = legg sist i køen (med angre).
+                            const a = shownAsset(t);
+                            const player = usePlayer.getState();
+                            player.enqueue([a]);
+                            const at = usePlayer.getState().queue.length - 1;
+                            useToast.getState().show(`Lagt i køen: ${a.manifest.title}`, {
+                              label: 'Angre',
+                              run: () => {
+                                const q = usePlayer.getState().queue;
+                                if (q[at]?.manifest.id === a.manifest.id && at !== usePlayer.getState().index) usePlayer.getState().removeFromQueue(at);
+                              }
+                            });
+                          }}
+                          onSwipeLeft={(t) => {
+                            // Mobil: sveip til venstre = legg til i sist brukte spilleliste (med angre). Ingen liste ennå → arket.
+                            const target = mostRecentTarget(usePlaylists.getState().playlists);
+                            if (target) void addWithUndo(target, [itemFor(shownAsset(t))]).catch(toastError);
+                            else openSheet([shownAsset(t)]);
+                          }}
+                          selectMode={selectMode}
+                          selected={selected}
+                          onLongPress={(t) => {
+                            setSelectMode(true);
+                            setSelected([t.slug]);
+                          }}
+                          onToggle={(t) => toggleMobileSelect(t.slug)}
+                        />
+                      )}
                       </section>
                     )
                   )}
@@ -994,10 +1013,24 @@ function MiniPlayer({ cur, onOpen, onMore }: { cur: LoadedAsset; onOpen: () => v
   );
 }
 
-/** Oppstart: «Åpner hvelvet …», eller i Echo Groove Nights hjerteslaget og en kort tekst i guidens tone. */
-function LoadingVault() {
+/**
+ * Oppstart: «Åpner hvelvet …», eller i Echo Groove Nights hjerteslaget og en kort tekst i guidens tone.
+ * Feilet første lasting (og ingen lagret katalog finnes), vises feilen med «Prøv igjen».
+ */
+function LoadingVault({ onRetry, error }: { onRetry?: () => void; error?: string | null }) {
   const motif = useHeartbeatMotif();
   const line = useTagline('Åpner hvelvet …', new Date().getDate());
+  if (error)
+    return (
+      <div role="alert" className="flex flex-col items-start gap-3 py-8">
+        <p className="m-0 text-sm text-ink">Fikk ikke hentet katalogen fra Vault ({error}).</p>
+        {onRetry && (
+          <button type="button" onClick={onRetry} className="h-11 rounded-full bg-accent px-5 text-sm font-semibold text-on-accent">
+            Prøv igjen
+          </button>
+        )}
+      </div>
+    );
   if (!motif) return <p className="text-sm text-muted">Åpner hvelvet …</p>;
   return (
     <div className="flex flex-col items-center gap-3 py-16" role="status">

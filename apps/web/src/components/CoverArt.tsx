@@ -1,7 +1,7 @@
 import type { Palette } from '@gv/shared/web';
 
 /** Viser coveret, eller et subtilt, mørkt studio-ikon når asset mangler cover (slik at aksentfargen forbeholdes aktive elementer). */
-export function CoverArt({ src, title, size, rounded = 14, fluid = false, draft = false }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; /** Fyll bredden (kvadratisk), del 14-kortet. */ fluid?: boolean; /** Del 16: utkast får stiplet kant. */ draft?: boolean }) {
+export function CoverArt({ src, title, size, rounded = 14, fluid = false, draft = false, eager = false }: { src: string | null; palette: Palette; title: string; size: number; rounded?: number; /** Fyll bredden (kvadratisk), del 14-kortet. */ fluid?: boolean; /** Del 16: utkast får stiplet kant. */ draft?: boolean; /** Eager kun på hovedcoveret i fullskjerm/dekket; lister bruker lazy loading. */ eager?: boolean }) {
   const dims = { ...(fluid ? { width: '100%', height: 'auto', aspectRatio: '1 / 1' } : { width: size, height: size }), ...(draft ? { outline: '1.5px dashed rgba(255,255,255,0.55)', outlineOffset: size > 80 ? 3 : 1 } : {}) };
   if (src) {
     return (
@@ -10,6 +10,8 @@ export function CoverArt({ src, title, size, rounded = 14, fluid = false, draft 
         alt={`Cover: ${title}`}
         width={size}
         height={size}
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
         className="block object-cover shadow-[0_30px_60px_rgba(0,0,0,0.55)] ring-1 ring-white/[0.06]"
         style={{ ...dims, borderRadius: rounded }}
       />

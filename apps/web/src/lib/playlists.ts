@@ -76,8 +76,30 @@ interface State {
   remove: (id: string) => Promise<void>;
 }
 
+const PLAYLISTS_CACHE_KEY = 'gv:playlists:v1';
+function readPlaylistsCache(): Playlist[] {
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PLAYLISTS_CACHE_KEY) : null;
+    const arr = raw ? (JSON.parse(raw) as unknown) : null;
+    return Array.isArray(arr) ? (arr as Playlist[]) : [];
+  } catch {
+    return [];
+  }
+}
+function writePlaylistsCache(playlists: Playlist[]) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(PLAYLISTS_CACHE_KEY, JSON.stringify(playlists));
+  } catch {
+    /* privat modus */
+  }
+}
+
 export const usePlaylists = create<State>((set, get) => {
-  const replace = (p: Playlist) => set({ playlists: get().playlists.some((x) => x.id === p.id) ? get().playlists.map((x) => (x.id === p.id ? p : x)) : [...get().playlists, p] });
+  const replace = (p: Playlist) => {
+    const next = get().playlists.some((x) => x.id === p.id) ? get().playlists.map((x) => (x.id === p.id ? p : x)) : [...get().playlists, p];
+    writePlaylistsCache(next);
+    set({ playlists: next });
+  };
 
   /**
    * Kjør en endring som funksjon av gjeldende liste. Viser resultatet med en gang (optimistisk),
@@ -129,12 +151,13 @@ export const usePlaylists = create<State>((set, get) => {
   }
 
   return {
-    playlists: [],
+    playlists: readPlaylistsCache(),
     loaded: false,
     error: null,
     load: async () => {
       try {
         const { playlists } = await api<{ playlists: Playlist[] }>('GET', '/api/playlists');
+        writePlaylistsCache(playlists);
         set({ playlists, loaded: true, error: null });
       } catch (err) {
         set({ loaded: true, error: err instanceof Error ? err.message : String(err) });

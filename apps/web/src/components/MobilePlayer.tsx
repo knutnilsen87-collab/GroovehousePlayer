@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { formatTimeMs, isDraft, sectionAt } from '@gv/shared/web';
-import { assetUrl, variantName, type LoadedAsset, type Track } from '../lib/catalog';
+import { assetUrl, useFullAsset, variantName, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { CoverArt } from './CoverArt';
 import { DraftBadge } from './Draft';
@@ -17,7 +17,8 @@ import { FxReminder, IdeaButton } from './FxReminder';
  * Del 22: låtinfo som pills øverst (ikke også som kort), bølgeformen kant til kant med tidene oppå, transport
  * uten sirkler. Blur bare på bunnpanelet i tekst-scenen (og minispilleren), av i OLED Svart.
  */
-export function FullPlayer({ cur, track, tracks, onClose, onPlay, onMore }: { cur: LoadedAsset; track?: Track; tracks: Track[]; onClose: () => void; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: () => void }) {
+export function FullPlayer({ cur: curIn, track, tracks, onClose, onPlay, onMore }: { cur: LoadedAsset; track?: Track; tracks: Track[]; onClose: () => void; onPlay: (t: Track, v?: LoadedAsset, atMs?: number) => void; onMore: () => void }) {
+  const cur = useFullAsset(curIn);
   const { positionMs, seek, switchVariant, loop, setLoop } = usePlayer();
   const [tab, setTab] = useState<DeckTab>('now');
   const m = cur.manifest;

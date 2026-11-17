@@ -1,12 +1,13 @@
 import { createReadStream, existsSync } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
+import { gzipSync } from 'node:zlib';
 
 /**
  * Serverer media/ under URL-prefikset /media/ (Vite-dev og apps/server bruker samme kode).
  * Riktige MIME-typer for HLS (ellers tolker Vite .ts som TypeScript, og Safari avviser segmentene),
- * Range-forespørsler for spoling, og ingen mappelister. Stier utenfor media/ avvises.
+ * Range-forespørsler for spoling, gzip på JSON-filer, og ingen mappelister. Stier utenfor media/ avvises.
  */
 export const MEDIA_PREFIX = '/media/';
 
@@ -25,6 +26,10 @@ const TYPES: Record<string, string> = {
 
 export function createMediaHandler(mediaDir: string) {
   const root = path.resolve(mediaDir);
+  // Gzip av JSON (manifest, analyse) holdes i minnet, med et tak: PC-en har gått tom for minne før
+  const JSON_CACHE_MAX = 24 * 1024 * 1024;
+  const jsonCache = new Map<string, { key: string; gzip: Buffer }>();
+  let jsonCacheBytes = 0;
   return async function handle(req: IncomingMessage, res: ServerResponse, next?: () => void): Promise<void> {
     const url = new URL(req.url ?? '/', 'http://localhost');
     if (!url.pathname.startsWith(MEDIA_PREFIX)) return next ? next() : notFound(res);
@@ -39,7 +44,8 @@ export function createMediaHandler(mediaDir: string) {
       return notFound(res);
     }
     const file = path.resolve(root, rel);
-    const type = TYPES[path.extname(file).toLowerCase()];
+    const ext = path.extname(file).toLowerCase();
+    const type = TYPES[ext];
     // Ingen traversering ut av media/, ingen skjulte filer eller arbeidsmapper, bare kjente filtyper.
     // share/ (delte filer, del 10) serveres bare via /api/share – aldri som vanlig media.
     if (!type || (file !== root && !file.startsWith(root + path.sep)) || /[\\/](\.|[^\\/]*\.(partial|old)[\\/])/.test(file.slice(root.length)) || /[\\/]share[\\/]/.test(file.slice(root.length)) || !existsSync(file)) {
@@ -52,10 +58,35 @@ export function createMediaHandler(mediaDir: string) {
     res.setHeader('Accept-Ranges', 'bytes');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     // Katalog, manifest og spillelister endres ved ny ingest; segmenter og bilder for en versjon gjør ikke det.
-    res.setHeader('Cache-Control', /\.(json|m3u8)$/i.test(file) ? 'no-cache' : 'private, max-age=3600');
+    res.setHeader('Cache-Control', /\.(json|m3u8)$/i.test(file) ? 'no-cache' : url.searchParams.has('v') ? 'private, max-age=604800, immutable' : 'private, max-age=3600');
     res.setHeader('Last-Modified', st.mtime.toUTCString());
 
     const range = req.headers.range?.match(/^bytes=(\d*)-(\d*)$/);
+    if (ext === '.json') res.setHeader('Vary', 'Accept-Encoding');
+    // JSON komprimeres (analysis.json er ~100 kB, ~30 kB med gzip). Uten gzip strømmes fila som før.
+    if (ext === '.json' && !range && /gzip/.test(String(req.headers['accept-encoding'] ?? ''))) {
+      const key = `${st.mtimeMs}:${st.size}`;
+      let hit = jsonCache.get(file);
+      if (!hit || hit.key !== key) {
+        if (hit) jsonCacheBytes -= hit.gzip.length;
+        hit = { key, gzip: gzipSync(await readFile(file), { level: 6 }) };
+        jsonCache.delete(file);
+        jsonCache.set(file, hit);
+        jsonCacheBytes += hit.gzip.length;
+        // Eldste ut først (Map holder innsettingsrekkefølgen)
+        for (const [k, v] of jsonCache) {
+          if (jsonCacheBytes <= JSON_CACHE_MAX) break;
+          jsonCache.delete(k);
+          jsonCacheBytes -= v.gzip.length;
+        }
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Encoding', 'gzip');
+      res.setHeader('Content-Length', String(hit.gzip.length));
+      if (req.method === 'HEAD') return void res.end();
+      return void res.end(hit.gzip);
+    }
+
     let start = 0;
     let end = st.size - 1;
     if (range && (range[1] || range[2])) {
