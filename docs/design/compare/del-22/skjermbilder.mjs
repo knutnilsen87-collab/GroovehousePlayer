@@ -49,6 +49,9 @@ const evalJs = async (expr) => (await withTimeout(send('Runtime.evaluate', { exp
 
 await send('Page.enable');
 await send('Runtime.enable');
+// Avspillingen i skjermbildene skal ikke havne i lytteloggen eller «Fortsett her»
+await send('Network.enable');
+await send('Network.setBlockedURLs', { urls: ['*/api/listens*', '*/api/playback*'] });
 await send('Page.navigate', { url: BASE });
 await sleep(1500);
 

@@ -24,10 +24,11 @@ interface PackResult {
   warnings: string[];
 }
 
-export const useReleaseUi = create<{ assets: LoadedAsset[] | null; open: (a: LoadedAsset[]) => void; close: () => void }>((set) => ({
+export const useReleaseUi = create<{ assets: LoadedAsset[] | null; title: string | null; open: (a: LoadedAsset[], title?: string) => void; close: () => void }>((set) => ({
   assets: null,
-  open: (assets) => set({ assets }),
-  close: () => set({ assets: null })
+  title: null,
+  open: (assets, title) => set({ assets, title: title ?? null }),
+  close: () => set({ assets: null, title: null })
 }));
 
 const ref = (a: LoadedAsset) => ({ slug: a.manifest.slug, variant: a.manifest.variant ?? null, version: a.manifest.version });
@@ -57,7 +58,7 @@ export function ReleaseSheetHost() {
 function ReleaseSheet({ assets }: { assets: LoadedAsset[] }) {
   const close = () => useReleaseUi.getState().close();
   const ref0 = useDialog<HTMLDivElement>(close);
-  const [title, setTitle] = useState(assets.length === 1 ? assets[0]!.manifest.title : '');
+  const [title, setTitle] = useState(() => useReleaseUi.getState().title ?? (assets.length === 1 ? assets[0]!.manifest.title : ''));
   const [genre, setGenre] = useState('Tech House');
   const [aiMusic, setAiMusic] = useState('');
   const [aiCover, setAiCover] = useState('');

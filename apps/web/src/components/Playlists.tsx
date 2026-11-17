@@ -37,6 +37,8 @@ import { useFavorites } from '../lib/library';
 import { DraftBadge } from './Draft';
 import { useLockConfirm } from './DjLock';
 import { useDialog } from '../lib/dialog';
+import { isApp } from '../lib/platform';
+import { useReleaseUi } from './ReleaseSheet';
 import { lockVersionLabel } from '../lib/lock';
 import { CoverArt } from './CoverArt';
 import { BoltIcon, ChevronDownIcon, GripIcon, MoreIcon, PlayIcon, PlusIcon, ShuffleIcon, TrashIcon } from './Icons';
@@ -758,6 +760,8 @@ export function PlaylistDetail({ id, tracks, onBack, onClosed, vctx }: { id: str
                           : []),
                         // Del 26: albumbyggeren med denne planen som utvalg
                         ...(v.playlist?.plan === 'album' ? ([['Bygg album', () => useAlbumUi.getState().show({ planId: id })]] as Array<[string, () => void]>) : []),
+                        // Del 24/26: release-pakke for hele albumet (bare på PC-en, der WAV-ene havner)
+                        ...(v.playlist?.plan === 'album' && isDesktop() && !isApp && v.assets.length ? ([['Forbered utgivelse …', () => useReleaseUi.getState().open(v.assets.filter((a) => a.manifest.kind !== 'set'), v.playlist?.name)]] as Array<[string, () => void]>) : []),
                         ['Dupliser', () => void usePlaylists.getState().duplicate(v.playlist!).then((p) => useToast.getState().show(`Lagde «${p.name}»`)).catch(toastError)],
                         ['Slett …', () => setConfirmDelete(true)]
                       ] as Array<[string, () => void]>
