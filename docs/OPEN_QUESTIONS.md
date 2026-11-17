@@ -34,7 +34,7 @@ _(ingen ennå)_
 24. **Del 25 – låt uten lyd.** «Legg til utgitt låt uten lyd» (Studio → Utgivelser) lagres i `data/releases.json` med slug `uten-lyd-<tittel>` og merket «MANGLER LYD». Den vises ikke i spilleren. Kopler du senere til en ekte fil, må oppføringen flyttes for hånd (sammenslåing er ikke laget).
 25. **Del 25 – CSV fra LANDR** er ikke laget: LANDR har ikke et dokumentert eksportformat jeg kan teste mot. Send meg én eksportfil, så lager jeg importen.
 26. **DoD A – CI** kjører på `windows-latest` (typecheck, test, `pnpm audit --audit-level high`) pluss gitleaks. For å få `pnpm audit` uten high/critical er vitest løftet til 4.1, vite til 6.4 og sharp til 0.35.
-27. **Del 18 – påminnelsen i Android-varselet** oppdateres hvert sekund fra en plan som regnes ut i web (samme tekst som på skjermen). Krever APK 112.
+27. **Del 18 – påminnelsen i Android-varselet** oppdateres hvert sekund fra en plan som regnes ut i web (samme tekst som på skjermen). Krever APK 120 (bygget og lagt ut 2026-11-17; versjonskoden følger antall commits).
 28. **Del 20 – vokal-kart.** Når en låt har ordtider fra teksten (WhisperX), brukes de i stedet for vokal-kartet fra Demucs (Demucs fant «vokal» i pads fra 0 s: 15 % falske treff). Uten tekst brukes Demucs.
 29. **Del 20 – ferdigmiksede overganger.** Lagres i `data/renders` med tak på 2 GB (eldste slettes først). Bommer en overgang på kvalitetssjekken (takt > 15 ms, nivåhopp), lages et alternativ automatisk og begge vises.
 30. **Del 20 – ikke bygget:** automatisk «DJ edit» (eksperimentell, av som standard) og å dra første taktslag i markør-editoren. Si fra om du vil ha dem.

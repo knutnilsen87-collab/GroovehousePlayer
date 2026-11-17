@@ -80,7 +80,7 @@ current_state:
     APK med oppdatereren: dist/android/groovehouse-vault-0.1.0.apk (versionCode 51), også publisert i data/app/apk.
     Ikke verifisert i nettleser denne økta: banneret «Fortsett her» og «Del lenke». Ikke verifisert: telefon/bil, WhatsApp, rekordbox, autostart etter ekte omstart.
   recommended_next_action: >
-    Knut logger inn i gh (portabel gh.exe i %LOCALAPPDATA%\GroovehouseVault\tools\gh\bin), så lages PR setup/del-0 → main (ikke merge). Bygg APK 112 med pnpm android:release (del 18). Del 27 P2 og stille hint. Gjennomgang av «Ferdig når» for del 0–27, og PR nummer to. CPU-måling for lyrics/analyse (før-tall) når PC-en er ledig.
+    Knut logger inn i gh (portabel gh.exe i %LOCALAPPDATA%\GroovehouseVault\tools\gh\bin), så lages PR setup/del-0 → main (ikke merge). Del 27 P2 og stille hint. Gjennomgang av «Ferdig når» for del 0–27, og PR nummer to. CPU-måling for lyrics/analyse (før-tall) når PC-en er ledig.
   active_blockers:
     - "Del 3: fasit for 5–10 låter i fixtures/truth.json. WAV-ene i REASONDONE har ingen BPM- eller toneart-tagger (lest 2026-11-15). keyMethod er krumhansl."
     - "Del 13: wrangler login, D1, R2 og ruten listen.groovehouserecords.com er ikke kjørt. Spør før wrangler login."
