@@ -70,7 +70,8 @@ export function introOutro(m: AssetManifest): { introMs: number; outroMs: number
  * `groups`: slug::variant → duplikatgruppe (samme låt under ulike titler).
  */
 export function toSbTracks(items: Array<{ manifest: AssetManifest; analysis: Analysis | null; features?: EnergyFeatures | null }>, groups?: Record<string, string> | null): SbTrack[] {
-  const scores = energyScores(items.map((i) => i.features ?? energyFeatures(i.manifest, i.analysis)));
+  const feats = items.map((i) => i.features ?? energyFeatures(i.manifest, i.analysis));
+  const scores = energyScores(feats);
   return items.map(({ manifest: m }, i) => {
     const io = introOutro(m);
     return {
@@ -88,7 +89,10 @@ export function toSbTracks(items: Array<{ manifest: AssetManifest; analysis: Ana
       ...io,
       bpmConfidence: m.bpmConfidence,
       keyConfidence: m.key?.confidence ?? null,
-      group: groups?.[`${m.slug}::${m.variant ?? ''}`] ?? null
+      group: groups?.[`${m.slug}::${m.variant ?? ''}`] ?? null,
+      // Likhetsmålet (del 20 E / 26). Uten analyse er verdiene 0,5 (ukjent) – da teller de ikke.
+      bass: items[i]!.features || items[i]!.analysis ? feats[i]!.bass : null,
+      transients: items[i]!.features || items[i]!.analysis ? feats[i]!.transients : null
     };
   });
 }

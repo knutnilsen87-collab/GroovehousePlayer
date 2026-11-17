@@ -55,6 +55,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Del 20 E: lite haptisk svar ved langt trykk på hjertet (navigator.vibrate i WebView) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Del 15: «Oppdater»-banneret åpner Androids installasjonsdialog for ny APK -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

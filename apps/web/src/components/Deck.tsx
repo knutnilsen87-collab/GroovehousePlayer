@@ -1,3 +1,4 @@
+import { haptic, useSeedSet } from '../lib/seedset';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { bpmConfidenceText, bpmUncertain, camelotRelation, displayLabel, formatTime, RELATION_TEXT, formatTimeMs, isDraft, keyShort, lyricIndexAt, parseLyricWords, RATE_MAX, RATE_MIN, versionName, wordIndexAt } from '@gv/shared/web';
 import { assetUrl, uploadAssetCover, useFullAsset, variantName, type LoadedAsset } from '../lib/catalog';
@@ -38,13 +39,38 @@ export function HeartButton({ slug, title, size = 20, className = '' }: { slug: 
   const motif = useHeartbeatMotif();
   const on = useIsFavorite(slug);
   const toggle = useFavorites((s) => s.toggle);
+  // Del 20 E: langt trykk (0,5 s) = «Lag sett fra denne». Endrer ikke favorittstatus; lite haptisk svar på mobil.
+  const press = useRef<{ timer: number; long: boolean } | null>(null);
+  const startPress = () => {
+    const p = { timer: 0, long: false };
+    p.timer = window.setTimeout(() => {
+      p.long = true;
+      haptic();
+      useSeedSet.getState().openSeedSet({ slug, title });
+    }, 500);
+    press.current = p;
+  };
+  const endPress = () => {
+    if (press.current) window.clearTimeout(press.current.timer);
+  };
   return (
     <button
       type="button"
       aria-pressed={on}
       aria-label={on ? `Fjern ${title} fra favoritter` : `Legg ${title} til i favoritter`}
+      title="Trykk: favoritt · hold inne: lag sett fra denne"
+      onPointerDown={startPress}
+      onPointerUp={endPress}
+      onPointerLeave={endPress}
+      onPointerCancel={endPress}
+      onContextMenu={(e) => e.preventDefault()}
       onClick={(e) => {
         e.stopPropagation();
+        // Etter et langt trykk: ingen favoritt-endring
+        if (press.current?.long) {
+          press.current = null;
+          return;
+        }
         void toggle(slug);
       }}
       className={`flex flex-none items-center justify-center rounded-full transition-colors ${on ? 'text-accent !opacity-100' : 'text-soft hover:text-ink-strong'} ${className}`}

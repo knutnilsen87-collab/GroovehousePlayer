@@ -1,3 +1,4 @@
+import { useSeedSet } from '../lib/seedset';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { displayLabel, formatTime, sectionsOf } from '@gv/shared/web';
@@ -100,6 +101,13 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
         // Del 18: rask idéfangst – ett trykk åpner presetraden, ett trykk til lagrer
         { label: 'Idé for overgang', sub: true, run: () => setPanel('fx') },
         { label: 'Info', sub: true, run: () => setPanel('info') },
+        // Del 20 E: frølåt – ett trykk gir et sett med standardvalgene; «Mer som denne» gir en kø
+        ...(m.kind !== 'set'
+          ? [
+              { label: 'Lag sett fra denne', run: run(() => useSeedSet.getState().openSeedSet({ slug: m.slug, variant: m.variant, id: m.id, title: m.title })) },
+              { label: 'Mer som denne', run: run(() => useSeedSet.getState().openMoreLike({ slug: m.slug, variant: m.variant, id: m.id, title: m.title })) }
+            ]
+          : []),
         ...(desktop ? [{ label: 'Åpne i Studio', run: run(() => location.assign(`/studio#arkiv/${encodeURIComponent(m.slug)}`)) }] : []),
         // Del 23: AI-cover via bulkIMG (bare på PC-en, der bulkIMG kjører)
         ...(desktop && !isApp ? [{ label: 'Lag AI-cover …', run: run(() => useAiCover.getState().open({ slugs: [m.slug] })) }] : [])

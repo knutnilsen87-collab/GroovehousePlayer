@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { bpmLabel, formatTime, isDraft, keyShort, matchesStatus, NEUTRAL_PALETTE, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
+import { bpmLabel, formatTime, isDraft, keyShort, matchesStatus, moreLikeThis, NEUTRAL_PALETTE, toSbTracks, paletteToCssVars, sectionAt, sectionsOf, type StatusFilter } from '@gv/shared/web';
 import { Logo } from '../components/Brand';
 import { AnalysisSidebarCard, CoverCard, NowPanel, SideTabs } from '../components/Deck';
 import { FullPlayer } from '../components/MobilePlayer';
@@ -13,7 +13,7 @@ import { CoverArt } from '../components/CoverArt';
 import { addWithUndo, AddToPlaylistSheet, PlaylistDetail, PlaylistsOverview, SidebarPlaylists, Toast } from '../components/Playlists';
 import { ChevronDownIcon, MoreIcon, NextIcon, PauseIcon, PlayIcon, PrevIcon, SearchIcon, SectionNextIcon, SectionPrevIcon, VolumeIcon } from '../components/Icons';
 import { SpectralWaveform } from '../components/SpectralWaveform';
-import { assetUrl, groupTracks, loadVersion, useCatalog, useFullAsset, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
+import { assetUrl, dupeGroups, groupTracks, loadVersion, useCatalog, useFullAsset, variantName, versionKey, type LoadedAsset, type Track } from '../lib/catalog';
 import { startPlaybackSync } from '../lib/playbackSync';
 import { savedPosition, storedQueue, usePlayer } from '../lib/player';
 import { SetBuilder } from '../components/SetBuilder';
@@ -32,6 +32,7 @@ import { UnreachableScreen } from './Connect';
 import { skinTrackVars, useSkinId, useTagline } from '../lib/skin';
 import { Heartbeat, useHeartbeatMotif } from '../components/Brand';
 import { useFx } from '../lib/fx';
+import { useSeedSet } from '../lib/seedset';
 
 type Filter = 'all' | 'track' | 'set';
 
@@ -68,6 +69,34 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
   const [filter, setFilter] = useState<Filter>('all');
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [full, setFull] = useState(false);
+  // Del 20 E: «Lag sett fra denne» åpner Live-sett → Lag sett (forslagene bygges der); «Mer som denne» lager køen her
+  const seedReq = useSeedSet((s) => s.seedSet);
+  useEffect(() => {
+    if (!seedReq) return;
+    setFull(false);
+    setView('sets');
+  }, [seedReq?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
+  const moreReq = useSeedSet((s) => s.moreLike);
+  useEffect(() => {
+    if (!moreReq || !assets.length) return;
+    useSeedSet.getState().clearMoreLike();
+    const songs = assets.filter((a) => a.manifest.kind !== 'set');
+    const pool = toSbTracks(songs, dupeGroups());
+    const seedId = pool.find((t) => t.id === moreReq.id)?.id ?? pool.find((t) => t.slug === moreReq.slug)?.id;
+    if (!seedId) return;
+    const byId = new Map(songs.map((a) => [a.manifest.id, a]));
+    const list = moreLikeThis(pool, seedId).map((t) => byId.get(t.id)!).filter(Boolean);
+    usePlayer.getState().playFrom(list, 0);
+    useToast.getState().show(`Mer som «${moreReq.title}»: ${list.length} låter i køen`, {
+      label: 'Lagre som spilleliste',
+      run: () =>
+        void usePlaylists
+          .getState()
+          .create(`Mer som ${moreReq.title}`, list.map((a) => ({ slug: a.manifest.slug, variant: a.manifest.variant, version: null })))
+          .then((p) => useToast.getState().show(`Lagret: «${p.name}»`))
+          .catch(toastError)
+    });
+  }, [moreReq?.nonce, assets.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [listId, setListId] = useState<string | null>(null);
   const addSheet = useUi((s) => s.addSheet);
   const openActions = useUi((s) => s.openActions);
@@ -694,6 +723,11 @@ function SetsView({ sets, tracks, onPlay, onOpenList }: { sets: Track[]; tracks:
       /* uten lagring */
     }
   };
+  // «Lag sett fra denne»: rett til settbyggeren
+  const seedReq = useSeedSet((s) => s.seedSet);
+  useEffect(() => {
+    if (seedReq) pick('build');
+  }, [seedReq?.nonce]); // eslint-disable-line react-hooks/exhaustive-deps
   const allLists = usePlaylists((s) => s.playlists);
   const plans = useMemo(() => allLists.filter((p) => p.plan === 'set'), [allLists]);
   const assets = useMemo(() => tracks.flatMap((t) => t.variants), [tracks]);

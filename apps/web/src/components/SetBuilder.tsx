@@ -11,6 +11,7 @@ import {
   lowConfidence,
   RELATION_TEXT,
   replacementsFor,
+  SEED_PLACE_NAMES,
   toSbTracks,
   transitionParts,
   type BuildOptions,
@@ -18,10 +19,12 @@ import {
   type CurveKind,
   type LearnEvent,
   type SbTrack,
+  type SeedPlace,
   type SetResult
 } from '@gv/shared/web';
 import { assetUrl, dupeGroups, type LoadedAsset } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
+import { useSeedSet } from '../lib/seedset';
 import { toastError, usePlaylists, useToast } from '../lib/playlists';
 import { CoverArt } from './CoverArt';
 import { Panel } from './Deck';
@@ -75,6 +78,13 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
   const [took, setTook] = useState<number | null>(null);
   const [learn, setLearn] = useState<{ events: LearnEvent[]; knownPairs: string[] }>({ events: [], knownPairs: [] });
   const [name, setName] = useState('');
+  // Del 20 E: frølåt fra «Lag sett fra denne» (⋯-menyen, fullskjerm, langt trykk på hjertet)
+  const seedReq = useSeedSet((s) => s.seedSet);
+  const [seedPlace, setSeedPlace] = useState<SeedPlace>('auto');
+  const seedTrack = useMemo(() => {
+    if (!seedReq) return null;
+    return pool.find((t) => t.id === seedReq.id) ?? pool.find((t) => t.slug === seedReq.slug && (seedReq.variant === undefined || t.variant === (seedReq.variant ?? null))) ?? pool.find((t) => t.slug === seedReq.slug) ?? null;
+  }, [seedReq, pool]);
 
   useEffect(() => {
     fetch('/api/sets/learn', { cache: 'no-store' })
@@ -98,6 +108,7 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
     seed,
     weights,
     knownPairs: learn.knownPairs,
+    ...(seedTrack ? { seedTrack: { id: seedTrack.id, place: seedPlace } } : {}),
     ...extra
   });
   const warn = pool.filter((t) => (includeDrafts || !t.draft) && lowConfidence(t));
@@ -109,7 +120,20 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
     setAlts(r);
     setActive(0);
     setSwapAt(null);
-    setName(`${CURVE_NAMES[curve]} ${durationMin} min`);
+    setName(extra.seedTrack || seedTrack ? `Fra ${seedReq?.title ?? seedTrack?.title ?? ''}` : `${CURVE_NAMES[curve]} ${durationMin} min`);
+  };
+  // Ett trykk: tre forslag med standardvalgene (60 min, Reise, umastrede med). Ingenting lagres før Knut velger.
+  useEffect(() => {
+    if (!seedTrack || !seedReq) return;
+    setDuration(60);
+    setCurve('journey');
+    setIncludeDrafts(true);
+    setSeedPlace('auto');
+    build({ durationMin: 60, curve: 'journey', customCurve: undefined, includeDrafts: true, seedTrack: { id: seedTrack.id, place: 'auto' } });
+  }, [seedReq?.nonce, !!seedTrack]); // eslint-disable-line react-hooks/exhaustive-deps
+  const placeSeed = (place: SeedPlace) => {
+    setSeedPlace(place);
+    if (seedTrack) build({ seedTrack: { id: seedTrack.id, place } });
   };
   const cur = alts?.[active];
 
@@ -243,6 +267,25 @@ export function SetBuilder({ assets }: { assets: LoadedAsset[] }) {
     <div className="flex flex-col gap-4">
       <Panel title="Lag sett">
         <div className="flex flex-col gap-3">
+          {seedTrack && (
+            <div className="flex flex-col gap-2 rounded-xl bg-accent/[0.08] p-3" aria-label="Frølåt">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted">Frølåt</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink-strong">{seedTrack.title}</span>
+                <button type="button" onClick={() => useSeedSet.getState().clearSeedSet()} className="h-11 rounded-full px-3 text-xs text-muted hover:text-ink lg:h-8">
+                  Fjern
+                </button>
+              </div>
+              <div role="radiogroup" aria-label="Plass i settet" className="flex flex-wrap gap-1.5">
+                {(Object.keys(SEED_PLACE_NAMES) as SeedPlace[]).map((p) => (
+                  <button key={p} type="button" role="radio" aria-checked={seedPlace === p} onClick={() => placeSeed(p)} className={`h-11 rounded-full px-3 text-xs lg:h-8 ${seedPlace === p ? 'bg-accent text-on-accent font-semibold' : 'bg-white/[0.05] text-soft hover:text-ink'}`}>
+                    {SEED_PLACE_NAMES[p]}
+                  </button>
+                ))}
+              </div>
+              <p className="m-0 text-[11px] text-muted">Låter som ligner (BPM, toneart, energi, bass) vektes opp nær frølåta. Velg et forslag og lagre det under Planlagte sett.</p>
+            </div>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <span className="w-24 text-xs text-muted">Varighet</span>
             {DURATIONS.map((d) => (

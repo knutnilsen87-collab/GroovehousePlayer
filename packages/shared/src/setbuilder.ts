@@ -1,3 +1,4 @@
+import { similarity, type SimFeatures } from './similarity';
 import { parseCamelot } from './studio';
 
 /**
@@ -38,7 +39,15 @@ export interface SbTrack {
    * Settbyggeren og «Bytt ut» bruker aldri to låter fra samme gruppe. Mangler = slug.
    */
   group?: string | null;
+  /** Likhetsmålet (similarity.ts): bassandel og transienter fra analysen; groove og tagger kommer i del 20 A/D. */
+  bass?: number | null;
+  transients?: number | null;
+  groove?: SimFeatures['groove'];
+  tags?: string[] | null;
 }
+
+/** Likhetsgrunnlaget for et spor (deles med albumbyggeren). */
+export const simOf = (t: SbTrack): SimFeatures => ({ bpm: t.bpm, camelot: t.camelot, energy: t.energy, bass: t.bass, transients: t.transients, lufs: t.lufs, groove: t.groove, tags: t.tags });
 
 /** Hvilken «låt» et spor er: duplikatgruppa hvis den finnes, ellers slug (alle versjoner og varianter). */
 export const songKey = (t: Pick<SbTrack, 'slug' | 'group'>) => t.group ?? t.slug;
@@ -74,6 +83,31 @@ export interface BuildOptions {
   weights?: Partial<Weights>;
   /** Kjente gode overganger (fra Knuts innspilte sett): «slugA→slugB». Gir bonus. */
   knownPairs?: string[];
+  /**
+   * Del 20 E: frølåt. Alltid med; plassert der energien passer kurven («auto»), eller først, på toppen eller sist.
+   * Låter som ligner den (similarity.ts) vektes opp, mer jo nærmere frølåta de ligger.
+   */
+  seedTrack?: { id: string; place?: SeedPlace; affinity?: number };
+}
+
+export type SeedPlace = 'auto' | 'start' | 'peak' | 'end';
+export const SEED_PLACE_NAMES: Record<SeedPlace, string> = { auto: 'Der den passer', start: 'Start', peak: 'Topp', end: 'Avslutning' };
+
+/** Hvor frølåta skal stå i et sett med `n` låter. */
+export function seedIndex(n: number, place: SeedPlace, energy: number, curve: CurveKind, custom?: number[]): number {
+  if (n <= 1 || place === 'start') return 0;
+  if (place === 'end') return n - 1;
+  let best = 0;
+  let bestV = Infinity;
+  for (let i = 0; i < n; i++) {
+    const c = curveAt(curve, i / (n - 1), custom);
+    const v = place === 'peak' ? -c : Math.abs(c - energy);
+    if (v < bestV - 1e-9) {
+      bestV = v;
+      best = i;
+    }
+  }
+  return best;
 }
 
 // ---------------------------------------------------------------- Kriterie 1: harmonisk (Camelot)
@@ -339,8 +373,11 @@ export interface SetResult {
  * (bytt plass, bytt ut, flytt) mot hele målet. Festede låter på bestemte plasser står; festede uten plass
  * blir med, men kan flyttes. `avoid` = låter (slug) som gir litt straff (for å lage ulike alternativer).
  */
-export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> = new Set()): SetResult | null {
-  const w: Weights = { ...DEFAULT_WEIGHTS, ...opts.weights };
+export function buildSet(all: SbTrack[], optsIn: BuildOptions, avoid: Set<string> = new Set()): SetResult | null {
+  const w: Weights = { ...DEFAULT_WEIGHTS, ...optsIn.weights };
+  // Frølåta er alltid med (som festet låt uten plass; plassen settes etter søket)
+  const seedIn = optsIn.seedTrack ? all.find((t) => t.id === optsIn.seedTrack!.id) : undefined;
+  const opts: BuildOptions = seedIn && !(optsIn.mustInclude ?? []).some((m) => m.id === seedIn.id) ? { ...optsIn, mustInclude: [...(optsIn.mustInclude ?? []), { id: seedIn.id, position: null }] } : optsIn;
   const pool = candidates(all, opts);
   if (!pool.length) return null;
   const ctx: Ctx = { w, opts, targetMs: opts.durationMin * 60_000, matrix: new Map(), known: new Set(opts.knownPairs ?? []) };
@@ -354,6 +391,24 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
     else mustFree.push(t);
   }
   const avoidCost = (t: SbTrack) => (avoid.has(songKey(t)) ? 0.35 : 0);
+  // Frølåt: forventet plass ut fra omtrentlig antall låter, og likhet med den (nær plassen teller mest)
+  const seedT = seedIn ? byId.get(seedIn.id) : undefined;
+  const meanMs = pool.reduce((s, t) => s + t.durationMs, 0) / pool.length;
+  const nEst = Math.max(2, Math.round(ctx.targetMs / meanMs));
+  const place = opts.seedTrack?.place ?? 'auto';
+  const seedIdx = seedT ? seedIndex(nEst, place, seedT.energy, opts.curve, opts.customCurve) : 0;
+  const simTo = new Map<string, number>();
+  if (seedT) for (const t of pool) simTo.set(t.id, similarity(simOf(t), simOf(seedT)));
+  const affinity = opts.seedTrack?.affinity ?? 1.2;
+  const seedCost = (t: SbTrack, pos: number) => (!seedT || t.id === seedT.id ? 0 : (1 - (simTo.get(t.id) ?? 0)) * affinity * Math.exp(-Math.abs(pos - seedIdx) / 3));
+  const seedCosts = (seq: SbTrack[]) => seq.reduce((s, t, i) => s + seedCost(t, i), 0);
+  /** Flytt frølåta til plassen sin (sist ved «Avslutning»). */
+  const placeSeed = (seq: SbTrack[]) => {
+    if (!seedT) return seq;
+    const rest = seq.filter((t) => t.id !== seedT.id);
+    const at = place === 'end' ? rest.length : Math.min(seedIdx, rest.length);
+    return [...rest.slice(0, at), seedT, ...rest.slice(at)];
+  };
   const energyCost = (t: SbTrack, midMs: number) => (Math.abs(t.energy - curveAt(opts.curve, Math.min(1, midMs / ctx.targetMs), opts.customCurve)) / 9) * 2 * w.energy;
 
   // ---- Beam search
@@ -378,7 +433,7 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
         if (!fixed && [...pinned.values()].some((p) => songKey(p) === songKey(t))) continue; // står på en annen plass
         if (pos === 0 && !fixed && !startOk(t)) continue;
         const prev = s.seq[pos - 1];
-        let c = s.cost + (prev ? pairCost(ctx, prev, t) : t.introMs < 16 * barMsOf(t.bpm) ? 0.3 : 0) + energyCost(t, s.ms + t.durationMs / 2) + avoidCost(t);
+        let c = s.cost + (prev ? pairCost(ctx, prev, t) : t.introMs < 16 * barMsOf(t.bpm) ? 0.3 : 0) + energyCost(t, s.ms + t.durationMs / 2) + avoidCost(t) + seedCost(t, pos);
         // Variasjon: samme toneart for mange på rad
         if (pos >= 3 && t.camelot && s.seq.slice(-3).every((x) => x.camelot === t.camelot)) c += 0.5 * w.variation;
         const used = new Set(s.used);
@@ -399,14 +454,17 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
   if (!pick.length) return null;
   let best = pick[0]!;
   let bestCost = Infinity;
-  const full = (seq: SbTrack[]) => evaluate(seq, opts, w).cost + seq.reduce((s, t) => s + avoidCost(t), 0);
+  const full = (seq: SbTrack[]) => evaluate(seq, opts, w).cost + seq.reduce((s, t) => s + avoidCost(t), 0) + seedCosts(seq);
   for (const seq of pick) {
-    const c = full(withMust(seq, mustFree, ctx));
+    const cand = placeSeed(withMust(seq, mustFree, ctx));
+    const c = full(cand);
     if (c < bestCost) {
       bestCost = c;
-      best = withMust(seq, mustFree, ctx);
+      best = cand;
     }
   }
+  // Frølåta står fast på plassen sin under det lokale søket
+  if (seedT) pinned.set(best.findIndex((t) => t.id === seedT.id), seedT);
 
   // ---- Lokalt søk (simulert nedkjøling)
   const rand = rng(opts.seed ?? 1);
@@ -453,6 +511,8 @@ export function buildSet(all: SbTrack[], opts: BuildOptions, avoid: Set<string> 
       }
     }
   }
+  // «Avslutning»: lengden kan ha endret seg i søket – frølåta skal være sist
+  if (seedT && place === 'end') best = placeSeed(best);
   const ev = evaluate(best, opts, w);
   return { tracks: best, cost: ev.cost, parts: ev.parts, score: totalScore(ev.parts), totalMs: best.reduce((s, t) => s + t.durationMs, 0) };
 }
@@ -588,4 +648,44 @@ export function adjustWeights(events: LearnEvent[], base: Weights = DEFAULT_WEIG
     }
   }
   return w;
+}
+
+// ---------------------------------------------------------------- Del 20 E: «Mer som denne»
+
+/**
+ * En kø på `n` låter (10–20) som ligner frølåta, sortert for jevne overganger. Uten sett-struktur.
+ * Én låt per sang: aldri to versjoner eller varianter av samme låt (heller ikke av frølåta), heller ikke to
+ * låter i samme duplikatgruppe. Deterministisk.
+ */
+export function moreLikeThis(all: SbTrack[], seedId: string, o: { n?: number; includeDrafts?: boolean; weights?: Partial<Weights> } = {}): SbTrack[] {
+  const seed = all.find((t) => t.id === seedId);
+  if (!seed) return [];
+  const n = Math.max(10, Math.min(20, o.n ?? 15));
+  const w: Weights = { ...DEFAULT_WEIGHTS, ...o.weights };
+  const ctx: Ctx = { w, opts: { durationMin: 60, curve: 'journey' }, targetMs: 0, matrix: new Map(), known: new Set() };
+  const pool = candidates(all, { durationMin: 60, curve: 'journey', includeDrafts: o.includeDrafts ?? true, mustInclude: [{ id: seed.id }] }).filter((t) => songKey(t) !== songKey(seed));
+  const sim = new Map(pool.map((t) => [t.id, similarity(simOf(t), simOf(seed))] as const));
+  // De mest like (dobbelt så mange som trengs), så rekkefølge etter overgang + likhet
+  const near = [...pool].sort((a, b) => sim.get(b.id)! - sim.get(a.id)! || a.id.localeCompare(b.id)).slice(0, n * 2);
+  const out = [seed];
+  const used = new Set([songKey(seed)]);
+  while (out.length < n && near.length) {
+    const prev = out[out.length - 1]!;
+    let bi = -1;
+    let bc = Infinity;
+    for (let i = 0; i < near.length; i++) {
+      const t = near[i]!;
+      if (used.has(songKey(t))) continue;
+      const c = pairCost(ctx, prev, t) + (1 - sim.get(t.id)!) * 2;
+      if (c < bc - 1e-12) {
+        bc = c;
+        bi = i;
+      }
+    }
+    if (bi < 0) break;
+    const [t] = near.splice(bi, 1);
+    used.add(songKey(t!));
+    out.push(t!);
+  }
+  return out;
 }
