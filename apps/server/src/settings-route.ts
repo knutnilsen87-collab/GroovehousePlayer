@@ -1,7 +1,7 @@
 import { readAppManifest } from './app-update';
 import { cloudSyncWarning, detectCloudSync } from './cloudsync';
 import type { IncomingMessage, ServerResponse } from 'node:http';
-import { existsSync, statSync, accessSync, constants } from 'node:fs';
+import { existsSync, statSync, accessSync, constants, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { DEFAULTS, loadConfig, setLanEnabled } from '@gv/ingest/config';
 import { checkFolder } from '@gv/ingest/folder-check';
@@ -11,6 +11,7 @@ import { credRead, credWrite } from './credstore';
 import { hashPin, newSecret, PIN_RE } from './lan-auth';
 import { qrSvg } from './lan';
 import { remoteStatus } from './remote-cli';
+import { appDataDir } from './paths';
 
 /**
  * Del 8: /api/settings for Studio → Innstillinger.
@@ -70,6 +71,8 @@ export function createSettingsRoute(h: SettingsHooks) {
         lan: { enabled: cfg.lan.enabled, pinSet: !!safe(() => credRead('lan-pin'), null), firewallRule: h.firewallRule ? safe(h.firewallRule, false) : null },
         remote: { ...remote, url: remoteUrl, qr: remoteUrl ? await qrSvg(remoteUrl) : null },
         canChangeAccess: ctx.fromPc,
+        // DoD A: siste vellykkede pnpm vault:backup (tid, mål, antall filer)
+        backup: safe(() => JSON.parse(readFileSync(path.join(appDataDir(), 'last-backup.json'), 'utf8')) as unknown, null),
         cloudSync: (() => {
           const s = detectCloudSync(h.root);
           return s ? { provider: s.provider, syncRoot: s.syncRoot, warning: cloudSyncWarning(s, h.root) } : null;

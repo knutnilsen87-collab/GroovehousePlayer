@@ -24,6 +24,7 @@
     "android:release": "pnpm --filter @gv/server exec node --import tsx ../android/scripts/android.ts release",
     "vault:autostart": "pnpm --filter @gv/server vault autostart",
     "vault:backup": "node scripts/vault-backup.mjs",
+    "vault:restore": "node scripts/vault-restore.mjs",
     "vault:covers": "pnpm --filter @gv/ingest exec tsx src/cli.ts --vault-covers"
   }
 }

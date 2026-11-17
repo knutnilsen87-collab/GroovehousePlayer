@@ -174,6 +174,7 @@ export function SettingsView() {
       )}
       <Section title="Server" hint={`Port ${state.server.port} · prosess ${state.server.pid}`}>
         <RestartServer />
+        <BackupStatus backup={state.backup ?? null} />
       </Section>
 
       {hasUnsaved && (
@@ -823,4 +824,27 @@ function waitAndReload() {
       .catch(() => tries < 60 && setTimeout(poll, 1000));
   };
   setTimeout(poll, 1500);
+}
+
+/** DoD A: «Siste backup» – når `pnpm vault:backup` sist gikk bra, og hvor. Varsler etter 7 dager. */
+function BackupStatus({ backup }: { backup: SettingsState['backup'] | null }) {
+  const days = backup ? (Date.now() - Date.parse(backup.at)) / 86_400_000 : null;
+  const old = days == null || days > 7;
+  return (
+    <div className={`flex flex-col gap-1 rounded-xl px-4 py-3 text-xs ${old ? 'border border-[#F2A08F]/40 bg-[#F2A08F]/[0.06]' : 'bg-sunken/75'}`}>
+      <span className="font-semibold text-ink-strong">
+        Siste backup:{' '}
+        {backup ? `${new Date(backup.at).toLocaleString('nb-NO', { dateStyle: 'medium', timeStyle: 'short' })} (${days! < 1 ? 'i dag' : `${Math.floor(days!)} ${Math.floor(days!) === 1 ? 'dag' : 'dager'} siden`})` : 'aldri (eller før dette ble registrert)'}
+      </span>
+      {backup && (
+        <span className="text-soft">
+          Til <span className="font-mono text-ink">{backup.target}</span>
+          {backup.files != null && Number.isFinite(backup.files) ? ` · ${backup.files} filer` : ''} · {backup.seconds} s{backup.errors ? ` · ${backup.errors} filer ble ikke kopiert` : ''}
+        </span>
+      )}
+      <span className="text-soft">
+        {old ? 'Over en uke siden. ' : ''}Backup tas med <code className="font-mono text-ink">pnpm vault:backup</code> (til H:), og hentes tilbake med <code className="font-mono text-ink">pnpm vault:restore</code>.
+      </span>
+    </div>
+  );
 }

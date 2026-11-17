@@ -4,6 +4,9 @@ import { readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+
+/** Et lag til composite() (typen hentes fra sharp, så den virker med både gamle og nye typefiler). */
+type Overlay = Parameters<ReturnType<typeof sharp>['composite']>[0][number];
 import type { Analysis, AssetManifest } from '@gv/shared';
 
 /**
@@ -169,7 +172,7 @@ async function textLayer(markup: string, font: string, fontfile: string, width: 
 }
 
 /** Tittel (Clash Display), artist i sperret Syncopate, «UMASTRET» og merket – Vaults egen typografi oppå et bilde. */
-async function typeLayers(input: VaultCoverInput, size: number, logo: string | null | undefined): Promise<sharp.OverlayOptions[]> {
+async function typeLayers(input: VaultCoverInput, size: number, logo: string | null | undefined): Promise<Overlay[]> {
   const S = size / 3000;
   const { hue, minor } = camelotColors(input.camelot, input.slug);
   const left = Math.round(190 * S);
@@ -177,7 +180,7 @@ async function typeLayers(input: VaultCoverInput, size: number, logo: string | n
   const title = input.title.length > 60 ? `${input.title.slice(0, 59)}…` : input.title;
   // Tittelstørrelsen krymper med lengden, så lange titler får plass på to linjer
   const pt = Math.round((title.length <= 14 ? 250 : title.length <= 24 ? 210 : 170) * S);
-  const layers: sharp.OverlayOptions[] = [];
+  const layers: Overlay[] = [];
   const titleBuf = await textLayer(`<span foreground="#F5F7FA">${esc(title)}</span>`, `Clash Display Variable Bold ${pt}`, CLASH, maxW);
   const tm = await sharp(titleBuf).metadata();
   const artist = (input.artist ?? 'Echo Groove').toUpperCase();

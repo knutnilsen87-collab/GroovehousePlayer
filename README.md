@@ -22,6 +22,8 @@ fixtures/           testmapper (WAV gitignored – lag dem med make-fixtures)
 - `pnpm vault:backup --dry` viser hva som ville blitt kopiert og slettet, uten å endre noe. `--to <mappe>` velger et annet mål.
 - Skriptet nekter å kjøre fra H: (kilden må være arbeidsmappa på F:) og stopper hvis backup-disken ikke er koblet til.
 - Det kjører ikke automatisk. En planlagt oppgave settes bare opp etter avtale.
+- Etter en vellykket backup vises tidspunktet under **Studio → Innstillinger → Server** («Siste backup», gul etter 7 dager).
+- **Gjenoppretting:** pnpm vault:restore --dry viser hva som ville blitt hentet fra H:. pnpm vault:restore --yes henter data/, media/ og groovehouse.local.json tilbake (kode og .git hentes fra GitHub). Vault-serveren må være stoppet, nåværende data/ og media/index.json legges først i %LOCALAPPDATA%\GroovehouseVault\restore-safety\, og resultatet kontrolleres mot backupen (0 forskjeller, JSON-filene like). --from og --to velger andre mapper.
 
 ## Oppsett på Windows
 
@@ -324,6 +326,20 @@ supabase start      # krever Docker Desktop
 
 Migrasjonen lager alle tabeller med RLS. Kun brukere i `admins` har tilgang. Lyttere får aldri kontoer.
 
+## Feilsøking
+
+| Symptom | Sjekk først | Løsning |
+|---|---|---|
+| Snarveien åpner ikke Vault | `curl http://127.0.0.1:41733/api/health` | Svarer ingen: start med `pnpm vault:server` og les feilen. Svarer et annet program: Vault velger neste ledige port (står i `%LOCALAPPDATA%\GroovehouseVault\port`). Loggen ligger i `%LOCALAPPDATA%\GroovehouseVault\logs\`. |
+| En ny bounce dukker ikke opp | Spilleren → «Åpne importstatus» | Står mappa som utilgjengelig, står årsaken der (disk ikke tilkoblet, låst mappe, ingen tilgang). Trykk «Prøv igjen» når den er rettet. Lignet låta på en som finnes, ligger den i «Hoppet over» i Studio. |
+| Utgitt låt får ikke UTGITT | Studio → «Utgitte låter – bekreft» | Usikre treff (bare tittel eller bare lik lyd) venter på at du bekrefter. Sjekk også at mappa står under Innstillinger → «Mapper for utgitte låter». |
+| Telefonen får ikke koblet til | Feilmeldingen i appen | Appen sier hva som er galt: Tailscale av, feil adresse (Studio → Innstillinger → Tilgang), feil PIN, PC-en av eller Vault ikke startet (502), adressen ikke godkjent (421, kjør `pnpm vault:remote on`). |
+| «Enheten er ikke godkjent lenger» | Studio → Innstillinger → Enheter | Enheten er trukket tilbake. Koble til på nytt med PIN. |
+| Appen får ikke ny versjon | Studio → Innstillinger → Enheter | Web-endringer kommer når appen åpnes på nytt. Ny native kode gir «Oppdater» i appen, som du må godkjenne. |
+| «For mange forsøk» ved PIN | – | 5 feil per adresse gir 15 minutters pause, 20 feil totalt gir én time. Start Vault på nytt hvis du er sikker på at det var deg. |
+| Tekst eller analyse står stille | Studio → tekstkøen | Den bruker skjermkortet (CUDA) når det finnes, ellers CPU. Python-miljøet er `.venv-lyrics`. Sjekk `.venv-lyrics\Scripts\python -c "import torch; print(torch.cuda.is_available())"`. |
+| Testene feiler bare når maskinen er travel | – | Lange ffmpeg-tester (del 4) kan gå over tidsgrensen når PC-en er under full last. Kjør `pnpm test` på nytt. |
+| Noe er ødelagt i `data/` eller katalogen | `pnpm vault:restore --dry` | Gjenopprett fra H: med `pnpm vault:restore --yes` (se «Arbeidsmappe og backup»). |
 ## Status
 
 **Ferdig**

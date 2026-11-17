@@ -1,0 +1,48 @@
+# DoD seksjon A: typecheck og tester på hver push og PR, og gitleaks over hele historikken.
+# Ingen musikk, hemmeligheter eller Tailscale-adresse brukes her: testene lager sine egne syntetiske lydfiler
+# (og hopper over ffmpeg-testene hvis ffmpeg ikke finnes på maskinen).
+name: CI
+
+on:
+  push:
+    branches: [main, setup/del-0]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Typecheck og tester (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: ffmpeg (for ingest-testene)
+        shell: pwsh
+        run: choco install ffmpeg --no-progress -y
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: pnpm audit (stopper på høy og kritisk)
+        run: pnpm audit --audit-level high --prod
+
+  gitleaks:
+    name: gitleaks (hele historikken)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

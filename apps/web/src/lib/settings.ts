@@ -42,6 +42,8 @@ export interface SettingsState {
   lan: { enabled: boolean; pinSet: boolean; firewallRule: boolean | null };
   remote: { running: boolean; host: string | null; serve: boolean; funnel: boolean; url: string | null; qr: string | null };
   canChangeAccess: boolean;
+  /** DoD A: siste vellykkede backup (null = aldri, eller eldre server). */
+  backup?: { at: string; target: string; seconds: number; files: number | null; errors: number } | null;
   /** Prosjektmappa ligger i en synkronisert skymappe (Google Drive, OneDrive …). */
   cloudSync: { provider: string; syncRoot: string; warning: string } | null;
   /** Del 15: nyeste publiserte app (bunt og APK). */

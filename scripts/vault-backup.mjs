@@ -12,7 +12,8 @@
  *  - Leser bare fra F:. Skriver bare under målmappa.
  */
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -75,4 +76,15 @@ if (summary.length) console.log(`\n${summary.join('\n')}`);
 // robocopy: 0–7 = OK (1 = kopiert, 2 = ekstra filer, 4 = avvik), 8+ = feil
 const code = r.status ?? 16;
 if (code >= 8) fail(`robocopy feilet (kode ${code}). Se utskriften over.`);
+// DoD A: «Siste backup» i Studio leser dette stempelet (bare tid, mål og antall – ingen innhold)
+if (!dry) {
+  const dir = path.join(process.env.LOCALAPPDATA ?? path.join(os.homedir(), 'AppData', 'Local'), 'GroovehouseVault');
+  const num = (re) => Number((summary.find((l) => re.test(l)) ?? '').trim().split(/\s+/)[2] ?? NaN);
+  try {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, 'last-backup.json'), JSON.stringify({ at: new Date().toISOString(), target: TARGET, seconds: Math.round((Date.now() - t0) / 1000), files: num(/^\s*(Files|Filer)\s*:/i), errors: errs.length, robocopy: code }, null, 2));
+  } catch (err) {
+    console.error(`! Fikk ikke skrevet backup-stempelet: ${err.message}`);
+  }
+}
 console.log(`\n\x1b[32m✓ ${dry ? 'Prøvekjøring ferdig' : 'Backup ferdig'} på ${((Date.now() - t0) / 1000).toFixed(1)} s (robocopy-kode ${code})\x1b[0m`);
