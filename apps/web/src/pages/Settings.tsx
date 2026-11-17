@@ -38,7 +38,7 @@ export function SettingsView() {
   if (error && !state) return <p role="alert" className="text-[#F2A08F]">Kunne ikke hente innstillingene: {error}</p>;
   if (!state || !draft) return <p className="text-muted">Henter innstillinger…</p>;
 
-  const ALL_KEYS: Array<keyof Editable> = ['exportDir', 'draftDirs', 'releasedDirs', 'ingest', 'lyrics', 'covers', 'audio', 'defaults', 'titleCleanup', 'colors', 'drops'];
+  const ALL_KEYS: Array<keyof Editable> = ['exportDir', 'draftDirs', 'releasedDirs', 'landr', 'ingest', 'lyrics', 'covers', 'audio', 'defaults', 'titleCleanup', 'colors', 'drops'];
   const dirty = (k: keyof Editable) => JSON.stringify(draft[k]) !== JSON.stringify(state.settings[k]);
   const dirtyKeys = ALL_KEYS.filter(dirty);
   const hasUnsaved = dirtyKeys.length > 0;
@@ -100,6 +100,21 @@ export function SettingsView() {
       </div>
 
       <ExportSection state={state} draft={draft} set={set} busy={busy} dirty={dirty('exportDir') || dirty('draftDirs') || dirty('releasedDirs')} onSave={() => save(['exportDir', 'draftDirs', 'releasedDirs'], 'Mappene er lagret.')} onReload={load} />
+      <Section title="LANDR" hint="Del 24: «Send til LANDR-mastering» legger WAV i den første mappa. Den andre overvåkes (kun lesing): masterne der kobles til låta som «LANDR-master» og regnes som release-klare.">
+        {(['uploadDir', 'mastersDir'] as const).map((k) => (
+          <label key={k} className="flex flex-col gap-1.5 text-xs font-medium text-soft">
+            {k === 'uploadDir' ? 'Til mastering (Vault skriver hit)' : 'Mastere fra LANDR (leses bare)'}
+            <input value={draft.landr[k]} onChange={(e) => set('landr', { ...draft.landr, [k]: e.target.value })} className={`${field} font-mono text-[13px]`} spellCheck={false} />
+          </label>
+        ))}
+        {dirty('landr') && (
+          <div>
+            <button type="button" disabled={busy} onClick={() => save(['landr'], 'LANDR-mappene er lagret.')} className={primaryBtn}>
+              Lagre og start watcheren på nytt
+            </button>
+          </div>
+        )}
+      </Section>
       <RulesSection draft={draft} set={set} />
       <Section
         title="Lyd"

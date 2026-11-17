@@ -37,6 +37,7 @@ import { useSeedSet } from '../lib/seedset';
 import { EmptyLibrary, ImportBanner, ImportStatusSheetHost } from '../components/ImportStatus';
 import { parsePlayerRoute, playerUrl, type PlayerRoute, type SetsTab } from '../lib/route';
 import { LockConfirmHost } from '../components/DjLock';
+import { ReleaseSheetHost } from '../components/ReleaseSheet';
 
 type Filter = 'all' | 'track' | 'set';
 
@@ -542,6 +543,7 @@ export function PlayerApp({ onDisconnected }: { onDisconnected?: () => void } = 
       <TrackActionsHost tracks={tracks} index={catalogIndex} onPlay={play} />
       <DraftConfirmHost />
       <LockConfirmHost />
+      <ReleaseSheetHost />
       <QueuePanel />
       <ShareSheetHost />
       <ImportStatusSheetHost assets={assets} onPlay={playAsset} />

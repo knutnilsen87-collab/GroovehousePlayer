@@ -26,6 +26,8 @@ export interface Editable {
   draftDirs: string[];
   /** Del 25: mappene for utgitte låter (overvåkes, leses bare). */
   releasedDirs: string[];
+  /** Del 24: LANDR-mappene (lokale). */
+  landr: { uploadDir: string; mastersDir: string };
 }
 export interface WatcherStatus {
   exportDir: string;

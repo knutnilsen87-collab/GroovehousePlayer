@@ -21,6 +21,10 @@ export interface ReleaseInfo {
   releaseTitle: string | null;
   releaseType: 'single' | 'ep' | 'album' | null;
   links: Partial<Record<ReleasePlatform, string>>;
+  /** Del 25 pkt. 4: utgitt låt uten lyd i Vault – vises med «Mangler lyd» og kan ikke spilles. */
+  noAudio?: boolean;
+  /** Tittel (brukes når låta ikke finnes i Vault). */
+  title?: string | null;
   updatedAt?: string;
 }
 
@@ -102,5 +106,5 @@ export function cleanRelease(x: unknown): ReleaseInfo {
     if (!parsed || parsed.platform !== p) throw new Error(`Lenken for ${RELEASE_PLATFORMS.find(([k]) => k === p)![1]} ser ikke ut som en ${RELEASE_PLATFORMS.find(([k]) => k === p)![1]}-lenke`);
     links[p] = parsed.url;
   }
-  return { date, distributor: str(o.distributor, 60), upc, isrc, releaseTitle: str(o.releaseTitle, 120), releaseType: type, links };
+  return { date, distributor: str(o.distributor, 60), upc, isrc, releaseTitle: str(o.releaseTitle, 120), releaseType: type, links, ...(o.noAudio === true ? { noAudio: true, title: str(o.title, 120) } : {}) };
 }

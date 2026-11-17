@@ -50,6 +50,8 @@ export interface IngestOptions {
   config?: VaultConfig;
   /** Del 16: «draft» for filer fra utkastmappa (egne versjonsnumre, loudnorm-HLS). Standard: release. */
   status?: AssetStatus;
+  /** Del 24: fast versjonsnavn, f.eks. «LANDR-master» for filer fra LANDR-mappa. */
+  versionLabel?: string;
 }
 
 export interface IngestResult {
@@ -414,7 +416,7 @@ async function ingestOne(
       variant: master.variant,
       variantLabel: resolved.variantLabel,
       version: master.version,
-      versionLabel: opts.status === 'released' ? 'Utgitt master' : (meta.versionLabel ?? (draft ? `Umastret v${master.version - DRAFT_BASE}` : master.version > 1 ? `v${master.version}` : null)),
+      versionLabel: opts.versionLabel ?? (opts.status === 'released' ? 'Utgitt master' : null) ?? (meta.versionLabel ?? (draft ? `Umastret v${master.version - DRAFT_BASE}` : master.version > 1 ? `v${master.version}` : null)),
       kind,
       status: draft ? 'draft' : opts.status === 'released' ? 'released' : 'release',
       title: resolved.title,

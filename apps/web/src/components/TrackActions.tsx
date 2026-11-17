@@ -1,13 +1,15 @@
 import { useSeedSet } from '../lib/seedset';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { displayLabel, formatTime, sectionsOf } from '@gv/shared/web';
+import { displayLabel, formatTime, isDraft, sectionsOf } from '@gv/shared/web';
 import { assetUrl, loadVersion, useFullAsset, variantName, versionsOf, type IndexEntry, type LoadedAsset, type Track } from '../lib/catalog';
 import { usePlayer } from '../lib/player';
 import { toastError, useToast } from '../lib/playlists';
 import { isDesktop, useUi, type ActionsRequest } from '../lib/ui';
 import { useTouchReorder } from '../lib/useTouchReorder';
 import { useDialog } from '../lib/dialog';
+import { go } from '../lib/nav';
+import { sendToLandr, useReleaseUi } from './ReleaseSheet';
 import { CoverArt } from './CoverArt';
 import { ChevronDownIcon, GripIcon, TrashIcon } from './Icons';
 import { PresetRow } from './FxChip';
@@ -82,7 +84,9 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
     ? [
         { label: `Legg til i spilleliste (${req.assets.length})`, hint: 'Ctrl+Shift+P', run: () => useUi.getState().openAddSheet({ assets: req.assets, anchor: req.anchor }) },
         { label: `Spill neste (${req.assets.length})`, run: run(() => (usePlayer.getState().insertNext(req.assets), toast(`${req.assets.length} låter spilles neste`))) },
-        { label: `Legg til i køen (${req.assets.length})`, run: run(() => (usePlayer.getState().enqueue(req.assets), toast(`${req.assets.length} låter lagt i køen`))) }
+        { label: `Legg til i køen (${req.assets.length})`, run: run(() => (usePlayer.getState().enqueue(req.assets), toast(`${req.assets.length} låter lagt i køen`))) },
+        // Del 24: release-pakke for flere låter (EP/album)
+        ...(desktop && !isApp ? [{ label: `Forbered utgivelse (${req.assets.length})`, run: run(() => useReleaseUi.getState().open(req.assets)) }] : [])
       ]
     : [
         { label: 'Legg til i spilleliste', hint: 'Ctrl+Shift+P', run: () => useUi.getState().openAddSheet({ assets: [a], anchor: req.anchor }) },
@@ -106,7 +110,10 @@ function TrackActions({ req, tracks, index, onPlay }: { req: ActionsRequest; tra
               { label: 'Mer som denne', run: run(() => useSeedSet.getState().openMoreLike({ slug: m.slug, variant: m.variant, id: m.id, title: m.title })) }
             ]
           : []),
-        ...(desktop ? [{ label: 'Åpne i Studio', run: run(() => location.assign(`/studio#arkiv/${encodeURIComponent(m.slug)}`)) }] : []),
+        // Del 24: utgivelse via LANDR (forarbeidet) og mastering
+        ...(desktop && !isApp && m.kind !== 'set' ? [{ label: 'Forbered utgivelse …', run: run(() => useReleaseUi.getState().open([a])) }] : []),
+        ...(desktop && !isApp && isDraft(m) ? [{ label: 'Send til LANDR-mastering', run: run(() => void sendToLandr(a)) }] : []),
+        ...(desktop ? [{ label: 'Åpne i Studio', run: run(() => go(`/studio#arkiv/${encodeURIComponent(m.slug)}`)) }] : []),
         // Del 23: AI-cover via bulkIMG (bare på PC-en, der bulkIMG kjører)
         ...(desktop && !isApp ? [{ label: 'Lag AI-cover …', run: run(() => useAiCover.getState().open({ slugs: [m.slug] })) }] : [])
       ];

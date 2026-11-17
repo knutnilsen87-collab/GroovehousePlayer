@@ -39,3 +39,6 @@ fixtures/**/*.wav
 
 # Python-bytekode
 __pycache__/
+
+# Del 24: release-pakker (lyd, cover og metadata) – aldri i git
+/releases/

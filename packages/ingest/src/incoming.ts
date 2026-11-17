@@ -32,6 +32,8 @@ export interface SkippedItem {
   file: string;
   fileName: string;
   status: 'release' | 'draft' | 'released';
+  /** Del 24: versjonsnavnet ved bekreftelse (f.eks. «LANDR-master»). */
+  label?: string;
   /** Hva den ligner på. */
   matchSlug: string;
   matchVariant: string | null;

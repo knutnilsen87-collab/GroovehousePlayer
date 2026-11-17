@@ -109,6 +109,7 @@ function ImportStatusSheet({ assets, onPlay }: { assets: LoadedAsset[]; onPlay: 
               {(s.released ?? []).map((d, i) => (
                 <FolderRow key={`u-${d.dir ?? i}`} f={d} label="Mappe for utgitte låter" />
               ))}
+              {s.landr && <FolderRow f={s.landr} label="Mappe for LANDR-mastere" />}
               {s.drafts.map((d, i) => (
                 <FolderRow key={d.dir ?? i} f={d} label="Mappe for umastrede låter" />
               ))}

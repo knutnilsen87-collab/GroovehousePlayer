@@ -24,16 +24,19 @@ import { skinTrackVars } from '../lib/skin';
 import { ImportStatusSheetHost, useImportWatch } from '../components/ImportStatus';
 import { folderProblems, progressOf } from '../lib/importStatus';
 import { linkClick } from '../lib/nav';
+import { Releases } from '../components/Releases';
+import { ReleaseSheetHost } from '../components/ReleaseSheet';
 import { useUi } from '../lib/ui';
 
-type View = 'drops' | 'archive' | 'sets' | 'album' | 'mobile' | 'settings';
-const STUDIO_URL: Record<View, string> = { drops: '/studio', archive: '/studio#arkiv', sets: '/studio#sett', album: '/studio#album', mobile: '/studio#mobil', settings: '/studio/innstillinger' };
+type View = 'drops' | 'archive' | 'sets' | 'album' | 'releases' | 'mobile' | 'settings';
+const STUDIO_URL: Record<View, string> = { drops: '/studio', archive: '/studio#arkiv', sets: '/studio#sett', album: '/studio#album', releases: '/studio#utgivelser', mobile: '/studio#mobil', settings: '/studio/innstillinger' };
 function studioViewFromUrl(): View {
   if (typeof location === 'undefined') return 'drops';
   if (location.pathname.startsWith('/studio/innstillinger')) return 'settings';
   const h = decodeURIComponent(location.hash);
   if (h === '#mobil') return 'mobile';
   if (h === '#album') return 'album';
+  if (h === '#utgivelser') return 'releases';
   if (h === '#sett') return 'sets';
   if (h.startsWith('#arkiv')) return 'archive';
   return 'drops';
@@ -77,6 +80,8 @@ export function CommandCenter() {
           <DropsView assets={assets} log={log} onRefresh={refresh} />
         ) : view === 'mobile' ? (
           <MobileView />
+        ) : view === 'releases' ? (
+          <Releases assets={assets} />
         ) : view === 'album' ? (
           <>
             <AlbumBuilder assets={assets} />
@@ -87,6 +92,7 @@ export function CommandCenter() {
         )}
       </main>
       <MiniPlayer />
+      <ReleaseSheetHost />
     </div>
   );
 }
@@ -97,6 +103,7 @@ function Sidebar({ view, setView }: { view: View; setView: (v: View) => void }) 
     { id: 'archive', label: t.archive, Icon: ArchiveIcon },
     { id: 'sets', label: t.sets, Icon: PulseIcon },
     { id: 'album', label: 'Album', Icon: ArchiveIcon },
+    { id: 'releases', label: 'Utgivelser', Icon: DropsIcon },
     { id: 'mobile', label: t.mobile, Icon: LinkIcon },
     { id: 'settings', label: 'Innstillinger', Icon: StudioIcon }
   ];

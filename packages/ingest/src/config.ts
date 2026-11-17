@@ -49,6 +49,11 @@ export interface VaultConfig {
    * Maskinspesifikt: lagres bare i groovehouse.local.json.
    */
   covers: { bulkimgInbox: string; bulkimgExports: string };
+  /**
+   * Del 24: LANDR-mastering uten API. «Send til LANDR-mastering» legger WAV i uploadDir; mastersDir overvåkes
+   * (kun lesing), og filer der kobles til låta som versjonen «LANDR-master» (release-klar). Lokal.
+   */
+  landr: { uploadDir: string; mastersDir: string };
 }
 
 /** «* (Live *)» → set. Mønster med * som jokertegn, uten hensyn til store/små bokstaver. */
@@ -87,7 +92,8 @@ const FALLBACK: VaultConfig = {
   draftDir: null,
   draftDirs: [],
   releasedDirs: [],
-  covers: { bulkimgInbox: 'F:\\prosjekter_MAIN\\bulkIMG\\imports\\groovehouse', bulkimgExports: 'F:\\prosjekter_MAIN\\bulkIMG\\repo\\exports' }
+  covers: { bulkimgInbox: 'F:\\prosjekter_MAIN\\bulkIMG\\imports\\groovehouse', bulkimgExports: 'F:\\prosjekter_MAIN\\bulkIMG\\repo\\exports' },
+  landr: { uploadDir: 'F:\\EchoGroove\\LANDR\\Til_mastering', mastersDir: 'F:\\EchoGroove\\LANDR\\Mastere' }
 };
 export const DEFAULTS: Readonly<VaultConfig> = FALLBACK;
 
@@ -154,6 +160,10 @@ export function loadConfig(root = findRoot()): VaultConfig {
     covers: {
       bulkimgInbox: typeof l.covers?.bulkimgInbox === 'string' && l.covers.bulkimgInbox ? l.covers.bulkimgInbox : FALLBACK.covers.bulkimgInbox,
       bulkimgExports: typeof l.covers?.bulkimgExports === 'string' && l.covers.bulkimgExports ? l.covers.bulkimgExports : FALLBACK.covers.bulkimgExports
+    },
+    landr: {
+      uploadDir: typeof l.landr?.uploadDir === 'string' && l.landr.uploadDir ? l.landr.uploadDir : FALLBACK.landr.uploadDir,
+      mastersDir: typeof l.landr?.mastersDir === 'string' && l.landr.mastersDir ? l.landr.mastersDir : FALLBACK.landr.mastersDir
     }
   };
 }

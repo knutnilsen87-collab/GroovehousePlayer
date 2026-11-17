@@ -106,6 +106,8 @@ export function createSettingsRoute(h: SettingsHooks) {
           const abs = path.resolve(h.root, d);
           return { ...checkFolder(abs), watcher: (h.releasedWatcherStatus?.() ?? []).find((w) => path.resolve(w.exportDir) === abs) ?? null };
         }),
+        // Del 24: LANDR-mastere (kun lesing)
+        landr: { ...checkFolder(cfg.landr.mastersDir), watcher: (h.releasedWatcherStatus?.() ?? []).find((w) => path.resolve(w.exportDir) === path.resolve(cfg.landr.mastersDir)) ?? null },
         inbox: drafts.find((w) => path.resolve(w.exportDir) === inbox) ?? null
       });
     }
@@ -126,7 +128,7 @@ export function createSettingsRoute(h: SettingsHooks) {
       try {
         const cfg = saveSettings(h.root, patch);
         let watcher = h.watcherStatus();
-        const exportChanged = (patch.exportDir !== undefined && (before.exportDir ?? null) !== (cfg.exportDir ?? null)) || (patch.draftDir !== undefined && (before.draftDir ?? null) !== (cfg.draftDir ?? null)) || patch.draftDirs !== undefined || patch.releasedDirs !== undefined;
+        const exportChanged = (patch.exportDir !== undefined && (before.exportDir ?? null) !== (cfg.exportDir ?? null)) || (patch.draftDir !== undefined && (before.draftDir ?? null) !== (cfg.draftDir ?? null)) || patch.draftDirs !== undefined || patch.releasedDirs !== undefined || patch.landr !== undefined;
         // Eksportmappe/regler/sett-grense: watcheren må lese config på nytt
         if (exportChanged || patch.ingest || patch.titleCleanup || patch.defaults || patch.audio || patch.colors) watcher = await h.restartWatcher();
         return json(res, 200, { settings: editableOf(cfg), watcher, restarted: exportChanged ? ['watcher'] : [] });
@@ -198,7 +200,7 @@ export function createSettingsRoute(h: SettingsHooks) {
 
 function pickPatch(body: Record<string, unknown>): SettingsPatch {
   const patch: SettingsPatch = {};
-  for (const k of ['audio', 'ingest', 'lyrics', 'covers', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) {
+  for (const k of ['audio', 'ingest', 'lyrics', 'covers', 'landr', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) {
     const v = body[k];
     if (v && typeof v === 'object' && !Array.isArray(v)) (patch as Record<string, unknown>)[k] = v;
   }

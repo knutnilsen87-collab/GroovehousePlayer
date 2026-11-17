@@ -35,6 +35,11 @@ export interface WatcherOptions {
    */
   status?: 'release' | 'draft' | 'released';
   /**
+   * Koble filer til låter som finnes (samme lyd, eller tittel + lik lyd; usikre treff til Studio):
+   * «released» = utgitte låter (del 25), «landr» = LANDR-mastere (del 24, release-klar, «LANDR-master»).
+   */
+  link?: 'released' | 'landr';
+  /**
    * Duplikatsjekk før import (sanger som finnes fra før importeres ikke på nytt). Uten denne importeres
    * alt som før (tester og CLI med --force).
    */
@@ -60,8 +65,11 @@ export interface WatcherStatus {
 export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>; idle: () => Promise<void>; status: () => WatcherStatus; catchUp: () => Promise<number> } {
   const exportDir = path.resolve(opts.exportDir);
   // Umastrede og utgitte: alle lydfiler, også i undermapper, som flate filer i sin egen mappe (MP3/M4A godtas)
-  const drafts = opts.status === 'draft' || opts.status === 'released';
-  const released = opts.status === 'released';
+  const linkMode = opts.link ?? (opts.status === 'released' ? 'released' : null);
+  const drafts = opts.status === 'draft' || !!linkMode;
+  const released = !!linkMode;
+  const target: 'released' | 'release' = linkMode === 'released' ? 'released' : 'release';
+  const label = linkMode === 'landr' ? 'LANDR-master' : undefined;
   const log = opts.log ?? ((l: string) => console.log(l));
   const queue: Job[] = [];
   let busy: Promise<void> | null = null;
@@ -111,11 +119,14 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
         const v = await classifyReleased(opts.incoming.ctx, { file: m.path, fileName: m.fileName, slug: m.slug, variant: m.variant, title: m.titleFromFile, durationMs: durations.get(m.path) ?? 0 });
         await opts.incoming.ctx.hashes.save();
         if (v.action === 'known') continue;
+        // LANDR-mappa: nøyaktig samme lyd som en versjon i Vault er ikke en ny master
+        if (linkMode === 'landr' && v.action === 'link' && v.why === 'samme-lyd') continue;
         if (v.action === 'stem') {
           log(`  ↷ ${m.fileName}: ${v.reason} – hoppet over`);
           continue;
         }
         if (v.action === 'listed') {
+          if (linkMode === 'landr') Object.assign(v.item, { status: 'release', label: 'LANDR-master' });
           if (await opts.incoming.skipped.add(v.item)) {
             log(`  ? ${m.fileName}: ligner «${v.item.matchTitle}» (${v.item.reason}${v.item.similarity != null ? `, likhet ${v.item.similarity}` : ''}) – venter på bekreftelse i Studio`);
             event(`bekreft i Studio: ${m.fileName} (ligner ${v.item.matchTitle})`);
@@ -125,10 +136,10 @@ export function startWatcher(opts: WatcherOptions): { close: () => Promise<void>
         }
         const single = { ...release, masters: [m] };
         if (v.action === 'link') {
-          log(`  ⇄ ${m.fileName}: samme låt som «${v.title}» (${v.why === 'samme-lyd' ? 'samme lyd' : `tittel og lyd, likhet ${v.similarity}`}) – kobles som Utgitt master`);
-          out.push(...withSources(await ingestAsVersionOf(single, m, { slug: v.slug, variant: v.variant, title: v.title }, 'released', { mediaDir: opts.mediaDir, cfg: opts.config, report: say }), [m]));
+          log(`  ⇄ ${m.fileName}: samme låt som «${v.title}» (${v.why === 'samme-lyd' ? 'samme lyd' : `tittel og lyd, likhet ${v.similarity}`}) – kobles som ${label ?? 'Utgitt master'}`);
+          out.push(...withSources(await ingestAsVersionOf(single, m, { slug: v.slug, variant: v.variant, title: v.title }, target, { mediaDir: opts.mediaDir, cfg: opts.config, report: say, versionLabel: label }), [m]));
         } else {
-          out.push(...withSources(await ingestRelease(single, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: 'released' }), [m]));
+          out.push(...withSources(await ingestRelease(single, { mediaDir: opts.mediaDir, config: opts.config, report: say, status: target, versionLabel: label }), [m]));
         }
       }
       return out;

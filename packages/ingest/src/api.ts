@@ -15,6 +15,8 @@ import { createFavoritesStore, createListenStore, LibraryError } from './library
 import { hasWordTimes, sharedLyricsQueue } from './lyrics-queue';
 import { sharedStemQueue } from './stem-analysis';
 import { renderTransition, type VersionRef } from './renders';
+import { prepareRelease, sendToLandr } from './release-pack';
+import { markReleased, readReleaseStatus, RELEASE_STATUSES, setReleaseStatus, type ReleaseStatus } from './release-status';
 import { buildCoverPrompt, bulkImgStatus, COVER_STYLES, receiveFromBulkImg, sendToBulkImg } from './bulkimg';
 import { createSkippedStore } from './incoming';
 import { importSkipped } from './import-actions';
@@ -150,6 +152,52 @@ export function createApiHandler(opts: ApiOptions) {
         return send(res, 200, { exclude: next.exclude, singles: next.singles });
       }
       return send(res, 405, { error: 'GET eller PUT' });
+    }
+    // Del 24: release-pakke, utgivelsesstatus og «Send til LANDR-mastering». Aldri fra /drop/.
+    if (url.pathname === '/api/releases/prepare' && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const b = ((await readJson(req, 32_000).catch(() => null)) ?? {}) as { items?: unknown; title?: unknown; genre?: unknown; confirmDraft?: unknown; aiMusic?: unknown; aiCover?: unknown };
+      const items = Array.isArray(b.items) ? (b.items as Array<{ slug?: unknown; variant?: unknown; version?: unknown }>).filter((x) => typeof x.slug === 'string' && /^[a-z0-9][a-z0-9-]{0,120}$/.test(x.slug) && Number.isInteger(x.version)).map((x) => ({ slug: x.slug as string, variant: typeof x.variant === 'string' ? x.variant : null, version: x.version as number })) : [];
+      const yn = (v: unknown) => (v === 'ja' || v === 'nei' ? v : null);
+      try {
+        const relFile = path.join(dataDir, 'releases.json');
+        const releases = existsSync(relFile) ? ((JSON.parse(await readFile(relFile, 'utf8')) as { releases?: Record<string, ReleaseInfo> }).releases ?? {}) : {};
+        const r = await prepareRelease({ mediaDir: opts.mediaDir, dataDir, root, cfg: config(), items, title: typeof b.title === 'string' ? b.title.slice(0, 120) : undefined, genre: typeof b.genre === 'string' ? b.genre.slice(0, 40) : undefined, confirmDraft: b.confirmDraft === true, aiMusic: yn(b.aiMusic), aiCover: yn(b.aiCover), releases });
+        await setReleaseStatus(dataDir, items.map((i) => i.slug), { status: 'prepared', relDir: r.relDir });
+        return send(res, 200, { ...r, dir: undefined });
+      } catch (err) {
+        return send(res, (err as { status?: number }).status ?? 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err), drafts: (err as { drafts?: string[] }).drafts });
+      }
+    }
+    if (url.pathname === '/api/release-status' && req.method === 'GET') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      return send(res, 200, { items: await readReleaseStatus(dataDir) });
+    }
+    const rs = url.pathname.match(/^\/api\/release-status\/([a-z0-9][a-z0-9-]{0,120})$/);
+    if (rs && req.method === 'PUT') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const b = ((await readJson(req).catch(() => null)) ?? {}) as { status?: unknown; date?: unknown; variant?: unknown; version?: unknown };
+      if (!RELEASE_STATUSES.includes(b.status as ReleaseStatus)) return send(res, 400, { error: `status må være ${RELEASE_STATUSES.join(', ')}` });
+      const date = typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : undefined;
+      const items = await setReleaseStatus(dataDir, [rs[1]!], { status: b.status as ReleaseStatus, ...(date ? { date } : {}) });
+      // «Ute» (pkt. 7): versjonen får status Utgitt (del 25)
+      if (b.status === 'out' && Number.isInteger(b.version)) {
+        const changed = await markReleased(opts.mediaDir, rs[1]!, typeof b.variant === 'string' ? b.variant : null, b.version as number);
+        if (changed) catalogBundle.invalidate();
+      }
+      return send(res, 200, { items });
+    }
+    if (url.pathname === '/api/landr/send' && req.method === 'POST') {
+      if (isFromDrop(req)) return send(res, 403, { error: 'ikke tilgjengelig herfra' });
+      const b = ((await readJson(req).catch(() => null)) ?? {}) as { slug?: unknown; variant?: unknown; version?: unknown };
+      if (typeof b.slug !== 'string' || !/^[a-z0-9][a-z0-9-]{0,120}$/.test(b.slug) || !Number.isInteger(b.version)) return send(res, 400, { error: 'slug og version' });
+      try {
+        const r = await sendToLandr({ mediaDir: opts.mediaDir, cfg: config(), item: { slug: b.slug, variant: typeof b.variant === 'string' ? b.variant : null, version: b.version as number } });
+        await setReleaseStatus(dataDir, [b.slug], { status: 'mastering' });
+        return send(res, 200, { file: path.basename(r.file), folder: config().landr.uploadDir });
+      } catch (err) {
+        return send(res, (err as { status?: number }).status ?? 500, { error: err instanceof Error ? err.message.split('\n')[0] : String(err) });
+      }
     }
     // Del 20 D: Knuts egne stil-tagger per låt (data/tags.json). Ingen sjangergjenkjenning fra lyd.
     if (url.pathname === '/api/tags') {

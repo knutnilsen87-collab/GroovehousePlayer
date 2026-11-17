@@ -30,15 +30,17 @@ export interface SettingsPatch {
   draftDirs?: string[];
   /** Del 25: mappene for utgitte låter (lokal, kun lesing). */
   releasedDirs?: string[];
+  /** Del 24: LANDR-mappene (lokale). */
+  landr?: Partial<VaultConfig['landr']>;
 }
 
-export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'lyrics' | 'covers' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir' | 'draftDir' | 'draftDirs' | 'releasedDirs'>;
+export type Editable = Pick<VaultConfig, 'audio' | 'ingest' | 'lyrics' | 'covers' | 'colors' | 'drops' | 'defaults' | 'titleCleanup' | 'exportDir' | 'draftDir' | 'draftDirs' | 'releasedDirs' | 'landr'>;
 
 export const BACKUP_FILE = 'groovehouse.config.backup.json';
 const TIERS = ['partner', 'inner_circle', 'supporter', 'teaser'] as const;
 
 export function editableOf(cfg: VaultConfig): Editable {
-  return { audio: cfg.audio, ingest: cfg.ingest, lyrics: cfg.lyrics, covers: cfg.covers, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir, draftDir: cfg.draftDir, draftDirs: cfg.draftDirs, releasedDirs: cfg.releasedDirs };
+  return { audio: cfg.audio, ingest: cfg.ingest, lyrics: cfg.lyrics, covers: cfg.covers, colors: cfg.colors, drops: cfg.drops, defaults: cfg.defaults, titleCleanup: cfg.titleCleanup, exportDir: cfg.exportDir, draftDir: cfg.draftDir, draftDirs: cfg.draftDirs, releasedDirs: cfg.releasedDirs, landr: cfg.landr };
 }
 
 const num = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : NaN);
@@ -64,6 +66,10 @@ export function validateSettings(patch: SettingsPatch, base: VaultConfig): strin
       if (r.variant !== undefined && r.variant !== '' && !/^[a-z0-9-]{1,40}$/.test(r.variant)) e.push(`Regel ${n}: variant kan bare ha a–z, 0–9 og bindestrek`);
       if (r.kind === undefined && !r.variant) e.push(`Regel ${n}: sett type eller variant`);
     });
+  for (const [k, label] of [['uploadDir', 'Mappa for LANDR-mastering'], ['mastersDir', 'Mappa for LANDR-mastere']] as const) {
+    const v = next.landr[k];
+    if (typeof v !== 'string' || !v.trim() || !path.isAbsolute(v.trim()) || v.includes('\0') || v.split(/[\\/]+/).includes('..')) e.push(`${label} må være en full sti (f.eks. F:\\...)`);
+  }
   for (const [k, label] of [['bulkimgInbox', 'Innboks for bulkIMG'], ['bulkimgExports', 'Eksportmappe for bulkIMG']] as const) {
     const v = next.covers[k];
     if (typeof v !== 'string' || !v.trim() || !path.isAbsolute(v.trim()) || v.includes('\0') || v.split(/[\\/]+/).includes('..')) e.push(`${label} må være en full sti (f.eks. F:\\...)`);
@@ -130,6 +136,7 @@ function applyPatch(base: VaultConfig, p: SettingsPatch): VaultConfig {
     ingest: { ...base.ingest, ...(p.ingest ?? {}) },
     lyrics: { ...base.lyrics, ...(p.lyrics ?? {}) },
     covers: { ...base.covers, ...(p.covers ?? {}) },
+    landr: { ...base.landr, ...(p.landr ?? {}) },
     colors: { ...base.colors, ...(p.colors ?? {}) },
     drops: { ...base.drops, ...(p.drops ?? {}) },
     defaults: { ...base.defaults, ...(p.defaults ?? {}) },
@@ -160,7 +167,7 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
   for (const k of ['audio', 'ingest', 'lyrics', 'colors', 'drops', 'defaults', 'titleCleanup'] as const) if (patch[k]) j[k] = next[k];
   writeAtomic(shared, j);
 
-  if (patch.exportDir !== undefined || patch.draftDir !== undefined || patch.draftDirs !== undefined || patch.releasedDirs !== undefined || patch.covers !== undefined) {
+  if (patch.exportDir !== undefined || patch.draftDir !== undefined || patch.draftDirs !== undefined || patch.releasedDirs !== undefined || patch.covers !== undefined || patch.landr !== undefined) {
     const local = path.join(root, LOCAL_CONFIG_FILE);
     const l = existsSync(local) ? (JSON.parse(readFileSync(local, 'utf8')) as Record<string, unknown>) : {};
     if (patch.exportDir !== undefined) {
@@ -177,6 +184,7 @@ export function saveSettings(root: string, patch: SettingsPatch): VaultConfig {
       if (next.releasedDirs.length) l.releasedDirs = next.releasedDirs;
       else delete l.releasedDirs;
     }
+    if (patch.landr !== undefined) l.landr = { uploadDir: next.landr.uploadDir.trim(), mastersDir: next.landr.mastersDir.trim() };
     if (patch.covers !== undefined) l.covers = { bulkimgInbox: next.covers.bulkimgInbox.trim(), bulkimgExports: next.covers.bulkimgExports.trim() };
     writeAtomic(local, l);
   }

@@ -18,7 +18,7 @@ export async function importSkipped(it: SkippedItem, choice: 'version' | 'separa
   if (!existsSync(it.file)) throw new Error(`Fila finnes ikke lenger: ${it.file}`);
   const status: AssetStatus = it.status ?? 'release';
   const { release, master } = await sourceFor(it.file, status, o.cfg);
-  if (choice === 'version') return ingestAsVersionOf(release, master, { slug: it.matchSlug, variant: it.matchVariant, title: it.matchTitle }, status, o);
+  if (choice === 'version') return ingestAsVersionOf(release, master, { slug: it.matchSlug, variant: it.matchVariant, title: it.matchTitle }, status, { ...o, versionLabel: it.label });
   const idx = await readIndex(o.mediaDir);
   const taken = new Set(idx.assets.map((a) => a.slug));
   let slug = master.slug;
@@ -57,7 +57,7 @@ export async function ingestAsVersionOf(
   master: ReleaseSource['masters'][number],
   to: { slug: string; variant: string | null; title: string },
   status: AssetStatus,
-  o: { mediaDir: string; cfg: VaultConfig; report?: Parameters<typeof ingestRelease>[1]['report'] }
+  o: { mediaDir: string; cfg: VaultConfig; report?: Parameters<typeof ingestRelease>[1]['report']; versionLabel?: string }
 ): Promise<IngestResult[]> {
   const idx = await readIndex(o.mediaDir);
   master.slug = to.slug;
@@ -66,5 +66,5 @@ export async function ingestAsVersionOf(
   master.titleFromFile = to.title;
   release.slug = to.slug;
   release.masters = [master];
-  return ingestRelease(release, { mediaDir: o.mediaDir, config: o.cfg, status, report: o.report });
+  return ingestRelease(release, { mediaDir: o.mediaDir, config: o.cfg, status, report: o.report, versionLabel: o.versionLabel });
 }
