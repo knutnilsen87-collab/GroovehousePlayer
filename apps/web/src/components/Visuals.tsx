@@ -1,3 +1,5 @@
+import { useFx } from '../lib/fx';
+import { reminderPlan } from '../lib/fxReminder';
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { beatMs, formatTimeMs, sectionsOf, type Loop } from '@gv/shared/web';
 import { downsample, useFullAsset, type LoadedAsset } from '../lib/catalog';
@@ -294,6 +296,23 @@ export function ZoomWaveform({ asset: assetIn, height = 96, onSeek }: { asset: L
   // Full oppløsning (2000 punkter) med samme kontrastkurve som den store bølgeformen
   const peaks = useMemo(() => shaped(asset, asset.analysis?.peaks?.length ?? 0), [asset]);
   const sections = useMemo(() => sectionsOf(m.markers), [m.markers]);
+  // Del 18 pkt. 4: overgangsstegene som små markører – ut av denne låta (A) og inn i den (B), når den står i en kø med naboer
+  const queue = usePlayer((s) => s.queue);
+  const ideas = useFx((s) => s.ideas);
+  const fxMarks = useMemo(() => {
+    const i = queue.findIndex((q) => q.manifest.id === asset.manifest.id);
+    if (i < 0) return [];
+    const out: Array<{ atMs: number; label: string; color: string; mix?: boolean }> = [];
+    try {
+      const o = reminderPlan(queue[i]!, queue[i + 1], i + 1 === queue.length - 1, ideas);
+      if (o) out.push({ atMs: o.outAtMs, label: `MIX · ${o.preset.name}`, color: o.preset.color, mix: true }, ...o.steps.map((s) => ({ atMs: s.atMs, label: s.text, color: o.preset.color })));
+      const p = i > 0 ? reminderPlan(queue[i - 1]!, queue[i], i === queue.length - 1, ideas) : null;
+      if (p) out.push({ atMs: p.inAtMs, label: `INN · ${p.preset.name}`, color: p.preset.color, mix: true }, ...p.inSteps.map((s) => ({ atMs: s.atMs, label: s.text, color: p.preset.color })));
+    } catch {
+      /* mangler analyse */
+    }
+    return out;
+  }, [queue, ideas, asset.manifest.id]);
   const colors = useRef<{ a: string; b: string } | null>(null);
   useEffect(() => {
     colors.current = null;
@@ -343,11 +362,19 @@ export function ZoomWaveform({ asset: assetIn, height = 96, onSeek }: { asset: L
         ctx.fillStyle = '#E9ECF2';
         ctx.fillText((s.label ?? '').toUpperCase(), x + 3, 10);
       }
+      // Overgangssteg (preset-farge, stiplet), merket nederst
+      for (const f of fxMarks) {
+        const x = (f.atMs - t0) / msPerPx;
+        if (x < -60 || x > w) continue;
+        ctx.fillStyle = f.color;
+        for (let y = 0; y < height; y += f.mix ? 3 : 6) ctx.fillRect(Math.round(x), y, f.mix ? 2 : 1, f.mix ? 2 : 3);
+        ctx.fillText(f.label.toUpperCase().slice(0, 28), x + 3, height - 4);
+      }
       // Spillehode
       ctx.fillStyle = '#F5F7FA';
       ctx.fillRect(Math.round(w / 2) - 1, 0, 2, height);
     },
-    [w, height, half, offset, asset]
+    [w, height, half, offset, asset, fxMarks]
   );
 
   const clampHalf = (v: number) => Math.min(15_000, Math.max(1000, v));

@@ -104,6 +104,18 @@ class NativePlayerPlugin : Plugin() {
             val s = o.optJSONArray("sections")
             Queue.sections[id] = if (s == null) emptyList() else (0 until s.length()).map { s.getLong(it) }
             if (!o.isNull("resumeKey")) Queue.resumeKeys[id] = o.getString("resumeKey")
+            // Del 18 pkt. 9: påminnelse før mikspunktet (vises i varselet av tjenesten, også med skjermen av)
+            Queue.artists[id] = o.optString("artist")
+            Queue.reminders[id] = o.optJSONObject("reminder")?.let { r ->
+                val st = r.optJSONArray("steps")
+                Reminder(
+                    outAtMs = r.optLong("outAtMs"),
+                    barMs = r.optDouble("barMs", 2000.0),
+                    overlapBars = r.optInt("overlapBars", 1),
+                    name = r.optString("name"),
+                    steps = if (st == null) emptyList() else (0 until st.length()).map { k -> st.getJSONObject(k).let { s -> s.optLong("atMs") to s.optString("text") } }
+                )
+            }
             val meta = MediaMetadata.Builder()
                 .setTitle(o.optString("title"))
                 .setArtist(o.optString("artist"))

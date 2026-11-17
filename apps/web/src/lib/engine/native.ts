@@ -1,6 +1,8 @@
 import { sectionsOf } from '@gv/shared/web';
 import { assetUrl, type LoadedAsset } from '../catalog';
 import { gainOf, type EngineHandlers, type PlayerEngine } from './types';
+import { useFx } from '../fx';
+import { nativeReminder, reminderPlan } from '../fxReminder';
 
 /** Én låt slik Android-tjenesten (Media3) trenger den. Alle URL-er er absolutte (Vault over Tailscale). */
 export interface NativeItem {
@@ -17,6 +19,11 @@ export interface NativeItem {
   sections: number[];
   /** Nøkkel for fortsett-posisjon (live-sett), lagres også fra native-siden. */
   resumeKey: string | null;
+  /**
+   * Del 18 pkt. 9: påminnelsen før mikspunktet ut av denne låta (når en neste låt står klar). Tjenesten viser
+   * «Neste: Echo out – 8 takter igjen» under tittelen i varselet de siste 30 sekundene, også med skjermen av.
+   */
+  reminder?: { outAtMs: number; barMs: number; overlapBars: number; name: string; steps: Array<{ atMs: number; text: string }> } | null;
 }
 
 export interface NativeState {
@@ -60,6 +67,20 @@ export const toNativeItem = (a: LoadedAsset): NativeItem => {
     resumeKey: m.kind === 'set' ? `gv:pos:${m.slug}:${m.variant ?? 'main'}` : null
   };
 };
+
+/** Hele køen med påminnelse per overgang (ideene dine teller med, som i settbyggeren). */
+export function toNativeItems(queue: LoadedAsset[]): NativeItem[] {
+  const ideas = useFx.getState().ideas;
+  return queue.map((a, i) => {
+    let reminder: NativeItem['reminder'] = null;
+    try {
+      reminder = nativeReminder(reminderPlan(a, queue[i + 1], i + 1 === queue.length - 1, ideas));
+    } catch {
+      reminder = null; // mangler analyse: ingen påminnelse, avspillingen går som vanlig
+    }
+    return { ...toNativeItem(a), reminder };
+  });
+}
 
 export class NativeEngine implements PlayerEngine {
   readonly kind = 'native' as const;
@@ -111,13 +132,13 @@ export class NativeEngine implements PlayerEngine {
     this.state = { ...this.state, index, positionMs: startMs ?? 0 };
     this.stateAt = this.now();
     if (same) void this.call(() => this.plugin.skipTo({ index, startMs: startMs ?? 0 }));
-    else void this.call(() => this.plugin.setQueue({ items: queue.map(toNativeItem), index, startMs: startMs ?? 0, headers: this.headers() }));
+    else void this.call(() => this.plugin.setQueue({ items: toNativeItems(queue), index, startMs: startMs ?? 0, headers: this.headers() }));
   }
 
   syncQueue(queue: LoadedAsset[], index: number) {
     this.ids = queue.map((a) => a.manifest.id);
     this.state = { ...this.state, index };
-    void this.call(() => this.plugin.updateQueue({ items: queue.map(toNativeItem), index }));
+    void this.call(() => this.plugin.updateQueue({ items: toNativeItems(queue), index }));
   }
 
   play() {

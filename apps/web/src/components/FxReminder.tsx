@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { explainTransition, placeSteps, reminderBarsLeft, toSbTracks } from '@gv/shared/web';
+import { useEffect, useMemo, useState } from 'react';
 import { usePlayer } from '../lib/player';
-import { transitionPreset, useFx } from '../lib/fx';
+import { useFx } from '../lib/fx';
+import { reminderPlan, reminderText } from '../lib/fxReminder';
 import type { LoadedAsset } from '../lib/catalog';
 import { PresetRow } from './FxChip';
 import { captureIdea } from './TrackActions';
@@ -15,25 +15,19 @@ export function FxReminder({ compact = false }: { compact?: boolean }) {
   const ideas = useFx((s) => s.ideas);
   const cur = queue[index];
   const next = queue[index + 1];
-  if (!cur || !next) return null;
-  const [a, b] = toSbTracks([
-    { manifest: cur.manifest, analysis: null },
-    { manifest: next.manifest, analysis: null }
-  ]);
-  const info = explainTransition(a!, b!);
-  const barMs = a!.bpm ? 240_000 / a!.bpm : 2000;
-  const barsLeft = reminderBarsLeft(positionMs, info.mix.outAtMs, barMs, info.mix.bars);
-  if (barsLeft === null) return null;
-  const { preset } = transitionPreset(a!, b!, info, index + 1 === queue.length - 1, ideas);
-  const steps = placeSteps(preset, info.mix, a!.bpm, b!.bpm).filter((s) => s.track === 'A');
-  const step = steps.find((s) => s.atMs >= positionMs) ?? steps[steps.length - 1];
+  const plan = useMemo(() => (cur ? reminderPlan(cur, next, index + 1 === queue.length - 1, ideas) : null), [cur, next, index, queue.length, ideas]);
+  if (!plan) return null;
+  const t = reminderText(positionMs, plan);
+  if (!t) return null;
+  const preset = plan.preset;
+  const barsPart = t.head.slice(`Neste: ${preset.name}`.length);
   return (
     <div role="status" aria-live="polite" className={`rounded-xl border px-3 py-2 ${compact ? 'text-xs' : 'text-sm'}`} style={{ borderColor: `${preset.color}88`, background: `${preset.color}14` }}>
       <span className="font-semibold" style={{ color: preset.color }}>
         Neste: {preset.icon} {preset.name}
       </span>
-      <span className="text-ink"> – {barsLeft > 0 ? `${barsLeft} takter igjen` : 'nå'}</span>
-      {step && <span className="ml-2 font-mono text-[11px] text-soft">{step.text}</span>}
+      <span className="text-ink">{barsPart}</span>
+      {t.step && <span className="ml-2 font-mono text-[11px] text-soft">{t.step}</span>}
     </div>
   );
 }

@@ -95,6 +95,15 @@ class PlaybackService : MediaSessionService() {
             .build()
         setMediaNotificationProvider(DefaultMediaNotificationProvider.Builder(this).build().apply { setSmallIcon(R.drawable.ic_stat_vault) })
 
+        // Del 18 pkt. 9: «Neste: Echo out – 8 takter igjen» under tittelen i varselet de siste 30 s før mikspunktet.
+        // Sjekkes hvert sekund mens det spilles; metadata byttes bare når teksten endres (uten avbrudd i lyden).
+        main.post(object : Runnable {
+            override fun run() {
+                if (player.isPlaying) updateReminder(player)
+                main.postDelayed(this, 1000)
+            }
+        })
+
         // Fortsett-posisjon (live-sett) lagres fra native-siden også, hvert 5. sekund mens det spilles.
         main.post(object : Runnable {
             override fun run() {
@@ -130,6 +139,22 @@ class PlaybackService : MediaSessionService() {
         player.seekTo(next)
     }
 
+    private var shownReminder: Pair<String, String?>? = null
+
+    private fun updateReminder(player: Player) {
+        val item = player.currentMediaItem ?: return
+        val id = item.mediaId
+        val text = Queue.reminders[id]?.textAt(player.currentPosition)
+        val shown = shownReminder
+        if (shown != null && shown.first == id && shown.second == text) return
+        if (shown == null && text == null) return
+        shownReminder = if (text == null) null else id to text
+        val artist = text ?: Queue.artists[id] ?: ""
+        if (item.mediaMetadata.artist?.toString() == artist) return
+        val meta = item.mediaMetadata.buildUpon().setArtist(artist).build()
+        player.replaceMediaItem(player.currentMediaItemIndex, item.buildUpon().setMediaMetadata(meta).build())
+    }
+
     private fun applyVolume(player: Player) {
         val gain = Queue.gains[player.currentMediaItem?.mediaId] ?: 1f
         player.volume = (gain * Queue.userVolume).coerceIn(0f, 1f)
@@ -157,6 +182,8 @@ object Queue {
     val gains = HashMap<String, Float>()
     val sections = HashMap<String, List<Long>>()
     val resumeKeys = HashMap<String, String>()
+    val artists = HashMap<String, String>()
+    val reminders = HashMap<String, Reminder?>()
     var userVolume = 1f
 
     // ---------------------------------------------------------------- Del 14: A·B-løkke i tjenesten
@@ -182,5 +209,21 @@ object Queue {
     fun clearLoop() {
         loopMessage?.cancel()
         loopMessage = null
+    }
+}
+
+/**
+ * Del 18 pkt. 9: påminnelse før mikspunktet ut av en låt. Samme regel som web (reminderBarsLeft i @gv/shared):
+ * vises fra 30 s før mikspunktet til overgangen er ferdig, med takter igjen og steget som kommer.
+ */
+data class Reminder(val outAtMs: Long, val barMs: Double, val overlapBars: Int, val name: String, val steps: List<Pair<Long, String>>) {
+    fun textAt(positionMs: Long): String? {
+        val left = outAtMs - positionMs
+        if (left > 30_000) return null
+        if (left < -maxOf(1, overlapBars) * barMs) return null
+        val bars = maxOf(0, kotlin.math.ceil(left / barMs).toInt())
+        val step = steps.firstOrNull { it.first >= positionMs } ?: steps.lastOrNull()
+        val head = "Neste: $name – " + if (bars > 0) "$bars takter igjen" else "nå"
+        return if (step != null) "$head · ${step.second}" else head
     }
 }
